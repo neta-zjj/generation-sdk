@@ -34,7 +34,7 @@
     }
   },
   "bin": {
-    "neta-generation": "./dist/cli/index.js"
+    "neta-generation": "dist/cli/index.js"
   },
   "files": [
     "dist",
@@ -69,6 +69,7 @@
   },
   "packageManager": "pnpm@10.32.1",
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   }
 }

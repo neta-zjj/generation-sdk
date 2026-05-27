@@ -1,6 +1,7 @@
 import { GenerationProviderError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
 import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
+import { compactArray, compactObject } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
 
 const REQUEST_TIMEOUT_MS = 300_000;
@@ -18,8 +19,23 @@ type GeminiResponsePart = {
   inline_data?: { mime_type?: unknown; mimeType?: unknown; data?: unknown };
 };
 
+type GeminiCandidate = {
+  content?: { role?: unknown; parts?: GeminiResponsePart[] };
+  finishReason?: unknown;
+  finishMessage?: unknown;
+  safetyRatings?: unknown;
+  citationMetadata?: unknown;
+  groundingMetadata?: unknown;
+  avgLogprobs?: unknown;
+  index?: unknown;
+};
+
 type GeminiGenerateContentResponse = {
-  candidates?: Array<{ content?: { parts?: GeminiResponsePart[] } }>;
+  candidates?: GeminiCandidate[];
+  promptFeedback?: unknown;
+  usageMetadata?: unknown;
+  modelVersion?: unknown;
+  responseId?: unknown;
 };
 
 function dataUriToInlineData(value: string): GeminiPart | null {
@@ -65,6 +81,39 @@ function extractMarkdownDataUriImage(text: string): GenerationContentBlock | nul
   const [, mediaType, data] = match;
   if (!mediaType || !data) return null;
   return { type: "image", source: { type: "base64", mediaType, data } };
+}
+
+function collectGeminiNoOutputDetails(raw: GeminiGenerateContentResponse): Record<string, unknown> {
+  const candidates = raw.candidates ?? [];
+  return compactObject({
+    finishReasons: compactArray(
+      candidates.map((candidate) => candidate.finishReason).filter((value) => value !== undefined),
+    ),
+    finishMessages: compactArray(
+      candidates.map((candidate) => candidate.finishMessage).filter((value) => value !== undefined),
+    ),
+    safetyRatings: compactArray(candidates.flatMap((candidate) => candidate.safetyRatings ?? [])),
+    promptFeedback: raw.promptFeedback,
+    usageMetadata: raw.usageMetadata,
+    modelVersion: raw.modelVersion,
+    responseId: raw.responseId,
+    candidateCount: candidates.length,
+    candidates: compactArray(
+      candidates.map((candidate) =>
+        compactObject({
+          index: candidate.index,
+          finishReason: candidate.finishReason,
+          finishMessage: candidate.finishMessage,
+          safetyRatings: candidate.safetyRatings,
+          citationMetadata: candidate.citationMetadata,
+          groundingMetadata: candidate.groundingMetadata,
+          avgLogprobs: candidate.avgLogprobs,
+          contentRole: candidate.content?.role,
+          partCount: candidate.content?.parts?.length,
+        }),
+      ),
+    ),
+  });
 }
 
 function appendGeminiPartOutput(output: GenerationContentBlock[], part: GeminiResponsePart): void {
@@ -150,6 +199,10 @@ export async function geminiGenerateContentAdapter(input: GenerationAdapterInput
   for (const candidate of raw.candidates ?? []) {
     for (const part of candidate.content?.parts ?? []) appendGeminiPartOutput(output, part);
   }
-  if (output.length === 0) throw new GenerationProviderError("Gemini generation returned no output");
+  if (output.length === 0) {
+    throw new GenerationProviderError("Gemini generation returned no output", {
+      details: collectGeminiNoOutputDetails(raw),
+    });
+  }
   return output;
 }

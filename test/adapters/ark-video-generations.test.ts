@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createGenerationClient } from "../../src/index.js";
+import { createGenerationClient, type GenerationProviderError } from "../../src/index.js";
 
 describe("ark.videoGenerations adapter", () => {
   it("creates and polls video tasks", async () => {
@@ -30,5 +30,58 @@ describe("ark.videoGenerations adapter", () => {
       source: { type: "url", url: "https://example.com/out.mp4" },
       meta: { task_id: "task-1", status: "succeeded" },
     });
+  });
+
+  it("includes the create-task response when no task id is returned", async () => {
+    const fetchMock = async () =>
+      new Response(JSON.stringify({ status: "queued", message: "missing id" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await expect(
+      client.generate({
+        model: "seedance-2-0-fast",
+        content: [{ type: "text", text: "hello" }],
+      }),
+    ).rejects.toMatchObject({
+      name: "GenerationProviderError",
+      message: "Video generation provider did not return a task id",
+      details: { response: { status: "queued", message: "missing id" } },
+    } satisfies Partial<GenerationProviderError>);
+  });
+
+  it("includes poll diagnostics when a succeeded task has no video URL", async () => {
+    vi.useFakeTimers();
+    const fetchMock = async (url: string | URL | Request) => {
+      if (String(url).endsWith("/v1/video/generations")) {
+        return new Response(JSON.stringify({ task_id: "task-1" }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ data: { status: "succeeded", progress: 100, data: { seed: 123 } } }), {
+        status: 200,
+      });
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const promise = expect(
+      client.generate({
+        model: "seedance-2-0-fast",
+        content: [{ type: "text", text: "hello" }],
+        parameters: { poll_interval: 1, max_wait: 30 },
+      }),
+    ).rejects.toMatchObject({
+      name: "GenerationProviderError",
+      message: "Video generation succeeded but returned no video URL",
+      details: {
+        taskId: "task-1",
+        rawStatus: { data: { status: "succeeded", progress: 100, data: { seed: 123 } } },
+        metadata: { progress: 100, seed: 123 },
+      },
+    } satisfies Partial<GenerationProviderError>);
+
+    await vi.advanceTimersByTimeAsync(1000);
+    await promise;
+    vi.useRealTimers();
   });
 });

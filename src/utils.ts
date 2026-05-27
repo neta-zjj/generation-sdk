@@ -17,3 +17,12 @@ export function slugifyFileName(value: string): string {
 export function getBlockMeta(block: GenerationContentBlock): Record<string, unknown> | undefined {
   return "meta" in block ? block.meta : undefined;
 }
+
+export function compactArray<T>(values: T[]): T[] | undefined {
+  return values.length > 0 ? values : undefined;
+}
+
+export function compactObject<T extends Record<string, unknown>>(value: T): T {
+  for (const key of Object.keys(value)) if (value[key] === undefined) delete value[key];
+  return value;
+}

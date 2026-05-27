@@ -1,7 +1,7 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
 import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
-import { getBlockMeta } from "../utils.js";
+import { compactObject, getBlockMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
 
 const REQUEST_TIMEOUT_MS = 60_000;
@@ -127,7 +127,11 @@ function buildMetadataContent(prompt: string, images: ResolvedImage[], mode: Exc
 
 function extractTaskId(response: ArkCreateTaskResponse): string {
   const taskId = asString(response.task_id) ?? asString(response.id);
-  if (!taskId) throw new GenerationProviderError("Video generation provider did not return a task id");
+  if (!taskId) {
+    throw new GenerationProviderError("Video generation provider did not return a task id", {
+      details: { response },
+    });
+  }
   return taskId;
 }
 
@@ -246,7 +250,11 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
     const status = normalizeTaskStatus(rawStatus);
 
     if (status.status === "succeeded") {
-      if (!status.videoUrl) throw new GenerationProviderError("Video generation succeeded but returned no video URL");
+      if (!status.videoUrl) {
+        throw new GenerationProviderError("Video generation succeeded but returned no video URL", {
+          details: compactObject({ taskId, rawStatus, metadata: status.metadata }),
+        });
+      }
       const output: GenerationContentBlock[] = [
         {
           type: "video",

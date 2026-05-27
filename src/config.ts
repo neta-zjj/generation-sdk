@@ -1,0 +1,107 @@
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { extname, join } from "node:path";
+import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
+import { GenerationConfigError } from "./errors.js";
+import { type GenerationModelDeclaration, MODEL_SCHEMA } from "./types.js";
+import { cloneJson, slugifyFileName } from "./utils.js";
+
+const DECLARATION_EXTENSIONS = new Set([".yaml", ".yml", ".json"]);
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+function isParameterSpec(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return ["string", "number", "integer", "boolean"].includes(String(value.type));
+}
+
+export function isGenerationModelDeclaration(value: unknown): value is GenerationModelDeclaration {
+  if (!isRecord(value)) return false;
+  const adapter = value.adapter;
+  const content = value.content;
+  const parameters = value.parameters;
+  const examples = value.examples;
+  return (
+    value.schema === MODEL_SCHEMA &&
+    typeof value.model === "string" &&
+    value.model.trim().length > 0 &&
+    isRecord(adapter) &&
+    typeof adapter.type === "string" &&
+    isRecord(content) &&
+    Array.isArray(content.input) &&
+    (parameters === undefined || (isRecord(parameters) && Object.values(parameters).every(isParameterSpec))) &&
+    (examples === undefined || Array.isArray(examples))
+  );
+}
+
+export function parseGenerationModelDeclaration(rawText: string, filePath = "model.yaml"): GenerationModelDeclaration {
+  const parsed = extname(filePath) === ".json" ? JSON.parse(rawText) : parseYaml(rawText);
+  if (!isGenerationModelDeclaration(parsed)) throw new GenerationConfigError(`Invalid model declaration: ${filePath}`);
+  return parsed;
+}
+
+export function stringifyGenerationModelDeclaration(
+  declaration: GenerationModelDeclaration,
+  options: { format?: "yaml" | "json" } = {},
+): string {
+  const value = cloneJson(declaration);
+  if (options.format === "json") return `${JSON.stringify(value, null, 2)}\n`;
+  return stringifyYaml(value, { lineWidth: 120 });
+}
+
+export async function readGenerationModelDeclaration(filePath: string): Promise<GenerationModelDeclaration> {
+  return parseGenerationModelDeclaration(await readFile(filePath, "utf-8"), filePath);
+}
+
+export async function readGenerationModelDeclarationsFromFiles(
+  filePaths: string[],
+): Promise<GenerationModelDeclaration[]> {
+  const declarations = await Promise.all(filePaths.map((filePath) => readGenerationModelDeclaration(filePath)));
+  return mergeGenerationModelDeclarations(declarations);
+}
+
+export async function readGenerationModelDeclarationsFromDirectory(
+  directory: string,
+): Promise<GenerationModelDeclaration[]> {
+  const entries = await readdir(directory);
+  const files = entries
+    .filter((entry) => DECLARATION_EXTENSIONS.has(extname(entry)))
+    .sort()
+    .map((entry) => join(directory, entry));
+  return readGenerationModelDeclarationsFromFiles(files);
+}
+
+export function mergeGenerationModelDeclarations(
+  declarations: GenerationModelDeclaration[],
+): GenerationModelDeclaration[] {
+  const byModel = new Map<string, GenerationModelDeclaration>();
+  for (const declaration of declarations) byModel.set(declaration.model, declaration);
+  return [...byModel.values()].sort((a, b) => a.model.localeCompare(b.model));
+}
+
+export async function writeGenerationModelDeclaration(
+  declaration: GenerationModelDeclaration,
+  filePath: string,
+  options: { format?: "yaml" | "json" } = {},
+): Promise<void> {
+  await writeFile(filePath, stringifyGenerationModelDeclaration(declaration, options));
+}
+
+export async function writeGenerationModelDeclarations(
+  declarations: GenerationModelDeclaration[],
+  directory: string,
+  options: { format?: "yaml" | "json" } = {},
+): Promise<void> {
+  await mkdir(directory, { recursive: true });
+  const ext = options.format === "json" ? "json" : "yaml";
+  await Promise.all(
+    declarations.map((declaration) =>
+      writeGenerationModelDeclaration(
+        declaration,
+        join(directory, `${slugifyFileName(declaration.model)}.${ext}`),
+        options,
+      ),
+    ),
+  );
+}

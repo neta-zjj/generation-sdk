@@ -1,0 +1,56 @@
+schema: neta.generation.model.v1
+model: gpt-image-2
+title: GPT Image 2
+description: Image generation model with optional reference images. Good for photorealistic scenes, detailed images, and image editing with references.
+adapter:
+  type: openai.images
+content:
+  input:
+    - type: text
+      required: true
+      min: 1
+      max: 16
+      merge: newline
+      description: Prompt text.
+    - type: image
+      required: false
+      max: 16
+      sources:
+        - url
+        - base64
+      description: Optional reference images.
+parameters:
+  size:
+    type: string
+    optional: true
+    default: 1024x1024
+    description: Output image size.
+    examples:
+      - auto
+      - 1024x1024
+      - 1536x1024
+      - 1024x1536
+      - 2048x2048
+      - 2048x1152
+      - 3840x2160
+      - 2160x3840
+  quality:
+    type: string
+    optional: true
+    default: auto
+    enum:
+      - auto
+      - low
+      - medium
+      - high
+    description: Image quality.
+examples:
+  - title: Basic image
+    request:
+      model: gpt-image-2
+      content:
+        - type: text
+          text: a cyberpunk cat in neon rain
+      parameters:
+        size: 1024x1024
+        quality: auto

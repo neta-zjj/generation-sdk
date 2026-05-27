@@ -1,0 +1,125 @@
+export const MODEL_SCHEMA = "neta.generation.model.v1" as const;
+
+export type GenerationSource = { type: "url"; url: string } | { type: "base64"; mediaType: string; data: string };
+
+export type GenerationContentBlockMeta = Record<string, unknown>;
+
+export type GenerationContentBlock =
+  | { type: "text"; text: string; meta?: GenerationContentBlockMeta }
+  | { type: "image"; source: GenerationSource; meta?: GenerationContentBlockMeta }
+  | { type: "video"; source: GenerationSource; meta?: GenerationContentBlockMeta }
+  | { type: "audio"; source: GenerationSource; meta?: GenerationContentBlockMeta };
+
+export type GenerationContentSpec = {
+  type: "text" | "image" | "video" | "audio";
+  required?: boolean;
+  min?: number;
+  max?: number;
+  sources?: Array<GenerationSource["type"]>;
+  merge?: "newline" | "space" | "concat";
+  meta?: Record<string, unknown>;
+  description?: string;
+};
+
+export type GenerationParameterSpec =
+  | {
+      type: "string";
+      optional?: boolean;
+      default?: string;
+      enum?: string[];
+      description?: string;
+      examples?: string[];
+    }
+  | {
+      type: "number";
+      optional?: boolean;
+      default?: number;
+      min?: number;
+      max?: number;
+      description?: string;
+      examples?: number[];
+    }
+  | {
+      type: "integer";
+      optional?: boolean;
+      default?: number;
+      min?: number;
+      max?: number;
+      description?: string;
+      examples?: number[];
+    }
+  | {
+      type: "boolean";
+      optional?: boolean;
+      default?: boolean;
+      description?: string;
+      examples?: boolean[];
+    };
+
+export type GenerationModelDeclaration = {
+  schema: typeof MODEL_SCHEMA;
+  model: string;
+  title?: string;
+  description?: string;
+  adapter: {
+    type: string;
+  };
+  content: {
+    input: GenerationContentSpec[];
+  };
+  parameters?: Record<string, GenerationParameterSpec>;
+  examples?: Array<{
+    title?: string;
+    request: GenerateRequest;
+  }>;
+};
+
+export type GenerateRequest = {
+  model: string;
+  content: GenerationContentBlock[];
+  parameters?: Record<string, unknown>;
+  apiKey?: string;
+  baseUrl?: string;
+  metadata?: Record<string, unknown>;
+};
+
+export type ResolvedGenerationRequest = {
+  declaration: GenerationModelDeclaration;
+  request: GenerateRequest;
+  parameters: Record<string, unknown>;
+};
+
+export type GenerationSourceResolver = (source: GenerationSource) => Promise<string> | string;
+
+export type GenerationAdapterContext = {
+  apiKey: string;
+  baseUrl: string;
+  fetch: typeof fetch;
+  resolveSource: GenerationSourceResolver;
+};
+
+export type GenerationAdapterInput = ResolvedGenerationRequest & {
+  context: GenerationAdapterContext;
+};
+
+export type GenerationAdapter = (input: GenerationAdapterInput) => Promise<GenerationContentBlock[]>;
+
+export type CreateGenerationClientOptions = {
+  apiKey?: string;
+  baseUrl?: string;
+  models?: GenerationModelDeclaration[];
+  includeBuiltinModels?: boolean;
+  fetch?: typeof fetch;
+  sourceResolver?: GenerationSourceResolver;
+  adapters?: Record<string, GenerationAdapter>;
+};
+
+export type GenerationClient = {
+  generate(request: GenerateRequest): Promise<GenerationContentBlock[]>;
+  validate(request: GenerateRequest): ResolvedGenerationRequest;
+  listModels(): GenerationModelDeclaration[];
+  getModel(model: string): GenerationModelDeclaration | null;
+  stringifyModelConfig(model: string, options?: { format?: "yaml" | "json" }): string;
+  exportModelConfig(model: string, filePath: string): Promise<void>;
+  exportModelConfigs(directory: string): Promise<void>;
+};

@@ -1,0 +1,62 @@
+schema: neta.generation.model.v1
+model: gemini-3.1-flash-image-preview
+title: Gemini 3.1 Flash Image Preview
+description: Gemini image generation and editing model. Good for text rendering, infographics, style transfer, and iterative image editing with references.
+adapter:
+  type: gemini.generateContent
+content:
+  input:
+    - type: text
+      required: true
+      min: 1
+      max: 16
+      merge: newline
+      description: Prompt text.
+    - type: image
+      required: false
+      max: 14
+      sources:
+        - url
+        - base64
+      description: Optional reference images.
+parameters:
+  aspect_ratio:
+    type: string
+    optional: true
+    default: "1:1"
+    enum:
+      - "1:1"
+      - "16:9"
+      - "4:3"
+      - "3:2"
+      - "3:4"
+      - "2:3"
+      - "9:16"
+      - "5:4"
+      - "4:5"
+      - "21:9"
+      - "1:4"
+      - "4:1"
+      - "1:8"
+      - "8:1"
+    description: Output aspect ratio.
+  image_size:
+    type: string
+    optional: true
+    default: 2K
+    enum:
+      - "512"
+      - 1K
+      - 2K
+      - 4K
+    description: Output image resolution.
+examples:
+  - title: Basic image
+    request:
+      model: gemini-3.1-flash-image-preview
+      content:
+        - type: text
+          text: a vibrant infographic explaining photosynthesis with clear readable labels
+      parameters:
+        aspect_ratio: "16:9"
+        image_size: 1K

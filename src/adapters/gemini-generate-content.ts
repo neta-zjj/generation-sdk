@@ -16,7 +16,7 @@ type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: str
 type GeminiResponsePart = {
   text?: unknown;
   inlineData?: { mimeType?: unknown; data?: unknown };
-  inline_data?: { mime_type?: unknown; mimeType?: unknown; data?: unknown };
+  fileData?: { mimeType?: unknown; fileUri?: unknown };
 };
 
 type GeminiCandidate = {
@@ -116,6 +116,16 @@ function collectGeminiNoOutputDetails(raw: GeminiGenerateContentResponse): Recor
   });
 }
 
+function appendGeminiFileDataOutput(
+  output: GenerationContentBlock[],
+  fileData: GeminiResponsePart["fileData"],
+): boolean {
+  if (typeof fileData?.fileUri !== "string" || !fileData.fileUri) return false;
+  const mediaType = typeof fileData.mimeType === "string" ? fileData.mimeType : "image/png";
+  output.push({ type: "image", source: { type: "url", url: fileData.fileUri }, meta: { mediaType } });
+  return true;
+}
+
 function appendGeminiPartOutput(output: GenerationContentBlock[], part: GeminiResponsePart): void {
   if (typeof part.text === "string" && part.text.trim()) {
     const image = extractMarkdownDataUriImage(part.text);
@@ -139,15 +149,7 @@ function appendGeminiPartOutput(output: GenerationContentBlock[], part: GeminiRe
     return;
   }
 
-  const inline = part.inline_data;
-  if (!inline || typeof inline.data !== "string" || !inline.data) return;
-  const mediaType =
-    typeof inline.mime_type === "string"
-      ? inline.mime_type
-      : typeof inline.mimeType === "string"
-        ? inline.mimeType
-        : "image/png";
-  output.push({ type: "image", source: { type: "base64", mediaType, data: inline.data } });
+  appendGeminiFileDataOutput(output, part.fileData);
 }
 
 export async function geminiGenerateContentAdapter(input: GenerationAdapterInput): Promise<GenerationContentBlock[]> {

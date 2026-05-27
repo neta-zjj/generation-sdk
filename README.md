@@ -60,6 +60,42 @@ pnpm example:image-editing
 pnpm example:text-to-video
 ```
 
+You can also call providers through the CLI:
+
+```bash
+node --env-file=.env ./dist/cli/index.js generate gemini-3.1-flash-image-preview \
+  --prompt "a simple abstract geometric app icon" \
+  --param aspect_ratio=1:1 \
+  --param image_size=512 \
+  --debug
+```
+
+Use `--image-url` for reference images, `--out` to write base64 outputs to files, and `json:` for non-string parameter values, for example `--param duration=json:5`.
+
+## Debug provider requests
+
+Pass `debug: true` to print the final provider request and response metadata to stderr. Sensitive fields such as `Authorization` and base64 image data are redacted by default.
+
+```ts
+const client = createGenerationClient({
+  apiKey: process.env.NETA_ROUTER_API_KEY!,
+  debug: true,
+});
+```
+
+For a custom logger or full unredacted payloads:
+
+```ts
+const client = createGenerationClient({
+  apiKey: process.env.NETA_ROUTER_API_KEY!,
+  debug: {
+    enabled: true,
+    includeSensitive: true,
+    logger: (event) => console.error(JSON.stringify(event, null, 2)),
+  },
+});
+```
+
 ## Built-in models
 
 - `gpt-image-2`

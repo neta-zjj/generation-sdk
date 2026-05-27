@@ -2,6 +2,49 @@ import { describe, expect, it } from "vitest";
 import { createGenerationClient, type GenerationProviderError } from "../../src/index.js";
 
 describe("gemini.generateContent adapter", () => {
+  it("emits redacted debug request events", async () => {
+    const events: unknown[] = [];
+    const fetchMock = async () =>
+      new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: "abc" } }] } }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+
+    const client = createGenerationClient({
+      apiKey: "secret-key",
+      fetch: fetchMock as typeof fetch,
+      debug: { enabled: true, logger: (event) => events.push(event) },
+    });
+    await client.generate({
+      model: "gemini-3.1-flash-image-preview",
+      content: [{ type: "text", text: "hello" }],
+    });
+
+    expect(events[0]).toEqual({
+      type: "request",
+      url: "https://router.neta.art/v1beta/models/gemini-3.1-flash-image-preview:generateContent",
+      method: "POST",
+      headers: { Authorization: "[REDACTED]", "Content-Type": "application/json" },
+      body: {
+        contents: [{ parts: [{ text: "hello" }] }],
+        generationConfig: {
+          responseModalities: ["IMAGE"],
+          responseFormat: { image: { aspectRatio: "1:1", imageSize: "2K" } },
+        },
+      },
+    });
+    expect(events[1]).toMatchObject({
+      type: "response",
+      status: 200,
+      headers: { "content-type": "application/json" },
+      body: {
+        candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: "[REDACTED]" } }] } }],
+      },
+    });
+  });
+
   it("builds generateContent requests", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {

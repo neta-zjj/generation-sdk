@@ -8,17 +8,59 @@ import {
   writeGenerationModelDeclarations,
 } from "./config.js";
 import { GenerationConfigError } from "./errors.js";
+import { createDebugFetch } from "./http.js";
 import { defaultGenerationSourceResolver } from "./source.js";
 import type {
   CreateGenerationClientOptions,
   GenerateRequest,
   GenerationClient,
+  GenerationDebugConfig,
   GenerationModelDeclaration,
 } from "./types.js";
 import { cloneJson } from "./utils.js";
 import { resolveGenerationParameters, validateGenerationContent } from "./validation.js";
 
 const DEFAULT_BASE_URL = "https://router.neta.art";
+
+function redactDebugEvent<T>(value: T): T {
+  if (Array.isArray(value)) return value.map((item) => redactDebugEvent(item)) as T;
+  if (!value || typeof value !== "object") return value;
+
+  const output: Record<string, unknown> = {};
+  for (const [key, child] of Object.entries(value)) {
+    if (/^(authorization|api[-_]?key|token|b64_json|thoughtSignature)$/i.test(key) || key === "data") {
+      output[key] = "[REDACTED]";
+    } else {
+      output[key] = redactDebugEvent(child);
+    }
+  }
+  return output as T;
+}
+
+function defaultDebugLogger(event: unknown): void {
+  console.error(JSON.stringify(event, null, 2));
+}
+
+function resolveDebugConfig(debug: CreateGenerationClientOptions["debug"]): GenerationDebugConfig | undefined {
+  if (!debug) return undefined;
+  if (debug === true) {
+    return {
+      enabled: true,
+      includeSensitive: false,
+      includeResponseBody: true,
+      logger: (event) => defaultDebugLogger(redactDebugEvent(event)),
+    };
+  }
+  if (!debug.enabled) return undefined;
+  const includeSensitive = debug.includeSensitive ?? false;
+  const logger = debug.logger ?? defaultDebugLogger;
+  return {
+    enabled: true,
+    includeSensitive,
+    includeResponseBody: debug.includeResponseBody ?? true,
+    logger: (event) => logger(includeSensitive ? event : redactDebugEvent(event)),
+  };
+}
 
 function resolveModels(options: CreateGenerationClientOptions): GenerationModelDeclaration[] {
   const includeBuiltinModels = options.includeBuiltinModels ?? !options.models;
@@ -33,6 +75,8 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
   const byModel = new Map(models.map((declaration) => [declaration.model, declaration]));
   const fetchFn = options.fetch ?? globalThis.fetch;
   if (!fetchFn) throw new GenerationConfigError("A fetch implementation is required");
+  const debug = resolveDebugConfig(options.debug);
+  const adapterFetch = debug ? createDebugFetch(fetchFn, debug) : fetchFn;
 
   function requireModel(model: string): GenerationModelDeclaration {
     const declaration = byModel.get(model);
@@ -58,7 +102,7 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
         context: {
           apiKey,
           baseUrl: request.baseUrl ?? options.baseUrl ?? DEFAULT_BASE_URL,
-          fetch: fetchFn,
+          fetch: adapterFetch,
           resolveSource: options.sourceResolver ?? defaultGenerationSourceResolver,
         },
       });

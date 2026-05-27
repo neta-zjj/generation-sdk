@@ -31,13 +31,13 @@ type ArkCreateTaskResponse = { id?: unknown; task_id?: unknown; status?: unknown
 
 type ArkTaskStatusResponse = {
   data?: {
-    task_id?: unknown;
     status?: unknown;
     result_url?: unknown;
     progress?: unknown;
+    first_frame?: unknown;
     data?: {
       status?: unknown;
-      content?: { video_url?: unknown; last_frame_url?: unknown };
+      content?: { video_url?: unknown; first_frame?: unknown };
       resolution?: unknown;
       ratio?: unknown;
       duration?: unknown;
@@ -48,10 +48,6 @@ type ArkTaskStatusResponse = {
       usage?: unknown;
     };
   };
-  status?: unknown;
-  url?: unknown;
-  last_frame_url?: unknown;
-  metadata?: unknown;
 };
 
 type ImageMode = "image" | "frame" | "reference";
@@ -71,6 +67,11 @@ function asNumber(value: unknown): number | undefined {
 
 function asBoolean(value: unknown): boolean | undefined {
   return typeof value === "boolean" ? value : undefined;
+}
+
+function normalizeStatus(value: string): string {
+  const status = value.toLowerCase();
+  return status === "success" ? "succeeded" : status;
 }
 
 function getIntegerParameter(parameters: Record<string, unknown>, key: string, fallback: number): number {
@@ -139,9 +140,9 @@ function normalizeTaskStatus(response: ArkTaskStatusResponse) {
   if (response.data) {
     const wrapper = response.data;
     const native = wrapper.data;
-    const status = (asString(native?.status) ?? asString(wrapper.status) ?? "unknown").toLowerCase();
+    const status = normalizeStatus(asString(native?.status) ?? asString(wrapper.status) ?? "unknown");
     const videoUrl = asString(wrapper.result_url) ?? asString(native?.content?.video_url);
-    const lastFrameUrl = asString(native?.content?.last_frame_url);
+    const lastFrameUrl = asString(wrapper.first_frame) ?? asString(native?.content?.first_frame);
     const metadata: Record<string, unknown> = {
       progress: wrapper.progress,
       resolution: native?.resolution,
@@ -156,13 +157,7 @@ function normalizeTaskStatus(response: ArkTaskStatusResponse) {
     for (const key of Object.keys(metadata)) if (metadata[key] === undefined) delete metadata[key];
     return { status, videoUrl, lastFrameUrl, metadata };
   }
-  return {
-    status: (asString(response.status) ?? "unknown").toLowerCase(),
-    videoUrl: asString(response.url),
-    lastFrameUrl: asString(response.last_frame_url),
-    metadata:
-      response.metadata && typeof response.metadata === "object" ? (response.metadata as Record<string, unknown>) : {},
-  };
+  return { status: "unknown", videoUrl: undefined, lastFrameUrl: undefined, metadata: {} };
 }
 
 async function requestJson(input: GenerationAdapterInput, path: string, init: RequestInit): Promise<unknown> {

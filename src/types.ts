@@ -91,6 +91,41 @@ export type ResolvedGenerationRequest = {
 
 export type GenerationSourceResolver = (source: GenerationSource) => Promise<string> | string;
 
+export type GenerationDebugEvent =
+  | {
+      type: "request";
+      url: string;
+      method: string;
+      headers: Record<string, string>;
+      body?: unknown;
+    }
+  | {
+      type: "response";
+      url: string;
+      status: number;
+      statusText: string;
+      headers: Record<string, string>;
+      trace: Record<string, string>;
+      elapsedMs: number;
+      body?: unknown;
+    };
+
+export type GenerationDebugLogger = (event: GenerationDebugEvent) => void;
+
+export type GenerationDebugOptions = {
+  enabled?: boolean;
+  includeSensitive?: boolean;
+  includeResponseBody?: boolean;
+  logger?: GenerationDebugLogger;
+};
+
+export type GenerationDebugConfig = GenerationDebugOptions & {
+  enabled: boolean;
+  includeSensitive: boolean;
+  includeResponseBody: boolean;
+  logger: GenerationDebugLogger;
+};
+
 export type GenerationAdapterContext = {
   apiKey: string;
   baseUrl: string;
@@ -112,6 +147,7 @@ export type CreateGenerationClientOptions = {
   fetch?: typeof fetch;
   sourceResolver?: GenerationSourceResolver;
   adapters?: Record<string, GenerationAdapter>;
+  debug?: boolean | GenerationDebugOptions;
 };
 
 export type GenerationClient = {

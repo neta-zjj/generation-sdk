@@ -10,7 +10,9 @@ describe("ark.videoGenerations adapter", () => {
       if (String(url).endsWith("/v1/video/generations")) {
         return new Response(JSON.stringify({ task_id: "task-1" }), { status: 200 });
       }
-      return new Response(JSON.stringify({ status: "succeeded", url: "https://example.com/out.mp4" }), { status: 200 });
+      return new Response(JSON.stringify({ data: { status: "SUCCESS", result_url: "https://example.com/out.mp4" } }), {
+        status: 200,
+      });
     };
 
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
@@ -50,6 +52,50 @@ describe("ark.videoGenerations adapter", () => {
       message: "Video generation provider did not return a task id",
       details: { response: { status: "queued", message: "missing id" } },
     } satisfies Partial<GenerationProviderError>);
+  });
+
+  it("parses wrapped router task status responses", async () => {
+    vi.useFakeTimers();
+    const fetchMock = async (url: string | URL | Request) => {
+      if (String(url).endsWith("/v1/video/generations")) {
+        return new Response(JSON.stringify({ task_id: "task-1" }), { status: 200 });
+      }
+      return new Response(
+        JSON.stringify({
+          data: {
+            status: "SUCCESS",
+            result_url: "https://example.com/out.mp4",
+            first_frame: "https://example.com/first.webp",
+            progress: "100%",
+            data: { status: "succeeded", seed: 123 },
+          },
+        }),
+        { status: 200 },
+      );
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const promise = client.generate({
+      model: "seedance-2-0-fast",
+      content: [{ type: "text", text: "hello" }],
+      parameters: { poll_interval: 1, max_wait: 30 },
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    const output = await promise;
+    vi.useRealTimers();
+
+    expect(output).toEqual([
+      {
+        type: "video",
+        source: { type: "url", url: "https://example.com/out.mp4" },
+        meta: { task_id: "task-1", status: "succeeded", progress: "100%", seed: 123 },
+      },
+      {
+        type: "image",
+        source: { type: "url", url: "https://example.com/first.webp" },
+        meta: { role: "last_frame", task_id: "task-1" },
+      },
+    ]);
   });
 
   it("includes poll diagnostics when a succeeded task has no video URL", async () => {

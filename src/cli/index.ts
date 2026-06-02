@@ -119,9 +119,9 @@ async function main() {
       ...(baseUrl ? { baseUrl } : {}),
       ...(debug ? { debug } : {}),
     });
-    const output = await client.generate({ model, content, parameters });
-    if (outputDirectory) await writeOutputFiles(outputDirectory, output);
-    console.log(JSON.stringify(output.map(outputSummary), null, 2));
+    const response = await client.generate({ model, content, parameters });
+    if (outputDirectory) await writeOutputFiles(outputDirectory, response.content);
+    console.log(JSON.stringify({ ...response, content: response.content.map(outputSummary) }, null, 2));
     return;
   }
 

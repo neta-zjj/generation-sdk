@@ -83,6 +83,12 @@ export type GenerateRequest = {
   metadata?: Record<string, unknown>;
 };
 
+export type GenerateResponse = {
+  model: string;
+  content: GenerationContentBlock[];
+  metadata?: Record<string, unknown>;
+};
+
 export type ResolvedGenerationRequest = {
   declaration: GenerationModelDeclaration;
   request: GenerateRequest;
@@ -137,7 +143,12 @@ export type GenerationAdapterInput = ResolvedGenerationRequest & {
   context: GenerationAdapterContext;
 };
 
-export type GenerationAdapter = (input: GenerationAdapterInput) => Promise<GenerationContentBlock[]>;
+export type GenerationAdapterResult = {
+  content: GenerationContentBlock[];
+  metadata?: Record<string, unknown>;
+};
+
+export type GenerationAdapter = (input: GenerationAdapterInput) => Promise<GenerationAdapterResult>;
 
 export type CreateGenerationClientOptions = {
   apiKey?: string;
@@ -151,7 +162,7 @@ export type CreateGenerationClientOptions = {
 };
 
 export type GenerationClient = {
-  generate(request: GenerateRequest): Promise<GenerationContentBlock[]>;
+  generate(request: GenerateRequest): Promise<GenerateResponse>;
   validate(request: GenerateRequest): ResolvedGenerationRequest;
   listModels(): GenerationModelDeclaration[];
   getModel(model: string): GenerationModelDeclaration | null;

@@ -61,13 +61,17 @@ describe("gemini.generateContent adapter", () => {
     };
 
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    const output = await client.generate({
+    const response = await client.generate({
       model: "gemini-3.1-flash-image-preview",
       content: [{ type: "text", text: "hello" }],
     });
 
     expect(calls[0]?.url).toBe("https://router.neta.art/v1beta/models/gemini-3.1-flash-image-preview:generateContent");
-    expect(output[0]).toEqual({ type: "image", source: { type: "base64", mediaType: "image/png", data: "abc" } });
+    expect(response).toMatchObject({ model: "gemini-3.1-flash-image-preview" });
+    expect(response.content[0]).toEqual({
+      type: "image",
+      source: { type: "base64", mediaType: "image/png", data: "abc" },
+    });
   });
 
   it("includes Gemini diagnostics when a successful response has no output parts", async () => {

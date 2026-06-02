@@ -16,7 +16,7 @@ describe("openai.images adapter", () => {
     };
 
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    const output = await client.generate({
+    const response = await client.generate({
       model: "gpt-image-2",
       content: [{ type: "text", text: "hello" }],
       parameters: { size: "1024x1024" },
@@ -28,7 +28,8 @@ describe("openai.images adapter", () => {
       prompt: "hello",
       size: "1024x1024",
     });
-    expect(output[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
+    expect(response).toMatchObject({ model: "gpt-image-2" });
+    expect(response.content[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
   });
 
   it("returns base64 image output", async () => {
@@ -39,12 +40,15 @@ describe("openai.images adapter", () => {
       });
 
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    const output = await client.generate({
+    const response = await client.generate({
       model: "gpt-image-2",
       content: [{ type: "text", text: "hello" }],
     });
 
-    expect(output[0]).toEqual({ type: "image", source: { type: "base64", mediaType: "image/png", data: "abc" } });
+    expect(response.content[0]).toEqual({
+      type: "image",
+      source: { type: "base64", mediaType: "image/png", data: "abc" },
+    });
   });
 
   it("includes provider diagnostics when a successful response has no output", async () => {

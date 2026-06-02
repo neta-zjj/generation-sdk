@@ -97,7 +97,7 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
       const apiKey = request.apiKey ?? options.apiKey;
       if (!apiKey) throw new GenerationConfigError("apiKey is required");
       const adapter = getGenerationAdapter(resolved.declaration.adapter.type, options.adapters);
-      return adapter({
+      const result = await adapter({
         ...resolved,
         context: {
           apiKey,
@@ -106,6 +106,11 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
           resolveSource: options.sourceResolver ?? defaultGenerationSourceResolver,
         },
       });
+      return {
+        model: resolved.declaration.model,
+        content: result.content,
+        ...(result.metadata ? { metadata: result.metadata } : {}),
+      };
     },
 
     listModels() {

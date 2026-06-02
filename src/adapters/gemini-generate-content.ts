@@ -1,6 +1,6 @@
 import { GenerationProviderError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
-import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
+import type { GenerationAdapterInput, GenerationAdapterResult, GenerationContentBlock } from "../types.js";
 import { compactArray, compactObject } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
 
@@ -152,7 +152,7 @@ function appendGeminiPartOutput(output: GenerationContentBlock[], part: GeminiRe
   appendGeminiFileDataOutput(output, part.fileData);
 }
 
-export async function geminiGenerateContentAdapter(input: GenerationAdapterInput): Promise<GenerationContentBlock[]> {
+export async function geminiGenerateContentAdapter(input: GenerationAdapterInput): Promise<GenerationAdapterResult> {
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
   if (!prompt) throw new GenerationValidationError("Prompt text is required");
 
@@ -206,5 +206,5 @@ export async function geminiGenerateContentAdapter(input: GenerationAdapterInput
       details: collectGeminiNoOutputDetails(raw),
     });
   }
-  return output;
+  return { content: output };
 }

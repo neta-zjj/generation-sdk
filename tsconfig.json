@@ -14,7 +14,11 @@
     "sourceMap": true,
     "rootDir": ".",
     "outDir": "dist",
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@neta-art/generation": ["./src/index.ts"]
+    }
   },
-  "include": ["src", "test", "scripts", "tsdown.config.ts", "vitest.config.ts"]
+  "include": ["src", "test", "examples", "scripts", "tsdown.config.ts", "vitest.config.ts"]
 }

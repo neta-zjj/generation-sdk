@@ -1,8 +1,11 @@
 import { createGenerationClient } from "@neta-art/generation";
 
-const client = createGenerationClient({ apiKey: process.env.NETA_ROUTER_API_KEY });
+const apiKey = process.env.NETA_ROUTER_API_KEY;
+if (!apiKey) throw new Error("NETA_ROUTER_API_KEY is required");
 
-const output = await client.generate({
+const client = createGenerationClient({ apiKey });
+
+const response = await client.generate({
   model: "gemini-3.1-flash-image-preview",
   content: [
     { type: "text", text: "turn this portrait into a watercolor illustration, keep the same pose" },
@@ -11,4 +14,4 @@ const output = await client.generate({
   parameters: { aspect_ratio: "3:4", image_size: "2K" },
 });
 
-console.log(output);
+console.log(response);

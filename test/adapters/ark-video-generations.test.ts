@@ -22,12 +22,13 @@ describe("ark.videoGenerations adapter", () => {
       parameters: { poll_interval: 1, max_wait: 30 },
     });
     await vi.advanceTimersByTimeAsync(1000);
-    const output = await promise;
+    const response = await promise;
     vi.useRealTimers();
 
     expect(calls[0]?.url).toBe("https://router.neta.art/v1/video/generations");
     expect(calls[1]?.url).toBe("https://router.neta.art/v1/video/generations/task-1");
-    expect(output[0]).toEqual({
+    expect(response).toMatchObject({ model: "seedance-2-0-fast" });
+    expect(response.content[0]).toEqual({
       type: "video",
       source: { type: "url", url: "https://example.com/out.mp4" },
       meta: { task_id: "task-1", status: "succeeded" },
@@ -81,21 +82,24 @@ describe("ark.videoGenerations adapter", () => {
       parameters: { poll_interval: 1, max_wait: 30 },
     });
     await vi.advanceTimersByTimeAsync(1000);
-    const output = await promise;
+    const response = await promise;
     vi.useRealTimers();
 
-    expect(output).toEqual([
-      {
-        type: "video",
-        source: { type: "url", url: "https://example.com/out.mp4" },
-        meta: { task_id: "task-1", status: "succeeded", progress: "100%", seed: 123 },
-      },
-      {
-        type: "image",
-        source: { type: "url", url: "https://example.com/first.webp" },
-        meta: { role: "last_frame", task_id: "task-1" },
-      },
-    ]);
+    expect(response).toEqual({
+      model: "seedance-2-0-fast",
+      content: [
+        {
+          type: "video",
+          source: { type: "url", url: "https://example.com/out.mp4" },
+          meta: { task_id: "task-1", status: "succeeded", progress: "100%", seed: 123 },
+        },
+        {
+          type: "image",
+          source: { type: "url", url: "https://example.com/first.webp" },
+          meta: { role: "last_frame", task_id: "task-1" },
+        },
+      ],
+    });
   });
 
   it("includes poll diagnostics when a succeeded task has no video URL", async () => {

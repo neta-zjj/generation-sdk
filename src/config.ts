@@ -1,11 +1,13 @@
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { dirname, extname, join } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { GenerationConfigError } from "./errors.js";
 import { type GenerationModelDeclaration, MODEL_SCHEMA } from "./types.js";
 import { cloneJson, slugifyFileName } from "./utils.js";
 
 const DECLARATION_EXTENSIONS = new Set([".yaml", ".yml", ".json"]);
+const CONTENT_TYPES = new Set(["text", "image", "video", "audio"]);
+const SOURCE_TYPES = new Set(["url", "base64"]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -14,6 +16,25 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isParameterSpec(value: unknown): boolean {
   if (!isRecord(value)) return false;
   return ["string", "number", "integer", "boolean"].includes(String(value.type));
+}
+
+function isOptionalBoolean(value: unknown): boolean {
+  return value === undefined || typeof value === "boolean";
+}
+
+function isOptionalNumber(value: unknown): boolean {
+  return value === undefined || (typeof value === "number" && Number.isFinite(value));
+}
+
+function isContentSpec(value: unknown): boolean {
+  if (!isRecord(value) || !CONTENT_TYPES.has(String(value.type))) return false;
+  const sources = value.sources;
+  return (
+    isOptionalBoolean(value.required) &&
+    isOptionalNumber(value.min) &&
+    isOptionalNumber(value.max) &&
+    (sources === undefined || (Array.isArray(sources) && sources.every((source) => SOURCE_TYPES.has(String(source)))))
+  );
 }
 
 export function isGenerationModelDeclaration(value: unknown): value is GenerationModelDeclaration {
@@ -30,6 +51,7 @@ export function isGenerationModelDeclaration(value: unknown): value is Generatio
     typeof adapter.type === "string" &&
     isRecord(content) &&
     Array.isArray(content.input) &&
+    content.input.every(isContentSpec) &&
     (parameters === undefined || (isRecord(parameters) && Object.values(parameters).every(isParameterSpec))) &&
     (examples === undefined || Array.isArray(examples))
   );
@@ -85,6 +107,7 @@ export async function writeGenerationModelDeclaration(
   filePath: string,
   options: { format?: "yaml" | "json" } = {},
 ): Promise<void> {
+  await mkdir(dirname(filePath), { recursive: true });
   await writeFile(filePath, stringifyGenerationModelDeclaration(declaration, options));
 }
 

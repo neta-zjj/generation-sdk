@@ -177,6 +177,21 @@ const builtinModels = [
       ],
     },
     parameters: videoParameters({ resolution: "1080p", maxWait: 900 }),
+    examples: [
+      {
+        title: "Text to video",
+        request: {
+          model: "seedance-2-0",
+          content: [
+            {
+              type: "text",
+              text: "a cat playing piano in a cozy jazz club, cinematic lighting, smooth camera movement",
+            },
+          ],
+          parameters: { duration: 5, resolution: "1080p", aspect_ratio: "16:9" },
+        },
+      },
+    ],
   },
   {
     schema: MODEL_SCHEMA,
@@ -198,6 +213,21 @@ const builtinModels = [
       ],
     },
     parameters: videoParameters({ resolution: "720p", maxWait: 600 }),
+    examples: [
+      {
+        title: "Text to video",
+        request: {
+          model: "seedance-2-0-fast",
+          content: [
+            {
+              type: "text",
+              text: "a cat playing piano in a cozy jazz club, cinematic lighting, smooth camera movement",
+            },
+          ],
+          parameters: { duration: 5, resolution: "720p", aspect_ratio: "16:9" },
+        },
+      },
+    ],
   },
 ] satisfies GenerationModelDeclaration[];
 

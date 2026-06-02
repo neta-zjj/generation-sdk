@@ -17,7 +17,7 @@ const client = createGenerationClient({
   apiKey: process.env.NETA_ROUTER_API_KEY!,
 });
 
-const output = await client.generate({
+const response = await client.generate({
   model: "gpt-image-2",
   content: [
     { type: "text", text: "a cinematic portrait of a robot florist, 35mm film" },
@@ -28,7 +28,7 @@ const output = await client.generate({
   },
 });
 
-console.log(output);
+console.log(response.content);
 ```
 
 `baseUrl` defaults to `https://router.neta.art`. Pass a different endpoint when needed:
@@ -38,6 +38,27 @@ const client = createGenerationClient({
   apiKey: process.env.NETA_ROUTER_API_KEY!,
   baseUrl: "https://router.neta.art",
 });
+```
+
+## Request and response schema
+
+Every adapter uses the same top-level request and response shape:
+
+```ts
+type GenerateRequest = {
+  model: string;
+  content: GenerationContentBlock[];
+  parameters?: Record<string, unknown>;
+  apiKey?: string;
+  baseUrl?: string;
+  metadata?: Record<string, unknown>;
+};
+
+type GenerateResponse = {
+  model: string;
+  content: GenerationContentBlock[];
+  metadata?: Record<string, unknown>;
+};
 ```
 
 ## Local testing with `.env`
@@ -108,7 +129,7 @@ Built-in model declarations share the same client-level `apiKey` and `baseUrl`.
 ## Image editing with a reference image
 
 ```ts
-const output = await client.generate({
+const response = await client.generate({
   model: "gemini-3.1-flash-image-preview",
   content: [
     { type: "text", text: "turn this portrait into a watercolor illustration" },
@@ -119,12 +140,14 @@ const output = await client.generate({
     image_size: "2K",
   },
 });
+
+console.log(response.content);
 ```
 
 ## Video generation
 
 ```ts
-const output = await client.generate({
+const response = await client.generate({
   model: "seedance-2-0-fast",
   content: [
     { type: "text", text: "a cat playing piano in a cozy jazz club, cinematic lighting" },
@@ -135,6 +158,8 @@ const output = await client.generate({
     aspect_ratio: "16:9",
   },
 });
+
+console.log(response.content);
 ```
 
 Frame and reference-image video modes use `meta.role`:
@@ -237,10 +262,22 @@ const client = createGenerationClient({
   apiKey,
   adapters: {
     "custom.adapter": async (input) => {
-      return [];
+      return {
+        content: [{ type: "text", text: "done" }],
+        metadata: { provider: "custom" },
+      };
     },
   },
 });
+```
+
+Custom adapters return the inner adapter result. The client wraps it into `GenerateResponse`:
+
+```ts
+type GenerationAdapterResult = {
+  content: GenerationContentBlock[];
+  metadata?: Record<string, unknown>;
+};
 ```
 
 ## Validation without provider calls

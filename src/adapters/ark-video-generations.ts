@@ -1,6 +1,6 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
-import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
+import type { GenerationAdapterInput, GenerationAdapterResult, GenerationContentBlock } from "../types.js";
 import { compactObject, getBlockMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
 
@@ -182,7 +182,7 @@ async function requestJson(input: GenerationAdapterInput, path: string, init: Re
   return response.json();
 }
 
-export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput): Promise<GenerationContentBlock[]> {
+export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput): Promise<GenerationAdapterResult> {
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
   if (!prompt) throw new GenerationValidationError("Prompt text is required");
 
@@ -263,7 +263,7 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
           source: { type: "url", url: status.lastFrameUrl },
           meta: { role: "last_frame", task_id: taskId },
         });
-      return output;
+      return { content: output };
     }
 
     if (["failed", "expired", "cancelled"].includes(status.status)) {

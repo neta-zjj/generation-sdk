@@ -1,6 +1,6 @@
 import { GenerationProviderError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
-import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
+import type { GenerationAdapterInput, GenerationAdapterResult, GenerationContentBlock } from "../types.js";
 import { compactArray, compactObject } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
 
@@ -42,7 +42,7 @@ function collectOpenAiImagesNoOutputDetails(raw: OpenAiImagesResponse): Record<s
   });
 }
 
-export async function openAiImagesAdapter(input: GenerationAdapterInput): Promise<GenerationContentBlock[]> {
+export async function openAiImagesAdapter(input: GenerationAdapterInput): Promise<GenerationAdapterResult> {
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
   if (!prompt) throw new GenerationValidationError("Prompt text is required");
 
@@ -96,5 +96,5 @@ export async function openAiImagesAdapter(input: GenerationAdapterInput): Promis
       details: collectOpenAiImagesNoOutputDetails(raw),
     });
   }
-  return output;
+  return { content: output };
 }

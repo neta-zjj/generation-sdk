@@ -47,6 +47,7 @@ export function isGenerationModelDeclaration(value: unknown): value is Generatio
     value.schema === MODEL_SCHEMA &&
     typeof value.model === "string" &&
     value.model.trim().length > 0 &&
+    (value.allowUnknownParameters === undefined || typeof value.allowUnknownParameters === "boolean") &&
     isRecord(adapter) &&
     typeof adapter.type === "string" &&
     isRecord(content) &&

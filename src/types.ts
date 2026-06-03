@@ -61,6 +61,7 @@ export type GenerationModelDeclaration = {
   model: string;
   title?: string;
   description?: string;
+  allowUnknownParameters?: boolean;
   adapter: {
     type: string;
   };

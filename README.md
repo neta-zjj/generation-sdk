@@ -123,6 +123,7 @@ const client = createGenerationClient({
 - `gemini-3.1-flash-image-preview`
 - `seedance-2-0`
 - `seedance-2-0-fast`
+- `suno_music`
 
 Built-in model declarations share the same client-level `apiKey` and `baseUrl`.
 
@@ -174,6 +175,39 @@ await client.generate({
   ],
 });
 ```
+
+## Music generation
+
+```ts
+const response = await client.generate({
+  model: "suno_music",
+  content: [
+    { type: "text", text: "uplifting cinematic pop with warm piano and clear chorus" },
+  ],
+  parameters: {
+    operation: "music",
+    title: "Warm Horizon",
+    tags: "cinematic pop, warm piano",
+    make_instrumental: false,
+  },
+});
+
+console.log(response.content);
+```
+
+Suno uses one public model, `suno_music`, and switches behavior with `operation`:
+
+- `music`
+- `concat`
+- `persona`
+- `lyrics`
+- `upsample_tags`
+- `upload_audio`
+- `sound`
+
+For Yunwu-style integrated music tasks, pass `task`, for example `remaster`, `cover`, `image_to_song`,
+`video_to_song`, `underpainting`, or `mashup_condition`. Unknown Suno request fields are passed through for this
+model, so provider-specific request bodies can still be expressed without changing the SDK schema.
 
 ## Load model declarations from files
 
@@ -254,6 +288,7 @@ Built-in adapters:
 - `openai.images`
 - `gemini.generateContent`
 - `ark.videoGenerations`
+- `suno.tasks`
 
 You can register custom adapters:
 

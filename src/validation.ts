@@ -44,9 +44,14 @@ export function resolveGenerationParameters(
 ): Record<string, unknown> {
   const specs = declaration.parameters ?? {};
   const resolved: Record<string, unknown> = {};
+  const allowUnknownParameters = declaration.allowUnknownParameters ?? false;
 
   for (const key of Object.keys(parameters ?? {})) {
-    if (!specs[key]) throw new GenerationValidationError(`Unknown parameter: ${key}`);
+    if (!specs[key]) {
+      if (!allowUnknownParameters) throw new GenerationValidationError(`Unknown parameter: ${key}`);
+      const value = parameters?.[key];
+      if (value !== undefined) resolved[key] = value;
+    }
   }
 
   for (const [key, spec] of Object.entries(specs)) {

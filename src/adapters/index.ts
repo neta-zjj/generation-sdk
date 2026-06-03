@@ -3,11 +3,13 @@ import type { GenerationAdapter } from "../types.js";
 import { arkVideoGenerationsAdapter } from "./ark-video-generations.js";
 import { geminiGenerateContentAdapter } from "./gemini-generate-content.js";
 import { openAiImagesAdapter } from "./openai-images.js";
+import { sunoTasksAdapter } from "./suno-tasks.js";
 
 export const builtinGenerationAdapters: Record<string, GenerationAdapter> = {
   "ark.videoGenerations": arkVideoGenerationsAdapter,
   "gemini.generateContent": geminiGenerateContentAdapter,
   "openai.images": openAiImagesAdapter,
+  "suno.tasks": sunoTasksAdapter,
 };
 
 export function getGenerationAdapter(
@@ -22,3 +24,4 @@ export function getGenerationAdapter(
 export * from "./ark-video-generations.js";
 export * from "./gemini-generate-content.js";
 export * from "./openai-images.js";
+export * from "./suno-tasks.js";

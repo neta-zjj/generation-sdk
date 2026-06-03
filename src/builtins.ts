@@ -78,6 +78,30 @@ function videoParameters(defaults: { resolution: string; maxWait: number }) {
   } satisfies GenerationModelDeclaration["parameters"];
 }
 
+const sunoOperations = ["music", "concat", "persona", "lyrics", "upsample_tags", "upload_audio", "sound"];
+
+const sunoMusicTasks = [
+  "extend",
+  "upload_extend",
+  "infill",
+  "fixed_infill",
+  "infill_intro",
+  "infill_outro",
+  "cover_infill",
+  "cover_extend",
+  "artist_infill",
+  "artist_consistency",
+  "cover",
+  "image_to_song",
+  "video_to_song",
+  "concat",
+  "sound",
+  "underpainting",
+  "remaster",
+  "vox",
+  "mashup_condition",
+];
+
 const builtinModels = [
   {
     schema: MODEL_SCHEMA,
@@ -198,6 +222,112 @@ const builtinModels = [
       ],
     },
     parameters: videoParameters({ resolution: "720p", maxWait: 600 }),
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "suno_music",
+    title: "Suno Music",
+    description:
+      "Suno music task model. Supports music generation, integrated Yunwu music tasks, lyrics, upsample tags, audio upload, persona, concat, and sound effects.",
+    allowUnknownParameters: true,
+    adapter: { type: "suno.tasks" },
+    content: {
+      input: [
+        {
+          type: "text",
+          required: false,
+          max: 16,
+          merge: "newline",
+          description: "Prompt text. The adapter maps merged text to prompt when prompt is not provided.",
+        },
+        {
+          type: "audio",
+          required: false,
+          max: 1,
+          sources: ["url", "base64"],
+          description: "Optional reference audio. Used as url for upload_audio when url is not provided.",
+        },
+        {
+          type: "image",
+          required: false,
+          max: 1,
+          sources: ["url", "base64"],
+          description: "Optional image source for image_to_song style request bodies.",
+        },
+        {
+          type: "video",
+          required: false,
+          max: 1,
+          sources: ["url", "base64"],
+          description: "Optional video source for video_to_song style request bodies.",
+        },
+      ],
+    },
+    parameters: {
+      operation: {
+        type: "string",
+        optional: true,
+        default: "music",
+        enum: sunoOperations,
+        description: "Suno operation to call.",
+      },
+      task: {
+        type: "string",
+        optional: true,
+        enum: sunoMusicTasks,
+        description: "Integrated Suno music task for operation=music.",
+      },
+      poll_interval: {
+        type: "integer",
+        optional: true,
+        default: 5,
+        min: 1,
+        max: 60,
+        description: "Seconds between task status checks.",
+      },
+      max_wait: {
+        type: "integer",
+        optional: true,
+        default: 600,
+        min: 30,
+        max: 3600,
+        description: "Maximum seconds to wait for task completion.",
+      },
+    },
+    examples: [
+      {
+        title: "Music generation",
+        request: {
+          model: "suno_music",
+          content: [{ type: "text", text: "uplifting cinematic pop with warm piano and clear chorus" }],
+          parameters: {
+            operation: "music",
+            title: "Warm Horizon",
+            tags: "cinematic pop, warm piano",
+            make_instrumental: false,
+          },
+        },
+      },
+      {
+        title: "Lyrics",
+        request: {
+          model: "suno_music",
+          content: [{ type: "text", text: "write a hopeful chorus about sunrise after a storm" }],
+          parameters: { operation: "lyrics" },
+        },
+      },
+      {
+        title: "Sound effect",
+        request: {
+          model: "suno_music",
+          content: [{ type: "text", text: "gentle rain ambience with distant thunder" }],
+          parameters: {
+            operation: "sound",
+            metadata_params: { sound: "gentle rain ambience with distant thunder" },
+          },
+        },
+      },
+    ],
   },
 ] satisfies GenerationModelDeclaration[];
 

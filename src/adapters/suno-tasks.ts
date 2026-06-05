@@ -7,40 +7,42 @@ import { mergeTextBlocks } from "../validation.js";
 const REQUEST_TIMEOUT_MS = 60_000;
 const DEFAULT_POLL_INTERVAL_SEC = 5;
 const DEFAULT_MAX_WAIT_SEC = 600;
+const DEFAULT_MUSIC_VERSION = "chirp-v5-5";
 
-const OPERATION_PATHS: Record<string, string> = {
-  music: "/suno/submit/music",
-  concat: "/suno/submit/concat",
-  persona: "/suno/submit/persona",
-  lyrics: "/suno/submit/lyrics",
-  upsample_tags: "/suno/submit/upsample-tags",
-  upload_audio: "/suno/uploads/audio",
-  sound: "/suno/submit/music",
+const OPERATION_PATHS: Record<
+  string,
+  { path: string; poll: boolean; defaultMusicVersion?: boolean; textField?: string; requireText?: boolean }
+> = {
+  music: { path: "/suno/submit/music", poll: true, defaultMusicVersion: true, textField: "prompt" },
+  lyrics: { path: "/suno/submit/lyrics", poll: true, textField: "prompt", requireText: true },
+  concat: { path: "/suno/submit/concat", poll: true },
+  persona: { path: "/suno/submit/persona", poll: true },
+  upsample_tags: { path: "/suno/submit/upsample-tags", poll: false, textField: "original_tags", requireText: true },
+  upload_audio: { path: "/suno/uploads/audio", poll: true },
 };
 
-const MUSIC_TASKS = new Set([
-  "extend",
-  "upload_extend",
-  "infill",
-  "fixed_infill",
-  "infill_intro",
-  "infill_outro",
-  "cover_infill",
-  "cover_extend",
-  "artist_infill",
-  "artist_consistency",
-  "cover",
-  "image_to_song",
-  "video_to_song",
-  "concat",
-  "sound",
-  "underpainting",
-  "remaster",
-  "vox",
-  "mashup_condition",
-]);
+const MUSIC_TASKS: Record<string, { sendTask: boolean }> = {
+  extend: { sendTask: true },
+  upload_extend: { sendTask: true },
+  infill: { sendTask: true },
+  fixed_infill: { sendTask: true },
+  infill_intro: { sendTask: true },
+  infill_outro: { sendTask: true },
+  cover_infill: { sendTask: true },
+  cover_extend: { sendTask: true },
+  artist_infill: { sendTask: true },
+  artist_consistency: { sendTask: true },
+  cover: { sendTask: true },
+  image_to_song: { sendTask: true },
+  video_to_song: { sendTask: true },
+  concat: { sendTask: true },
+  sound: { sendTask: true },
+  underpainting: { sendTask: true },
+  remaster: { sendTask: false },
+  vox: { sendTask: true },
+  mashup_condition: { sendTask: true },
+};
 
-const INTERNAL_PARAMETERS = new Set(["operation", "poll_interval", "max_wait"]);
 const FINAL_SUCCESS_STATUSES = new Set(["success", "succeeded", "completed"]);
 const FINAL_FAILURE_STATUSES = new Set(["failure", "failed", "error", "cancelled", "canceled", "expired"]);
 
@@ -129,47 +131,80 @@ function getOperation(input: GenerationAdapterInput): string {
 }
 
 async function buildPayload(input: GenerationAdapterInput, operation: string): Promise<Record<string, unknown>> {
-  const payload: Record<string, unknown> = { ...(input.request.metadata ?? {}) };
-  for (const [key, value] of Object.entries(input.parameters)) {
-    if (!INTERNAL_PARAMETERS.has(key) && value !== undefined) payload[key] = value;
-  }
+  const payload: Record<string, unknown> = { ...(input.request.meta ?? {}) };
+  const config = OPERATION_PATHS[operation];
 
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
-  if (prompt && payload.prompt === undefined) payload.prompt = prompt;
-
+  if (prompt && config?.textField && payload[config.textField] === undefined) payload[config.textField] = prompt;
+  if (
+    config?.textField &&
+    config.textField !== "prompt" &&
+    payload[config.textField] === undefined &&
+    payload.prompt !== undefined
+  ) {
+    payload[config.textField] = payload.prompt;
+  }
   const audioBlock = input.request.content.find(
     (block): block is Extract<GenerationContentBlock, { type: "audio" }> => block.type === "audio",
   );
+  mergeMetaPayload(payload, audioBlock?.meta);
   if (audioBlock && payload.url === undefined) payload.url = await input.context.resolveSource(audioBlock.source);
 
   const imageBlock = input.request.content.find(
     (block): block is Extract<GenerationContentBlock, { type: "image" }> => block.type === "image",
   );
+  mergeMetaPayload(payload, imageBlock?.meta);
   if (imageBlock && payload.image_url === undefined)
     payload.image_url = await input.context.resolveSource(imageBlock.source);
 
   const videoBlock = input.request.content.find(
     (block): block is Extract<GenerationContentBlock, { type: "video" }> => block.type === "video",
   );
+  mergeMetaPayload(payload, videoBlock?.meta);
   if (videoBlock && payload.video_url === undefined)
     payload.video_url = await input.context.resolveSource(videoBlock.source);
 
-  if (operation === "sound") payload.task = "sound";
+  normalizeMusicTaskPayload(operation, payload);
+
+  if (config?.defaultMusicVersion && payload.mv === undefined && payload.model_name === undefined) {
+    payload.mv = DEFAULT_MUSIC_VERSION;
+  }
+
   validateSunoPayload(operation, payload);
   return payload;
 }
 
+function mergeMetaPayload(payload: Record<string, unknown>, meta: Record<string, unknown> | undefined): void {
+  if (!meta) return;
+  for (const [key, value] of Object.entries(meta)) {
+    if (value !== undefined && payload[key] === undefined) payload[key] = value;
+  }
+}
+
+function normalizeMusicTaskPayload(operation: string, payload: Record<string, unknown>): void {
+  if (operation !== "music") return;
+  const task = asString(payload.task);
+  if (!task) return;
+  const config = MUSIC_TASKS[task];
+  if (!config) throw new GenerationValidationError(`Unsupported Suno music task: ${task}`);
+  if (!config.sendTask) delete payload.task;
+}
+
 function validateSunoPayload(operation: string, payload: Record<string, unknown>): void {
+  const config = OPERATION_PATHS[operation];
   const task = asString(payload.task);
   if (operation === "music" && task) {
-    if (!MUSIC_TASKS.has(task)) throw new GenerationValidationError(`Unsupported Suno music task: ${task}`);
+    if (!MUSIC_TASKS[task]) throw new GenerationValidationError(`Unsupported Suno music task: ${task}`);
     if (task === "lyrics") throw new GenerationValidationError("Use operation=lyrics instead of task=lyrics");
   }
-  if ((operation === "music" || operation === "lyrics") && !asString(payload.prompt)) {
-    throw new GenerationValidationError("Prompt text is required");
+  if (config?.requireText && !asString(payload[config.textField ?? "prompt"])) {
+    throw new GenerationValidationError(`${config.textField ?? "prompt"} text is required`);
   }
   if (operation === "upload_audio" && !asString(payload.url)) {
-    throw new GenerationValidationError("Audio URL is required for Suno upload_audio");
+    throw new GenerationValidationError("Audio url is required for Suno upload_audio");
+  }
+  if (operation === "concat" && !asString(payload.clip_id)) {
+    throw new GenerationValidationError("clip_id is required for Suno concat");
   }
 }
 
@@ -224,26 +259,67 @@ function appendSunoContent(output: GenerationContentBlock[], value: unknown, met
   if (isRecord(value.clips)) {
     for (const clip of Object.values(value.clips)) appendSunoContent(output, clip, meta);
   }
+  if (Array.isArray(value.items)) {
+    for (const item of value.items) appendSunoContent(output, item, meta);
+  }
 
   const itemMeta = compactObject({
     ...meta,
     id: value.id,
+    clip_id: value.clipId ?? value.clip_id ?? meta.clip_id,
+    task_id: value.task_id ?? value.taskId ?? meta.task_id,
     title: value.title,
     status: value.status ?? meta.status,
     model: value.model_name ?? value.modelName,
-    duration: isRecord(value.metadata) ? value.metadata.duration : undefined,
-    tags: isRecord(value.metadata) ? value.metadata.tags : undefined,
-    prompt: isRecord(value.metadata) ? value.metadata.prompt : undefined,
+    duration: value.duration ?? (isRecord(value.metadata) ? value.metadata.duration : undefined),
+    tags: value.tags ?? (isRecord(value.metadata) ? value.metadata.tags : undefined),
+    prompt: value.prompt ?? (isRecord(value.metadata) ? value.metadata.prompt : undefined),
+    progress: value.progress ?? meta.progress,
+    progress_message: value.progressMsg ?? value.progress_msg,
+    task_batch_id: value.taskBatchId ?? value.task_batch_id,
+    continue_clip_id: value.continueClipId ?? value.continue_clip_id,
+    input_type: value.inputType ?? value.input_type,
+    make_instrumental: value.makeInstrumental ?? value.make_instrumental,
+    created_at: value.createTime ?? value.created_at,
   });
 
-  appendUrlBlock(output, "audio", value.audio_url ?? value.audioUrl, itemMeta);
-  appendUrlBlock(output, "video", value.video_url ?? value.videoUrl, itemMeta);
-  appendUrlBlock(output, "image", value.image_large_url ?? value.image_url ?? value.imageUrl, itemMeta);
+  appendUrlBlock(
+    output,
+    "audio",
+    value.audio_url ?? value.audioUrl ?? value.cld2AudioUrl ?? value.cld2_audio_url,
+    itemMeta,
+  );
+  appendUrlBlock(output, "audio", value.vocal_audio_url ?? value.vocalAudioUrl, itemMeta);
+  appendUrlBlock(output, "audio", value.instrumental_audio_url ?? value.instrumentalAudioUrl, itemMeta);
+  appendUrlBlock(output, "audio", value.source_audio_url ?? value.sourceAudioUrl, itemMeta);
+  appendUrlBlock(
+    output,
+    "video",
+    value.video_url ?? value.videoUrl ?? value.cld2VideoUrl ?? value.cld2_video_url,
+    itemMeta,
+  );
+  appendUrlBlock(
+    output,
+    "image",
+    value.image_large_url ?? value.image_url ?? value.imageUrl ?? value.cld2ImageUrl ?? value.cld2_image_url,
+    itemMeta,
+  );
 
-  const text = asString(value.upsampled_tags) ?? asString(value.text);
+  const text = asString(value.upsampled_tags) ?? asString(value.text) ?? asString(value.lyrics);
   if (text) output.push({ type: "text", text, meta: itemMeta });
 
   if (isRecord(value.data)) appendSunoContent(output, value.data, itemMeta);
+}
+
+function buildImmediateResult(operation: string, data: unknown, raw: unknown): GenerationContentBlock[] {
+  const output: GenerationContentBlock[] = [];
+  const metadata = compactObject({ operation, raw });
+  appendSunoContent(output, data, metadata);
+  if (output.length > 0) return output;
+
+  const value = extractTaskId(data) ?? asString(data);
+  if (value) output.push({ type: "text", text: value, meta: metadata });
+  return output;
 }
 
 function buildResult(operation: string, task: SunoTaskDto, raw: unknown): GenerationContentBlock[] {
@@ -275,7 +351,13 @@ async function pollSunoTask(
   const startedAt = Date.now();
   while (Date.now() - startedAt <= maxWaitSec * 1000) {
     await sleep(pollIntervalSec * 1000);
-    const raw = await requestJson(input, `/suno/fetch/${encodeURIComponent(taskId)}`, { method: "GET" });
+    let raw: TaskResponse;
+    try {
+      raw = await requestJson(input, `/suno/fetch/${encodeURIComponent(taskId)}`, { method: "GET" });
+    } catch (error) {
+      if (error instanceof GenerationProviderError) throw error;
+      continue;
+    }
     const data = requireSuccess(raw, "Suno task fetch failed");
     const task = normalizeTask(operation, data);
     if (!task) throw new GenerationProviderError("Suno task fetch returned invalid task data", { details: { data } });
@@ -298,18 +380,18 @@ async function pollSunoTask(
 export async function sunoTasksAdapter(input: GenerationAdapterInput): Promise<GenerationContentBlock[]> {
   const operation = getOperation(input);
   const payload = await buildPayload(input, operation);
-  const path = OPERATION_PATHS[operation];
-  if (!path) throw new GenerationValidationError(`Unsupported Suno operation: ${operation}`);
-  const raw = await requestJson(input, path, {
+  const config = OPERATION_PATHS[operation];
+  if (!config) throw new GenerationValidationError(`Unsupported Suno operation: ${operation}`);
+  const raw = await requestJson(input, config.path, {
     method: "POST",
     body: JSON.stringify(payload),
   });
   const data = requireSuccess(raw, "Suno task submit failed");
-  const immediateTask = normalizeTask(operation, data);
-  if (operation === "upsample_tags" && immediateTask) return buildResult(operation, immediateTask, data);
+
+  if (!config.poll) return buildImmediateResult(operation, data, raw);
 
   const taskId = extractTaskId(data);
-  if (!taskId) throw new GenerationProviderError("Suno task submit returned no task id", { details: { data } });
+  if (!taskId) return buildImmediateResult(operation, data, raw);
 
   const pollIntervalSec = asInteger(input.parameters.poll_interval, DEFAULT_POLL_INTERVAL_SEC);
   const maxWaitSec = asInteger(input.parameters.max_wait, DEFAULT_MAX_WAIT_SEC);

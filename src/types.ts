@@ -79,9 +79,9 @@ export type GenerateRequest = {
   model: string;
   content: GenerationContentBlock[];
   parameters?: Record<string, unknown>;
+  meta?: Record<string, unknown>;
   apiKey?: string;
   baseUrl?: string;
-  metadata?: Record<string, unknown>;
 };
 
 export type ResolvedGenerationRequest = {

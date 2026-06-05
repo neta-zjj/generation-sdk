@@ -78,30 +78,6 @@ function videoParameters(defaults: { resolution: string; maxWait: number }) {
   } satisfies GenerationModelDeclaration["parameters"];
 }
 
-const sunoOperations = ["music", "concat", "persona", "lyrics", "upsample_tags", "upload_audio", "sound"];
-
-const sunoMusicTasks = [
-  "extend",
-  "upload_extend",
-  "infill",
-  "fixed_infill",
-  "infill_intro",
-  "infill_outro",
-  "cover_infill",
-  "cover_extend",
-  "artist_infill",
-  "artist_consistency",
-  "cover",
-  "image_to_song",
-  "video_to_song",
-  "concat",
-  "sound",
-  "underpainting",
-  "remaster",
-  "vox",
-  "mashup_condition",
-];
-
 const builtinModels = [
   {
     schema: MODEL_SCHEMA,
@@ -227,9 +203,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "suno_music",
     title: "Suno Music",
-    description:
-      "Suno music task model. Supports music generation, integrated Yunwu music tasks, lyrics, upsample tags, audio upload, persona, concat, and sound effects.",
-    allowUnknownParameters: true,
+    description: "Suno music model for songs, lyrics, sound effects, and integrated music tasks.",
     adapter: { type: "suno.tasks" },
     content: {
       input: [
@@ -238,28 +212,29 @@ const builtinModels = [
           required: false,
           max: 16,
           merge: "newline",
-          description: "Prompt text. The adapter maps merged text to prompt when prompt is not provided.",
+          description:
+            "Optional prompt text. The adapter maps merged text to the operation's text field when that field is not provided.",
         },
         {
           type: "audio",
           required: false,
           max: 1,
           sources: ["url", "base64"],
-          description: "Optional reference audio. Used as url for upload_audio when url is not provided.",
+          description: "Optional reference audio. The adapter maps it to url when url is not provided.",
         },
         {
           type: "image",
           required: false,
           max: 1,
           sources: ["url", "base64"],
-          description: "Optional image source for image_to_song style request bodies.",
+          description: "Optional image source. The adapter maps it to image_url when image_url is not provided.",
         },
         {
           type: "video",
           required: false,
           max: 1,
           sources: ["url", "base64"],
-          description: "Optional video source for video_to_song style request bodies.",
+          description: "Optional video source. The adapter maps it to video_url when video_url is not provided.",
         },
       ],
     },
@@ -268,14 +243,9 @@ const builtinModels = [
         type: "string",
         optional: true,
         default: "music",
-        enum: sunoOperations,
-        description: "Suno operation to call.",
-      },
-      task: {
-        type: "string",
-        optional: true,
-        enum: sunoMusicTasks,
-        description: "Integrated Suno music task for operation=music.",
+        enum: ["music", "lyrics", "concat", "persona", "upsample_tags", "upload_audio"],
+        description:
+          "Suno endpoint operation. Provider-specific fields such as task, mv, title, tags, original_tags, metadataParams, and clip_id belong in request meta.",
       },
       poll_interval: {
         type: "integer",
@@ -300,8 +270,9 @@ const builtinModels = [
         request: {
           model: "suno_music",
           content: [{ type: "text", text: "uplifting cinematic pop with warm piano and clear chorus" }],
-          parameters: {
-            operation: "music",
+          parameters: { operation: "music" },
+          meta: {
+            mv: "chirp-v5-5",
             title: "Warm Horizon",
             tags: "cinematic pop, warm piano",
             make_instrumental: false,
@@ -320,11 +291,28 @@ const builtinModels = [
         title: "Sound effect",
         request: {
           model: "suno_music",
-          content: [{ type: "text", text: "gentle rain ambience with distant thunder" }],
-          parameters: {
-            operation: "sound",
+          content: [{ type: "text", text: "ambient music with gentle rain and distant thunder" }],
+          parameters: { operation: "music" },
+          meta: {
+            task: "sound",
+            mv: "chirp-v5-5",
             metadata_params: { sound: "gentle rain ambience with distant thunder" },
+            title: "Gentle Rain",
+            tags: "ambient, rain, cinematic",
+            make_instrumental: true,
           },
+        },
+      },
+      {
+        title: "Image to song",
+        request: {
+          model: "suno_music",
+          content: [
+            { type: "text", text: "turn this image into a short hopeful pop song" },
+            { type: "image", source: { type: "url", url: "https://picsum.photos/512/512" } },
+          ],
+          parameters: { operation: "music" },
+          meta: { task: "image_to_song", mv: "chirp-v5-5" },
         },
       },
     ],

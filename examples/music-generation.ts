@@ -10,6 +10,9 @@ const output = await client.generate({
   content: [{ type: "text", text: "uplifting cinematic pop with warm piano and clear chorus" }],
   parameters: {
     operation: "music",
+  },
+  meta: {
+    mv: "chirp-v5-5",
     title: "Warm Horizon",
     tags: "cinematic pop, warm piano",
     make_instrumental: false,

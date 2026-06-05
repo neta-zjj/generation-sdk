@@ -161,6 +161,9 @@ const output = await client.generate({
   ],
   parameters: {
     operation: "music",
+  },
+  meta: {
+    mv: "chirp-v5-5",
     title: "Warm Horizon",
     tags: "cinematic pop, warm piano",
     make_instrumental: false,
@@ -170,19 +173,14 @@ const output = await client.generate({
 console.log(output);
 ```
 
-Suno uses one public model, `suno_music`, and switches behavior with `operation`:
+Suno uses one public model, `suno_music`. SDK-level parameters control execution:
 
 - `music`
-- `concat`
-- `persona`
 - `lyrics`
-- `upsample_tags`
-- `upload_audio`
-- `sound`
 
-For Yunwu-style integrated music tasks, pass `task`, for example `remaster`, `cover`, `image_to_song`,
-`video_to_song`, `underpainting`, or `mashup_condition`. Unknown Suno request fields are passed through for this
-model, so provider-specific request bodies can still be expressed without changing the SDK schema.
+Provider-specific Suno fields belong in `meta`, not `parameters`. The adapter passes `meta` through to Suno and defaults
+`meta.mv` to `chirp-v5-5` for music requests. Use `meta.task` for Yunwu-style integrated tasks such as `sound`, `cover`,
+`image_to_song`, `video_to_song`, `remaster`, `underpainting`, or `mashup_condition`.
 
 ## Load model declarations from files
 

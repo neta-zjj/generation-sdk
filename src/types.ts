@@ -56,6 +56,23 @@ export type GenerationParameterSpec =
       examples?: boolean[];
     };
 
+export type GenerationMetaFieldSpec =
+  | GenerationParameterSpec
+  | { type: "object"; optional?: boolean; description?: string };
+
+export type GenerationMetaTaskVariantSpec = {
+  description?: string;
+  required?: string[];
+  requiredContent?: Array<GenerationContentSpec["type"]>;
+  sendTask?: boolean;
+};
+
+export type GenerationMetaSpec = {
+  fields?: Record<string, GenerationMetaFieldSpec>;
+  taskField?: string;
+  taskVariants?: Record<string, GenerationMetaTaskVariantSpec>;
+};
+
 export type GenerationModelDeclaration = {
   schema: typeof MODEL_SCHEMA;
   model: string;
@@ -69,6 +86,7 @@ export type GenerationModelDeclaration = {
     input: GenerationContentSpec[];
   };
   parameters?: Record<string, GenerationParameterSpec>;
+  meta?: GenerationMetaSpec;
   examples?: Array<{
     title?: string;
     request: GenerateRequest;

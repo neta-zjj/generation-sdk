@@ -1,6 +1,11 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
-import type { GenerationAdapterInput, GenerationContentBlock, GenerationSource } from "../types.js";
+import type {
+  GenerationAdapterInput,
+  GenerationContentBlock,
+  GenerationContentSpec,
+  GenerationSource,
+} from "../types.js";
 import { compactObject } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
 
@@ -19,28 +24,6 @@ const OPERATION_PATHS: Record<
   persona: { path: "/suno/submit/persona", poll: true },
   upsample_tags: { path: "/suno/submit/upsample-tags", poll: false, textField: "original_tags", requireText: true },
   upload_audio: { path: "/suno/uploads/audio", poll: true },
-};
-
-const MUSIC_TASKS: Record<string, { sendTask: boolean }> = {
-  extend: { sendTask: true },
-  upload_extend: { sendTask: true },
-  infill: { sendTask: true },
-  fixed_infill: { sendTask: true },
-  infill_intro: { sendTask: true },
-  infill_outro: { sendTask: true },
-  cover_infill: { sendTask: true },
-  cover_extend: { sendTask: true },
-  artist_infill: { sendTask: true },
-  artist_consistency: { sendTask: true },
-  cover: { sendTask: true },
-  image_to_song: { sendTask: true },
-  video_to_song: { sendTask: true },
-  concat: { sendTask: true },
-  sound: { sendTask: true },
-  underpainting: { sendTask: true },
-  remaster: { sendTask: false },
-  vox: { sendTask: true },
-  mashup_condition: { sendTask: true },
 };
 
 const FINAL_SUCCESS_STATUSES = new Set(["success", "succeeded", "completed"]);
@@ -164,7 +147,7 @@ async function buildPayload(input: GenerationAdapterInput, operation: string): P
   if (videoBlock && payload.video_url === undefined)
     payload.video_url = await input.context.resolveSource(videoBlock.source);
 
-  normalizeMusicTaskPayload(operation, payload);
+  normalizeMusicTaskPayload(input, operation, payload);
 
   if (config?.defaultMusicVersion && payload.mv === undefined && payload.model_name === undefined) {
     payload.mv = DEFAULT_MUSIC_VERSION;
@@ -181,20 +164,38 @@ function mergeMetaPayload(payload: Record<string, unknown>, meta: Record<string,
   }
 }
 
-function normalizeMusicTaskPayload(operation: string, payload: Record<string, unknown>): void {
+function contentCount(content: GenerationContentBlock[], type: GenerationContentSpec["type"]): number {
+  return content.filter((block) => block.type === type).length;
+}
+
+function normalizeMusicTaskPayload(
+  input: GenerationAdapterInput,
+  operation: string,
+  payload: Record<string, unknown>,
+): void {
   if (operation !== "music") return;
-  const task = asString(payload.task);
+  const taskField = input.declaration.meta?.taskField ?? "task";
+  const task = asString(payload[taskField]);
   if (!task) return;
-  const config = MUSIC_TASKS[task];
-  if (!config) throw new GenerationValidationError(`Unsupported Suno music task: ${task}`);
-  if (!config.sendTask) delete payload.task;
+  const taskVariant = input.declaration.meta?.taskVariants?.[task];
+  if (!taskVariant) throw new GenerationValidationError(`Unsupported Suno music task: ${task}`);
+  for (const key of taskVariant.required ?? []) {
+    if (payload[key] === undefined || payload[key] === null || payload[key] === "") {
+      throw new GenerationValidationError(`Suno task ${task} requires meta.${key}`);
+    }
+  }
+  for (const type of taskVariant.requiredContent ?? []) {
+    if (contentCount(input.request.content, type) === 0) {
+      throw new GenerationValidationError(`Suno task ${task} requires ${type} content`);
+    }
+  }
+  if (taskVariant.sendTask === false) delete payload[taskField];
 }
 
 function validateSunoPayload(operation: string, payload: Record<string, unknown>): void {
   const config = OPERATION_PATHS[operation];
   const task = asString(payload.task);
   if (operation === "music" && task) {
-    if (!MUSIC_TASKS[task]) throw new GenerationValidationError(`Unsupported Suno music task: ${task}`);
     if (task === "lyrics") throw new GenerationValidationError("Use operation=lyrics instead of task=lyrics");
   }
   if (config?.requireText && !asString(payload[config.textField ?? "prompt"])) {

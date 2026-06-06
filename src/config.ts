@@ -16,11 +16,41 @@ function isParameterSpec(value: unknown): boolean {
   return ["string", "number", "integer", "boolean"].includes(String(value.type));
 }
 
+function isMetaFieldSpec(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return isParameterSpec(value) || String(value.type) === "object";
+}
+
+function isMetaTaskVariantSpec(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    (value.description === undefined || typeof value.description === "string") &&
+    (value.required === undefined ||
+      (Array.isArray(value.required) && value.required.every((item) => typeof item === "string"))) &&
+    (value.requiredContent === undefined ||
+      (Array.isArray(value.requiredContent) && value.requiredContent.every((item) => typeof item === "string"))) &&
+    (value.sendTask === undefined || typeof value.sendTask === "boolean")
+  );
+}
+
+function isMetaSpec(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    (value.fields === undefined ||
+      (isRecord(value.fields) && Object.values(value.fields).every((field) => isMetaFieldSpec(field)))) &&
+    (value.taskField === undefined || typeof value.taskField === "string") &&
+    (value.taskVariants === undefined ||
+      (isRecord(value.taskVariants) &&
+        Object.values(value.taskVariants).every((variant) => isMetaTaskVariantSpec(variant))))
+  );
+}
+
 export function isGenerationModelDeclaration(value: unknown): value is GenerationModelDeclaration {
   if (!isRecord(value)) return false;
   const adapter = value.adapter;
   const content = value.content;
   const parameters = value.parameters;
+  const meta = value.meta;
   const examples = value.examples;
   return (
     value.schema === MODEL_SCHEMA &&
@@ -32,6 +62,7 @@ export function isGenerationModelDeclaration(value: unknown): value is Generatio
     isRecord(content) &&
     Array.isArray(content.input) &&
     (parameters === undefined || (isRecord(parameters) && Object.values(parameters).every(isParameterSpec))) &&
+    (meta === undefined || isMetaSpec(meta)) &&
     (examples === undefined || Array.isArray(examples))
   );
 }

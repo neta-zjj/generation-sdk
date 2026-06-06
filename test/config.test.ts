@@ -17,6 +17,20 @@ describe("config", () => {
     expect(declaration.model).toBe("gpt-image-2");
   });
 
+  it("roundtrips built-in model meta declarations", () => {
+    const raw = stringifyBuiltinModelConfig("suno_music");
+    const declaration = parseGenerationModelDeclaration(raw, "suno_music.yaml");
+    expect(declaration.meta?.taskField).toBe("task");
+    expect(declaration.meta?.taskVariants?.remaster).toMatchObject({
+      sendTask: false,
+      required: ["clip_id", "model_name", "variation_category"],
+    });
+    expect(declaration.meta?.taskVariants?.image_to_song).toMatchObject({
+      requiredContent: ["image"],
+      required: ["metadata_params"],
+    });
+  });
+
   it("exports model declarations", async () => {
     const dir = await mkdtemp(join(tmpdir(), "generation-"));
     try {

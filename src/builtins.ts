@@ -78,6 +78,83 @@ function videoParameters(defaults: { resolution: string; maxWait: number }) {
   } satisfies GenerationModelDeclaration["parameters"];
 }
 
+const sunoContinuationTaskVariant = {
+  required: ["task_id", "clip_id", "continue_clip_id"],
+};
+
+const sunoMeta = {
+  taskField: "task",
+  fields: {
+    task: {
+      type: "string",
+      optional: true,
+      enum: [
+        "extend",
+        "upload_extend",
+        "infill",
+        "fixed_infill",
+        "infill_intro",
+        "infill_outro",
+        "cover_infill",
+        "cover_extend",
+        "artist_infill",
+        "artist_consistency",
+        "cover",
+        "image_to_song",
+        "video_to_song",
+        "concat",
+        "sound",
+        "underpainting",
+        "remaster",
+        "vox",
+        "mashup_condition",
+      ],
+      description: "Integrated Suno music task for operation=music.",
+    },
+    mv: { type: "string", optional: true, default: "chirp-v5-5", description: "Suno music model version." },
+    task_id: {
+      type: "string",
+      optional: true,
+      description: "Existing Suno task id used for continuation-style tasks.",
+    },
+    clip_id: {
+      type: "string",
+      optional: true,
+      description: "Existing Suno clip id used for continuation-style tasks.",
+    },
+    continue_clip_id: { type: "string", optional: true, description: "Clip id to continue from." },
+    continue_at: { type: "number", optional: true, description: "Continue position in seconds." },
+    model_name: { type: "string", optional: true, description: "Suno model name used by remaster." },
+    variation_category: { type: "string", optional: true, description: "Remaster variation category." },
+    metadata_params: {
+      type: "object",
+      optional: true,
+      description: "Yunwu/Suno task-specific metadata payload.",
+    },
+  },
+  taskVariants: {
+    extend: sunoContinuationTaskVariant,
+    upload_extend: { required: ["clip_id", "continue_clip_id"] },
+    infill: sunoContinuationTaskVariant,
+    fixed_infill: sunoContinuationTaskVariant,
+    infill_intro: sunoContinuationTaskVariant,
+    infill_outro: sunoContinuationTaskVariant,
+    cover_infill: sunoContinuationTaskVariant,
+    cover_extend: sunoContinuationTaskVariant,
+    artist_infill: sunoContinuationTaskVariant,
+    artist_consistency: sunoContinuationTaskVariant,
+    cover: sunoContinuationTaskVariant,
+    image_to_song: { requiredContent: ["image"], required: ["metadata_params"] },
+    video_to_song: { requiredContent: ["video"], required: ["metadata_params"] },
+    concat: sunoContinuationTaskVariant,
+    sound: { required: ["metadata_params"] },
+    underpainting: { required: ["metadata_params"] },
+    remaster: { sendTask: false, required: ["clip_id", "model_name", "variation_category"] },
+    vox: sunoContinuationTaskVariant,
+    mashup_condition: sunoContinuationTaskVariant,
+  },
+} satisfies GenerationModelDeclaration["meta"];
+
 const builtinModels = [
   {
     schema: MODEL_SCHEMA,
@@ -264,6 +341,7 @@ const builtinModels = [
         description: "Maximum seconds to wait for task completion.",
       },
     },
+    meta: sunoMeta,
     examples: [
       {
         title: "Music generation",

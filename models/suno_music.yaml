@@ -59,6 +59,158 @@ parameters:
     min: 30
     max: 3600
     description: Maximum seconds to wait for task completion.
+meta:
+  taskField: task
+  fields:
+    task:
+      type: string
+      optional: true
+      enum:
+        - extend
+        - upload_extend
+        - infill
+        - fixed_infill
+        - infill_intro
+        - infill_outro
+        - cover_infill
+        - cover_extend
+        - artist_infill
+        - artist_consistency
+        - cover
+        - image_to_song
+        - video_to_song
+        - concat
+        - sound
+        - underpainting
+        - remaster
+        - vox
+        - mashup_condition
+      description: Integrated Suno music task for operation=music.
+    mv:
+      type: string
+      optional: true
+      default: chirp-v5-5
+      description: Suno music model version.
+    task_id:
+      type: string
+      optional: true
+      description: Existing Suno task id used for continuation-style tasks.
+    clip_id:
+      type: string
+      optional: true
+      description: Existing Suno clip id used for continuation-style tasks.
+    continue_clip_id:
+      type: string
+      optional: true
+      description: Clip id to continue from.
+    continue_at:
+      type: number
+      optional: true
+      description: Continue position in seconds.
+    model_name:
+      type: string
+      optional: true
+      description: Suno model name used by remaster.
+    variation_category:
+      type: string
+      optional: true
+      description: Remaster variation category.
+    metadata_params:
+      type: object
+      optional: true
+      description: Yunwu/Suno task-specific metadata payload.
+  taskVariants:
+    extend:
+      required:
+        - task_id
+        - clip_id
+        - continue_clip_id
+    upload_extend:
+      required:
+        - clip_id
+        - continue_clip_id
+    infill:
+      required:
+        - task_id
+        - clip_id
+        - continue_clip_id
+    fixed_infill:
+      required:
+        - task_id
+        - clip_id
+        - continue_clip_id
+    infill_intro:
+      required:
+        - task_id
+        - clip_id
+        - continue_clip_id
+    infill_outro:
+      required:
+        - task_id
+        - clip_id
+        - continue_clip_id
+    cover_infill:
+      required:
+        - task_id
+        - clip_id
+        - continue_clip_id
+    cover_extend:
+      required:
+        - task_id
+        - clip_id
+        - continue_clip_id
+    artist_infill:
+      required:
+        - task_id
+        - clip_id
+        - continue_clip_id
+    artist_consistency:
+      required:
+        - task_id
+        - clip_id
+        - continue_clip_id
+    cover:
+      required:
+        - task_id
+        - clip_id
+        - continue_clip_id
+    image_to_song:
+      requiredContent:
+        - image
+      required:
+        - metadata_params
+    video_to_song:
+      requiredContent:
+        - video
+      required:
+        - metadata_params
+    concat:
+      required:
+        - task_id
+        - clip_id
+        - continue_clip_id
+    sound:
+      required:
+        - metadata_params
+    underpainting:
+      required:
+        - metadata_params
+    remaster:
+      sendTask: false
+      required:
+        - clip_id
+        - model_name
+        - variation_category
+    vox:
+      required:
+        - task_id
+        - clip_id
+        - continue_clip_id
+    mashup_condition:
+      required:
+        - task_id
+        - clip_id
+        - continue_clip_id
 examples:
   - title: Music generation
     request:

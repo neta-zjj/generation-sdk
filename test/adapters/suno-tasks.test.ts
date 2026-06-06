@@ -23,6 +23,57 @@ const sunoMusicTasks = [
   "mashup_condition",
 ] as const;
 
+function taskRequestInput(task: (typeof sunoMusicTasks)[number]) {
+  const continuationMeta = {
+    task_id: "task_origin",
+    clip_id: "clip_origin",
+    continue_clip_id: "clip_origin",
+  };
+  switch (task) {
+    case "upload_extend":
+      return {
+        content: [{ type: "text" as const, text: `test ${task}` }],
+        meta: { clip_id: "clip_uploaded", continue_clip_id: "clip_uploaded" },
+      };
+    case "image_to_song":
+      return {
+        content: [
+          { type: "text" as const, text: `test ${task}` },
+          { type: "image" as const, source: { type: "url" as const, url: "https://example.com/image.jpg" } },
+        ],
+        meta: { metadata_params: { image_url: "https://example.com/image.jpg" } },
+      };
+    case "video_to_song":
+      return {
+        content: [
+          { type: "text" as const, text: `test ${task}` },
+          { type: "video" as const, source: { type: "url" as const, url: "https://example.com/video.mp4" } },
+        ],
+        meta: { metadata_params: { video_url: "https://example.com/video.mp4" } },
+      };
+    case "sound":
+      return {
+        content: [{ type: "text" as const, text: `test ${task}` }],
+        meta: { metadata_params: { sound: "soft rain" } },
+      };
+    case "underpainting":
+      return {
+        content: [{ type: "text" as const, text: `test ${task}` }],
+        meta: { metadata_params: { underpainting_clip_id: "clip_origin" } },
+      };
+    case "remaster":
+      return {
+        content: [{ type: "text" as const, text: `test ${task}` }],
+        meta: { clip_id: "clip_origin", model_name: "chirp-carp", variation_category: "subtle" },
+      };
+    default:
+      return {
+        content: [{ type: "text" as const, text: `test ${task}` }],
+        meta: continuationMeta,
+      };
+  }
+}
+
 describe("suno.tasks adapter", () => {
   it("submits music tasks and polls successful song outputs", async () => {
     vi.useFakeTimers();
@@ -161,7 +212,7 @@ describe("suno.tasks adapter", () => {
         {
           type: "image",
           source: { type: "url", url: "https://example.com/image.jpg" },
-          meta: { task: "image_to_song" },
+          meta: { task: "image_to_song", metadata_params: { image_url: "https://example.com/image.jpg" } },
         },
       ],
       parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
@@ -207,6 +258,9 @@ describe("suno.tasks adapter", () => {
         title: "Cover Test",
         tags: "warm piano",
         make_instrumental: false,
+        task_id: "task_origin",
+        clip_id: "clip_origin",
+        continue_clip_id: "clip_origin",
       },
     });
     await vi.advanceTimersByTimeAsync(1000);
@@ -220,6 +274,9 @@ describe("suno.tasks adapter", () => {
       title: "Cover Test",
       tags: "warm piano",
       make_instrumental: false,
+      task_id: "task_origin",
+      clip_id: "clip_origin",
+      continue_clip_id: "clip_origin",
     });
   });
 
@@ -351,11 +408,12 @@ describe("suno.tasks adapter", () => {
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
 
     for (const task of sunoMusicTasks) {
+      const input = taskRequestInput(task);
       const promise = client.generate({
         model: "suno_music",
-        content: [{ type: "text", text: `test ${task}` }],
+        content: input.content,
         parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
-        meta: { task },
+        meta: { task, ...input.meta },
       });
       await vi.advanceTimersByTimeAsync(1000);
       await promise;
@@ -369,9 +427,9 @@ describe("suno.tasks adapter", () => {
     );
     for (const call of submitCalls) {
       expect(call.url).toBe("https://router.neta.art/suno/submit/music");
-      expect(JSON.parse(String(call.init.body))).toMatchObject({
-        mv: "chirp-v5-5",
-      });
+      const body = JSON.parse(String(call.init.body));
+      if (body.model_name) expect(body).not.toHaveProperty("mv");
+      else expect(body).toMatchObject({ mv: "chirp-v5-5" });
     }
   });
 
@@ -386,6 +444,28 @@ describe("suno.tasks adapter", () => {
         meta: { task: "not_a_yunwu_task" },
       }),
     ).rejects.toThrow("Unsupported Suno music task: not_a_yunwu_task");
+  });
+
+  it("validates task-specific Suno meta requirements from model declarations", async () => {
+    const fetchMock = async () => new Response("{}");
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await expect(
+      client.generate({
+        model: "suno_music",
+        content: [{ type: "text", text: "cover this" }],
+        parameters: { operation: "music" },
+        meta: { task: "cover", clip_id: "clip_origin", continue_clip_id: "clip_origin" },
+      }),
+    ).rejects.toThrow("Suno task cover requires meta.task_id");
+
+    await expect(
+      client.generate({
+        model: "suno_music",
+        content: [{ type: "text", text: "make image sing" }],
+        parameters: { operation: "music" },
+        meta: { task: "image_to_song", metadata_params: { prompt: "make image sing" } },
+      }),
+    ).rejects.toThrow("Suno task image_to_song requires image content");
   });
 
   it("routes concat to the concat endpoint", async () => {

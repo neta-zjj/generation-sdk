@@ -111,7 +111,7 @@ const sunoMeta = {
       ],
       description: "Integrated Suno music task for operation=music.",
     },
-    mv: { type: "string", optional: true, default: "chirp-v5-5", description: "Suno music model version." },
+    mv: { type: "string", optional: true, description: "Suno music model version." },
     task_id: {
       type: "string",
       optional: true,
@@ -320,7 +320,7 @@ const builtinModels = [
         type: "string",
         optional: true,
         default: "music",
-        enum: ["music", "lyrics", "concat", "persona", "upsample_tags", "upload_audio"],
+        enum: ["music", "lyrics", "concat", "upsample_tags", "upload_audio"],
         description:
           "Suno endpoint operation. Provider-specific fields such as task, mv, title, tags, original_tags, metadataParams, and clip_id belong in request meta.",
       },

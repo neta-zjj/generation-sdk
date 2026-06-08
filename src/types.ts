@@ -106,6 +106,7 @@ export type ResolvedGenerationRequest = {
   declaration: GenerationModelDeclaration;
   request: GenerateRequest;
   parameters: Record<string, unknown>;
+  meta: Record<string, unknown>;
 };
 
 export type GenerationSourceResolver = (source: GenerationSource) => Promise<string> | string;

@@ -443,12 +443,21 @@ describe("suno.tasks adapter", () => {
         parameters: { operation: "music" },
         meta: { task: "not_a_yunwu_task" },
       }),
-    ).rejects.toThrow("Unsupported Suno music task: not_a_yunwu_task");
+    ).rejects.toThrow("meta.task must be one of:");
   });
 
   it("validates task-specific Suno meta requirements from model declarations", async () => {
     const fetchMock = async () => new Response("{}");
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await expect(() =>
+      client.validate({
+        model: "suno_music",
+        content: [{ type: "text", text: "cover this" }],
+        parameters: { operation: "music" },
+        meta: { task: "cover", clip_id: "clip_origin", continue_clip_id: "clip_origin" },
+      }),
+    ).toThrow("meta.task cover requires meta.task_id");
+
     await expect(
       client.generate({
         model: "suno_music",
@@ -456,16 +465,103 @@ describe("suno.tasks adapter", () => {
         parameters: { operation: "music" },
         meta: { task: "cover", clip_id: "clip_origin", continue_clip_id: "clip_origin" },
       }),
-    ).rejects.toThrow("Suno task cover requires meta.task_id");
+    ).rejects.toThrow("meta.task cover requires meta.task_id");
 
-    await expect(
-      client.generate({
+    await expect(() =>
+      client.validate({
         model: "suno_music",
         content: [{ type: "text", text: "make image sing" }],
         parameters: { operation: "music" },
         meta: { task: "image_to_song", metadata_params: { prompt: "make image sing" } },
       }),
-    ).rejects.toThrow("Suno task image_to_song requires image content");
+    ).toThrow("meta.task image_to_song requires image content");
+
+    await expect(() =>
+      client.validate({
+        model: "suno_music",
+        content: [
+          {
+            type: "image",
+            source: { type: "url", url: "https://example.com/image.jpg" },
+            meta: { task: "image_to_song" },
+          },
+        ],
+        parameters: { operation: "music" },
+      }),
+    ).toThrow("meta.task image_to_song requires meta.metadata_params");
+  });
+
+  it("normalizes array-wrapped task fetch responses", async () => {
+    vi.useFakeTimers();
+    const fetchMock = async (url: string | URL | Request) => {
+      if (String(url).endsWith("/suno/submit/music")) {
+        return new Response(JSON.stringify({ code: "success", data: "task_array" }), { status: 200 });
+      }
+      return new Response(
+        JSON.stringify({
+          code: "success",
+          data: [
+            {
+              task_id: "task_array",
+              action: "music",
+              status: "SUCCESS",
+              data: { audio_url: "https://example.com/array.mp3", title: "Array Wrapped" },
+            },
+          ],
+        }),
+        { status: 200 },
+      );
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const promise = client.generate({
+      model: "suno_music",
+      content: [{ type: "text", text: "warm piano" }],
+      parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    const output = await promise;
+    vi.useRealTimers();
+
+    expect(output).toEqual([
+      {
+        type: "audio",
+        source: { type: "url", url: "https://example.com/array.mp3" },
+        meta: expect.objectContaining({ title: "Array Wrapped", task_id: "task_array" }),
+      },
+    ]);
+  });
+
+  it("keeps outer task status when task data contains media arrays", async () => {
+    vi.useFakeTimers();
+    const fetchMock = async (url: string | URL | Request) => {
+      if (String(url).endsWith("/suno/submit/music")) {
+        return new Response(JSON.stringify({ code: "success", data: "task_pending" }), { status: 200 });
+      }
+      return new Response(
+        JSON.stringify({
+          code: "success",
+          data: {
+            task_id: "task_pending",
+            action: "music",
+            status: "PENDING",
+            data: [{ audio_url: "https://example.com/not-ready.mp3" }],
+          },
+        }),
+        { status: 200 },
+      );
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const promise = client.generate({
+      model: "suno_music",
+      content: [{ type: "text", text: "warm piano" }],
+      parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
+    });
+    const assertion = expect(promise).rejects.toThrow("Timed out waiting for Suno task");
+    await vi.advanceTimersByTimeAsync(31_000);
+    await assertion;
+    vi.useRealTimers();
   });
 
   it("routes concat to the concat endpoint", async () => {
@@ -660,8 +756,6 @@ describe("suno.tasks adapter", () => {
         content: [{ type: "text", text: "hello" }],
         parameters: { operation: "unknown_operation" },
       }),
-    ).rejects.toThrow(
-      "Parameter operation must be one of: music, lyrics, concat, persona, upsample_tags, upload_audio",
-    );
+    ).rejects.toThrow("Parameter operation must be one of: music, lyrics, concat, upsample_tags, upload_audio");
   });
 });

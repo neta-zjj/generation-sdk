@@ -1,5 +1,11 @@
 import { GenerationValidationError } from "./errors.js";
-import type { GenerationContentBlock, GenerationContentSpec, GenerationModelDeclaration } from "./types.js";
+import type {
+  GenerationContentBlock,
+  GenerationContentSpec,
+  GenerationMetaFieldSpec,
+  GenerationModelDeclaration,
+  GenerationParameterSpec,
+} from "./types.js";
 
 function specsByType(specs: GenerationContentSpec[]) {
   const map = new Map<GenerationContentSpec["type"], GenerationContentSpec>();
@@ -62,33 +68,105 @@ export function resolveGenerationParameters(
       continue;
     }
 
-    switch (spec.type) {
-      case "string":
-        if (typeof value !== "string") throw new GenerationValidationError(`Parameter ${key} must be a string`);
-        if (spec.enum && !spec.enum.includes(value))
-          throw new GenerationValidationError(`Parameter ${key} must be one of: ${spec.enum.join(", ")}`);
-        break;
-      case "number":
-        if (typeof value !== "number" || !Number.isFinite(value))
-          throw new GenerationValidationError(`Parameter ${key} must be a number`);
-        if (spec.min !== undefined && value < spec.min)
-          throw new GenerationValidationError(`Parameter ${key} must be >= ${spec.min}`);
-        if (spec.max !== undefined && value > spec.max)
-          throw new GenerationValidationError(`Parameter ${key} must be <= ${spec.max}`);
-        break;
-      case "integer":
-        if (typeof value !== "number" || !Number.isInteger(value))
-          throw new GenerationValidationError(`Parameter ${key} must be an integer`);
-        if (spec.min !== undefined && value < spec.min)
-          throw new GenerationValidationError(`Parameter ${key} must be >= ${spec.min}`);
-        if (spec.max !== undefined && value > spec.max)
-          throw new GenerationValidationError(`Parameter ${key} must be <= ${spec.max}`);
-        break;
-      case "boolean":
-        if (typeof value !== "boolean") throw new GenerationValidationError(`Parameter ${key} must be a boolean`);
-        break;
-    }
+    validateSpecValue(`Parameter ${key}`, spec, value);
     resolved[key] = value;
+  }
+
+  return resolved;
+}
+
+export function mergeGenerationMeta(
+  requestMeta: Record<string, unknown> | undefined,
+  content: GenerationContentBlock[],
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = { ...(requestMeta ?? {}) };
+  for (const block of content) {
+    for (const [key, value] of Object.entries(block.meta ?? {})) {
+      if (value !== undefined && merged[key] === undefined) merged[key] = value;
+    }
+  }
+  return merged;
+}
+
+function validateSpecValue(
+  label: string,
+  spec: GenerationParameterSpec | GenerationMetaFieldSpec,
+  value: unknown,
+): void {
+  switch (spec.type) {
+    case "string":
+      if (typeof value !== "string") throw new GenerationValidationError(`${label} must be a string`);
+      if (spec.enum && !spec.enum.includes(value))
+        throw new GenerationValidationError(`${label} must be one of: ${spec.enum.join(", ")}`);
+      break;
+    case "number":
+      if (typeof value !== "number" || !Number.isFinite(value))
+        throw new GenerationValidationError(`${label} must be a number`);
+      if (spec.min !== undefined && value < spec.min)
+        throw new GenerationValidationError(`${label} must be >= ${spec.min}`);
+      if (spec.max !== undefined && value > spec.max)
+        throw new GenerationValidationError(`${label} must be <= ${spec.max}`);
+      break;
+    case "integer":
+      if (typeof value !== "number" || !Number.isInteger(value))
+        throw new GenerationValidationError(`${label} must be an integer`);
+      if (spec.min !== undefined && value < spec.min)
+        throw new GenerationValidationError(`${label} must be >= ${spec.min}`);
+      if (spec.max !== undefined && value > spec.max)
+        throw new GenerationValidationError(`${label} must be <= ${spec.max}`);
+      break;
+    case "boolean":
+      if (typeof value !== "boolean") throw new GenerationValidationError(`${label} must be a boolean`);
+      break;
+    case "object":
+      if (!value || typeof value !== "object" || Array.isArray(value))
+        throw new GenerationValidationError(`${label} must be an object`);
+      break;
+  }
+}
+
+export function resolveGenerationMeta(
+  declaration: GenerationModelDeclaration,
+  meta: Record<string, unknown> | undefined,
+  content: GenerationContentBlock[],
+): Record<string, unknown> {
+  const specs = declaration.meta?.fields ?? {};
+  const resolved: Record<string, unknown> = {};
+
+  for (const key of Object.keys(meta ?? {})) {
+    if (!specs[key]) {
+      const value = meta?.[key];
+      if (value !== undefined) resolved[key] = value;
+    }
+  }
+
+  for (const [key, spec] of Object.entries(specs)) {
+    const value = meta?.[key];
+    if (value === undefined) {
+      if (!spec.optional) throw new GenerationValidationError(`Missing required meta: ${key}`);
+      continue;
+    }
+    validateSpecValue(`meta.${key}`, spec, value);
+    resolved[key] = value;
+  }
+
+  const taskField = declaration.meta?.taskField;
+  const task = taskField && typeof resolved[taskField] === "string" ? resolved[taskField] : undefined;
+  if (!task) return resolved;
+
+  const variant = declaration.meta?.taskVariants?.[task];
+  if (!variant) throw new GenerationValidationError(`Unsupported meta.${taskField}: ${task}`);
+
+  for (const key of variant.required ?? []) {
+    if (resolved[key] === undefined || resolved[key] === null || resolved[key] === "") {
+      throw new GenerationValidationError(`meta.${taskField} ${task} requires meta.${key}`);
+    }
+  }
+
+  for (const type of variant.requiredContent ?? []) {
+    if (!content.some((block) => block.type === type)) {
+      throw new GenerationValidationError(`meta.${taskField} ${task} requires ${type} content`);
+    }
   }
 
   return resolved;

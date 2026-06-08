@@ -21,7 +21,6 @@ const OPERATION_PATHS: Record<
   music: { path: "/suno/submit/music", poll: true, defaultMusicVersion: true, textField: "prompt" },
   lyrics: { path: "/suno/submit/lyrics", poll: true, textField: "prompt", requireText: true },
   concat: { path: "/suno/submit/concat", poll: true },
-  persona: { path: "/suno/submit/persona", poll: true },
   upsample_tags: { path: "/suno/submit/upsample-tags", poll: false, textField: "original_tags", requireText: true },
   upload_audio: { path: "/suno/uploads/audio", poll: true },
 };
@@ -101,9 +100,10 @@ function normalizeStatus(value: unknown): string {
 }
 
 function normalizeTask(operation: string, data: unknown): SunoTaskDto | null {
+  if (Array.isArray(data)) return data.length > 0 ? normalizeTask(operation, data[0]) : null;
   if (!isRecord(data)) return null;
   if ("status" in data || "task_id" in data || "data" in data) return data as SunoTaskDto;
-  if (Array.isArray(data.data)) return normalizeTask(operation, data.data[0]);
+  if (Array.isArray(data.data) && data.data.length > 0) return normalizeTask(operation, data.data[0]);
   return { action: operation, status: "SUCCESS", data };
 }
 
@@ -114,7 +114,7 @@ function getOperation(input: GenerationAdapterInput): string {
 }
 
 async function buildPayload(input: GenerationAdapterInput, operation: string): Promise<Record<string, unknown>> {
-  const payload: Record<string, unknown> = { ...(input.request.meta ?? {}) };
+  const payload: Record<string, unknown> = { ...input.meta };
   const config = OPERATION_PATHS[operation];
 
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
@@ -130,20 +130,17 @@ async function buildPayload(input: GenerationAdapterInput, operation: string): P
   const audioBlock = input.request.content.find(
     (block): block is Extract<GenerationContentBlock, { type: "audio" }> => block.type === "audio",
   );
-  mergeMetaPayload(payload, audioBlock?.meta);
   if (audioBlock && payload.url === undefined) payload.url = await input.context.resolveSource(audioBlock.source);
 
   const imageBlock = input.request.content.find(
     (block): block is Extract<GenerationContentBlock, { type: "image" }> => block.type === "image",
   );
-  mergeMetaPayload(payload, imageBlock?.meta);
   if (imageBlock && payload.image_url === undefined)
     payload.image_url = await input.context.resolveSource(imageBlock.source);
 
   const videoBlock = input.request.content.find(
     (block): block is Extract<GenerationContentBlock, { type: "video" }> => block.type === "video",
   );
-  mergeMetaPayload(payload, videoBlock?.meta);
   if (videoBlock && payload.video_url === undefined)
     payload.video_url = await input.context.resolveSource(videoBlock.source);
 
@@ -155,13 +152,6 @@ async function buildPayload(input: GenerationAdapterInput, operation: string): P
 
   validateSunoPayload(operation, payload);
   return payload;
-}
-
-function mergeMetaPayload(payload: Record<string, unknown>, meta: Record<string, unknown> | undefined): void {
-  if (!meta) return;
-  for (const [key, value] of Object.entries(meta)) {
-    if (value !== undefined && payload[key] === undefined) payload[key] = value;
-  }
 }
 
 function contentCount(content: GenerationContentBlock[], type: GenerationContentSpec["type"]): number {

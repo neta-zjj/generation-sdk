@@ -310,6 +310,15 @@ function buildImmediateResult(operation: string, data: unknown, raw: unknown): G
 
   const value = extractTaskId(data) ?? asString(data);
   if (value) output.push({ type: "text", text: value, meta: metadata });
+  return requireSunoOutput(output, "Suno provider returned no output", { operation, raw });
+}
+
+function requireSunoOutput(
+  output: GenerationContentBlock[],
+  message: string,
+  details: Record<string, unknown>,
+): GenerationContentBlock[] {
+  if (output.length === 0) throw new GenerationProviderError(message, { details });
   return output;
 }
 
@@ -329,7 +338,7 @@ function buildResult(operation: string, task: SunoTaskDto, raw: unknown): Genera
   });
   appendSunoContent(output, task.data, metadata);
   appendUrlBlock(output, "audio", task.result_url, metadata);
-  return output;
+  return requireSunoOutput(output, "Suno task succeeded but returned no output", { operation, task, raw });
 }
 
 async function pollSunoTask(

@@ -320,9 +320,9 @@ const builtinModels = [
         type: "string",
         optional: true,
         default: "music",
-        enum: ["music", "lyrics", "concat", "upsample_tags", "upload_audio"],
+        enum: ["music", "lyrics"],
         description:
-          "Suno endpoint operation. Provider-specific fields such as task, mv, title, tags, original_tags, metadataParams, and clip_id belong in request meta.",
+          "Stable Suno endpoint operation. Provider-specific fields such as task, mv, title, tags, metadataParams, and clip_id belong in request meta.",
       },
       poll_interval: {
         type: "integer",

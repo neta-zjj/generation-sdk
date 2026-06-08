@@ -177,9 +177,6 @@ Suno uses one public model, `suno_music`. SDK-level parameters control execution
 
 - `music`
 - `lyrics`
-- `concat`
-- `upsample_tags`
-- `upload_audio`
 
 Provider-specific Suno fields belong in `meta`, not `parameters`. The adapter passes `meta` through to Suno and defaults
 `meta.mv` to `chirp-v5-5` for music requests. Use `meta.task` for Yunwu-style integrated tasks such as `sound`, `cover`,

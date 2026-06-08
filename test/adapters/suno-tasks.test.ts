@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createGenerationClient } from "../../src/index.js";
+import { createGenerationClient, type GenerationModelDeclaration, getBuiltinGenerationModel } from "../../src/index.js";
 
 const sunoMusicTasks = [
   "extend",
@@ -22,6 +22,29 @@ const sunoMusicTasks = [
   "vox",
   "mashup_condition",
 ] as const;
+
+const experimentalOperations = ["music", "lyrics", "concat", "upsample_tags", "upload_audio"];
+
+function experimentalSunoModel(): GenerationModelDeclaration {
+  const declaration = getBuiltinGenerationModel("suno_music");
+  if (!declaration?.parameters?.operation || declaration.parameters.operation.type !== "string") {
+    throw new Error("suno_music declaration is unavailable");
+  }
+  return {
+    ...declaration,
+    parameters: {
+      ...declaration.parameters,
+      operation: {
+        ...declaration.parameters.operation,
+        enum: experimentalOperations,
+      },
+    },
+  };
+}
+
+function createExperimentalSunoClient(fetchMock: typeof fetch) {
+  return createGenerationClient({ apiKey: "key", fetch: fetchMock, models: [experimentalSunoModel()] });
+}
 
 function taskRequestInput(task: (typeof sunoMusicTasks)[number]) {
   const continuationMeta = {
@@ -198,7 +221,12 @@ describe("suno.tasks adapter", () => {
       return new Response(
         JSON.stringify({
           code: "success",
-          data: { task_id: "task_image", action: "music", status: "SUCCESS", data: [] },
+          data: {
+            task_id: "task_image",
+            action: "music",
+            status: "SUCCESS",
+            data: { audio_url: "https://example.com/image-song.mp3" },
+          },
         }),
         { status: 200 },
       );
@@ -242,7 +270,12 @@ describe("suno.tasks adapter", () => {
       return new Response(
         JSON.stringify({
           code: "success",
-          data: { task_id: "task_meta", action: "music", status: "SUCCESS", data: [] },
+          data: {
+            task_id: "task_meta",
+            action: "music",
+            status: "SUCCESS",
+            data: { audio_url: "https://example.com/cover.mp3" },
+          },
         }),
         { status: 200 },
       );
@@ -291,7 +324,12 @@ describe("suno.tasks adapter", () => {
       return new Response(
         JSON.stringify({
           code: "success",
-          data: { task_id: "task_sound", action: "music", status: "SUCCESS", data: [] },
+          data: {
+            task_id: "task_sound",
+            action: "music",
+            status: "SUCCESS",
+            data: { audio_url: "https://example.com/sound.mp3" },
+          },
         }),
         { status: 200 },
       );
@@ -399,7 +437,12 @@ describe("suno.tasks adapter", () => {
       return new Response(
         JSON.stringify({
           code: "success",
-          data: { task_id: "task_done", action: "music", status: "SUCCESS", data: [] },
+          data: {
+            task_id: "task_done",
+            action: "music",
+            status: "SUCCESS",
+            data: { audio_url: "https://example.com/task-output.mp3" },
+          },
         }),
         { status: 200 },
       );
@@ -633,7 +676,7 @@ describe("suno.tasks adapter", () => {
       );
     };
 
-    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const client = createExperimentalSunoClient(fetchMock as typeof fetch);
     const promise = client.generate({
       model: "suno_music",
       content: [{ type: "text", text: "concat" }],
@@ -658,6 +701,33 @@ describe("suno.tasks adapter", () => {
     ]);
   });
 
+  it("rejects successful Suno tasks that return no output", async () => {
+    vi.useFakeTimers();
+    const fetchMock = async (url: string | URL | Request) => {
+      if (String(url).endsWith("/suno/submit/music")) {
+        return new Response(JSON.stringify({ code: "success", data: "task_empty" }), { status: 200 });
+      }
+      return new Response(
+        JSON.stringify({
+          code: "success",
+          data: { task_id: "task_empty", action: "music", status: "SUCCESS", data: [] },
+        }),
+        { status: 200 },
+      );
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const promise = client.generate({
+      model: "suno_music",
+      content: [{ type: "text", text: "warm piano" }],
+      parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
+    });
+    const assertion = expect(promise).rejects.toThrow("Suno task succeeded but returned no output");
+    await vi.advanceTimersByTimeAsync(1000);
+    await assertion;
+    vi.useRealTimers();
+  });
+
   it("returns immediate outputs for non-polled Suno operations", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
@@ -674,7 +744,7 @@ describe("suno.tasks adapter", () => {
       );
     };
 
-    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const client = createExperimentalSunoClient(fetchMock as typeof fetch);
     const output = await client.generate({
       model: "suno_music",
       content: [{ type: "text", text: "warm piano" }],
@@ -764,7 +834,7 @@ describe("suno.tasks adapter", () => {
       );
     };
 
-    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const client = createExperimentalSunoClient(fetchMock as typeof fetch);
     const promise = client.generate({
       model: "suno_music",
       content: [
@@ -799,7 +869,7 @@ describe("suno.tasks adapter", () => {
         content: [{ type: "text", text: "hello" }],
         parameters: { operation: "unknown_operation" },
       }),
-    ).rejects.toThrow("Parameter operation must be one of: music, lyrics, concat, upsample_tags, upload_audio");
+    ).rejects.toThrow("Parameter operation must be one of: music, lyrics");
   });
 
   it("accepts deprecated request metadata as Suno provider meta", async () => {
@@ -813,7 +883,12 @@ describe("suno.tasks adapter", () => {
       return new Response(
         JSON.stringify({
           code: "success",
-          data: { task_id: "task_metadata", action: "music", status: "SUCCESS", data: [] },
+          data: {
+            task_id: "task_metadata",
+            action: "music",
+            status: "SUCCESS",
+            data: { audio_url: "https://example.com/metadata.mp3" },
+          },
         }),
         { status: 200 },
       );

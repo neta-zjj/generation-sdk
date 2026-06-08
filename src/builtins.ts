@@ -390,7 +390,14 @@ const builtinModels = [
             { type: "image", source: { type: "url", url: "https://picsum.photos/512/512" } },
           ],
           parameters: { operation: "music" },
-          meta: { task: "image_to_song", mv: "chirp-v5-5" },
+          meta: {
+            task: "image_to_song",
+            mv: "chirp-v5-5",
+            metadata_params: {
+              image_url: "https://picsum.photos/512/512",
+              prompt: "turn this image into a short hopeful pop song",
+            },
+          },
         },
       },
     ],

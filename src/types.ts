@@ -98,6 +98,8 @@ export type GenerateRequest = {
   content: GenerationContentBlock[];
   parameters?: Record<string, unknown>;
   meta?: Record<string, unknown>;
+  /** @deprecated Use meta. */
+  metadata?: Record<string, unknown>;
   apiKey?: string;
   baseUrl?: string;
 };

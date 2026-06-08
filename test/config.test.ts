@@ -31,6 +31,15 @@ describe("config", () => {
     });
   });
 
+  it("validates every built-in model example", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    for (const model of client.listModels()) {
+      for (const example of model.examples ?? []) {
+        expect(() => client.validate(example.request), `${model.model}: ${example.title ?? "example"}`).not.toThrow();
+      }
+    }
+  });
+
   it("exports model declarations", async () => {
     const dir = await mkdtemp(join(tmpdir(), "generation-"));
     try {

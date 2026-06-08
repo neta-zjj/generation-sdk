@@ -102,7 +102,7 @@ function normalizeStatus(value: unknown): string {
 function normalizeTask(operation: string, data: unknown): SunoTaskDto | null {
   if (Array.isArray(data)) return data.length > 0 ? normalizeTask(operation, data[0]) : null;
   if (!isRecord(data)) return null;
-  if ("status" in data || "task_id" in data || "data" in data) return data as SunoTaskDto;
+  if ("status" in data || "task_id" in data) return data as SunoTaskDto;
   if (Array.isArray(data.data) && data.data.length > 0) return normalizeTask(operation, data.data[0]);
   return { action: operation, status: "SUCCESS", data };
 }

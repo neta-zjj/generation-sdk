@@ -532,6 +532,49 @@ describe("suno.tasks adapter", () => {
     ]);
   });
 
+  it("normalizes data-array wrapped task fetch responses", async () => {
+    vi.useFakeTimers();
+    const fetchMock = async (url: string | URL | Request) => {
+      if (String(url).endsWith("/suno/submit/music")) {
+        return new Response(JSON.stringify({ code: "success", data: "task_wrapped_array" }), { status: 200 });
+      }
+      return new Response(
+        JSON.stringify({
+          code: "success",
+          data: {
+            data: [
+              {
+                task_id: "task_wrapped_array",
+                action: "music",
+                status: "SUCCESS",
+                data: { audio_url: "https://example.com/wrapped-array.mp3", title: "Wrapped Array" },
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      );
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const promise = client.generate({
+      model: "suno_music",
+      content: [{ type: "text", text: "warm piano" }],
+      parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    const output = await promise;
+    vi.useRealTimers();
+
+    expect(output).toEqual([
+      {
+        type: "audio",
+        source: { type: "url", url: "https://example.com/wrapped-array.mp3" },
+        meta: expect.objectContaining({ title: "Wrapped Array", task_id: "task_wrapped_array" }),
+      },
+    ]);
+  });
+
   it("keeps outer task status when task data contains media arrays", async () => {
     vi.useFakeTimers();
     const fetchMock = async (url: string | URL | Request) => {
@@ -757,5 +800,40 @@ describe("suno.tasks adapter", () => {
         parameters: { operation: "unknown_operation" },
       }),
     ).rejects.toThrow("Parameter operation must be one of: music, lyrics, concat, upsample_tags, upload_audio");
+  });
+
+  it("accepts deprecated request metadata as Suno provider meta", async () => {
+    vi.useFakeTimers();
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      if (String(url).endsWith("/suno/submit/music")) {
+        return new Response(JSON.stringify({ code: "success", data: "task_metadata" }), { status: 200 });
+      }
+      return new Response(
+        JSON.stringify({
+          code: "success",
+          data: { task_id: "task_metadata", action: "music", status: "SUCCESS", data: [] },
+        }),
+        { status: 200 },
+      );
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const promise = client.generate({
+      model: "suno_music",
+      content: [{ type: "text", text: "warm piano" }],
+      parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
+      metadata: { title: "Legacy Metadata" },
+      meta: { tags: "warm piano" },
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    await promise;
+    vi.useRealTimers();
+
+    expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({
+      title: "Legacy Metadata",
+      tags: "warm piano",
+    });
   });
 });

@@ -96,7 +96,7 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
       const parameters = resolveGenerationParameters(declaration, request.parameters);
       const meta = resolveGenerationMeta(
         declaration,
-        mergeGenerationMeta(request.meta, request.content),
+        mergeGenerationMeta({ ...(request.metadata ?? {}), ...(request.meta ?? {}) }, request.content),
         request.content,
       );
       return { declaration: cloneJson(declaration), request: cloneJson(request), parameters, meta };

@@ -134,7 +134,7 @@ const sunoMeta = {
   },
   taskVariants: {
     extend: sunoContinuationTaskVariant,
-    upload_extend: { required: ["clip_id", "continue_clip_id"] },
+    upload_extend: sunoContinuationTaskVariant,
     infill: sunoContinuationTaskVariant,
     fixed_infill: sunoContinuationTaskVariant,
     infill_intro: sunoContinuationTaskVariant,

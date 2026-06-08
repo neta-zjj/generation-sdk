@@ -33,7 +33,7 @@ function taskRequestInput(task: (typeof sunoMusicTasks)[number]) {
     case "upload_extend":
       return {
         content: [{ type: "text" as const, text: `test ${task}` }],
-        meta: { clip_id: "clip_uploaded", continue_clip_id: "clip_uploaded" },
+        meta: { task_id: "task_origin", clip_id: "clip_uploaded", continue_clip_id: "clip_uploaded" },
       };
     case "image_to_song":
       return {

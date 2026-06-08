@@ -125,6 +125,7 @@ meta:
         - continue_clip_id
     upload_extend:
       required:
+        - task_id
         - clip_id
         - continue_clip_id
     infill:

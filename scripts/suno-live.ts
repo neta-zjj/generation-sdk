@@ -162,6 +162,7 @@ function requestFor(task: TaskName): GenerateRequest {
           title: title(task),
           tags: "hopeful pop, warm piano",
           make_instrumental: true,
+          task_id: seed.taskId,
           clip_id: seed.uploadClipId,
           continue_clip_id: seed.uploadClipId,
           continue_at: 8,

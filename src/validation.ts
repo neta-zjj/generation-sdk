@@ -79,13 +79,23 @@ export function mergeGenerationMeta(
   requestMeta: Record<string, unknown> | undefined,
   content: GenerationContentBlock[],
 ): Record<string, unknown> {
-  const merged: Record<string, unknown> = { ...(requestMeta ?? {}) };
+  const merged: Record<string, unknown> = {};
+  mergeMetaFields(merged, requestMeta);
   for (const block of content) {
-    for (const [key, value] of Object.entries(block.meta ?? {})) {
-      if (value !== undefined && merged[key] === undefined) merged[key] = value;
-    }
+    mergeMetaFields(merged, block.meta);
   }
   return merged;
+}
+
+function normalizeMetaKey(key: string): string {
+  return key === "metadataParams" ? "metadata_params" : key;
+}
+
+function mergeMetaFields(target: Record<string, unknown>, meta: Record<string, unknown> | undefined): void {
+  for (const [key, value] of Object.entries(meta ?? {})) {
+    const normalizedKey = normalizeMetaKey(key);
+    if (value !== undefined && target[normalizedKey] === undefined) target[normalizedKey] = value;
+  }
 }
 
 function validateSpecValue(

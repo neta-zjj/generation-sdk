@@ -911,4 +911,100 @@ describe("suno.tasks adapter", () => {
       tags: "warm piano",
     });
   });
+
+  it("normalizes Suno metadataParams aliases before validation and provider payloads", async () => {
+    vi.useFakeTimers();
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      if (String(url).endsWith("/suno/submit/music")) {
+        return new Response(JSON.stringify({ code: "success", data: "task_metadata_params" }), { status: 200 });
+      }
+      return new Response(
+        JSON.stringify({
+          code: "success",
+          data: {
+            task_id: "task_metadata_params",
+            action: "music",
+            status: "SUCCESS",
+            data: { audio_url: "https://example.com/metadata-params.mp3" },
+          },
+        }),
+        { status: 200 },
+      );
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const promise = client.generate({
+      model: "suno_music",
+      content: [{ type: "text", text: "gentle rain ambience" }],
+      parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
+      meta: { task: "sound", metadataParams: { sound: "gentle rain ambience" } },
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    await promise;
+    vi.useRealTimers();
+
+    const body = JSON.parse(String(calls[0]?.init.body));
+    expect(body).toMatchObject({
+      task: "sound",
+      metadata_params: { sound: "gentle rain ambience" },
+    });
+    expect(body).not.toHaveProperty("metadataParams");
+  });
+
+  it("normalizes content meta metadataParams aliases", async () => {
+    vi.useFakeTimers();
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      if (String(url).endsWith("/suno/submit/music")) {
+        return new Response(JSON.stringify({ code: "success", data: "task_content_metadata_params" }), {
+          status: 200,
+        });
+      }
+      return new Response(
+        JSON.stringify({
+          code: "success",
+          data: {
+            task_id: "task_content_metadata_params",
+            action: "music",
+            status: "SUCCESS",
+            data: { audio_url: "https://example.com/content-metadata-params.mp3" },
+          },
+        }),
+        { status: 200 },
+      );
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const promise = client.generate({
+      model: "suno_music",
+      content: [
+        {
+          type: "text",
+          text: "make this image sing",
+        },
+        {
+          type: "image",
+          source: { type: "url", url: "https://example.com/image.jpg" },
+          meta: {
+            task: "image_to_song",
+            metadataParams: { image_url: "https://example.com/image.jpg" },
+          },
+        },
+      ],
+      parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    await promise;
+    vi.useRealTimers();
+
+    const body = JSON.parse(String(calls[0]?.init.body));
+    expect(body).toMatchObject({
+      task: "image_to_song",
+      metadata_params: { image_url: "https://example.com/image.jpg" },
+    });
+    expect(body).not.toHaveProperty("metadataParams");
+  });
 });

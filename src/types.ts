@@ -56,11 +56,29 @@ export type GenerationParameterSpec =
       examples?: boolean[];
     };
 
+export type GenerationMetaFieldSpec =
+  | GenerationParameterSpec
+  | { type: "object"; optional?: boolean; description?: string };
+
+export type GenerationMetaTaskVariantSpec = {
+  description?: string;
+  required?: string[];
+  requiredContent?: Array<GenerationContentSpec["type"]>;
+  sendTask?: boolean;
+};
+
+export type GenerationMetaSpec = {
+  fields?: Record<string, GenerationMetaFieldSpec>;
+  taskField?: string;
+  taskVariants?: Record<string, GenerationMetaTaskVariantSpec>;
+};
+
 export type GenerationModelDeclaration = {
   schema: typeof MODEL_SCHEMA;
   model: string;
   title?: string;
   description?: string;
+  allowUnknownParameters?: boolean;
   adapter: {
     type: string;
   };
@@ -68,6 +86,7 @@ export type GenerationModelDeclaration = {
     input: GenerationContentSpec[];
   };
   parameters?: Record<string, GenerationParameterSpec>;
+  meta?: GenerationMetaSpec;
   examples?: Array<{
     title?: string;
     request: GenerateRequest;
@@ -78,15 +97,18 @@ export type GenerateRequest = {
   model: string;
   content: GenerationContentBlock[];
   parameters?: Record<string, unknown>;
+  meta?: Record<string, unknown>;
+  /** @deprecated Use meta. */
+  metadata?: Record<string, unknown>;
   apiKey?: string;
   baseUrl?: string;
-  metadata?: Record<string, unknown>;
 };
 
 export type ResolvedGenerationRequest = {
   declaration: GenerationModelDeclaration;
   request: GenerateRequest;
   parameters: Record<string, unknown>;
+  meta: Record<string, unknown>;
 };
 
 export type GenerationSourceResolver = (source: GenerationSource) => Promise<string> | string;

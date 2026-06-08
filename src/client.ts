@@ -18,7 +18,12 @@ import type {
   GenerationModelDeclaration,
 } from "./types.js";
 import { cloneJson } from "./utils.js";
-import { resolveGenerationParameters, validateGenerationContent } from "./validation.js";
+import {
+  mergeGenerationMeta,
+  resolveGenerationMeta,
+  resolveGenerationParameters,
+  validateGenerationContent,
+} from "./validation.js";
 
 const DEFAULT_BASE_URL = "https://router.neta.art";
 
@@ -89,7 +94,12 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
       const declaration = requireModel(request.model);
       validateGenerationContent(declaration, request.content);
       const parameters = resolveGenerationParameters(declaration, request.parameters);
-      return { declaration: cloneJson(declaration), request: cloneJson(request), parameters };
+      const meta = resolveGenerationMeta(
+        declaration,
+        mergeGenerationMeta({ ...(request.metadata ?? {}), ...(request.meta ?? {}) }, request.content),
+        request.content,
+      );
+      return { declaration: cloneJson(declaration), request: cloneJson(request), parameters, meta };
     },
 
     async generate(request: GenerateRequest) {

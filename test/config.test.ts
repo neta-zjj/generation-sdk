@@ -18,12 +18,12 @@ describe("config", () => {
   });
 
   it("roundtrips built-in model meta declarations", () => {
-    const raw = stringifyBuiltinModelConfig("suno_music");
-    const declaration = parseGenerationModelDeclaration(raw, "suno_music.yaml");
-    expect(declaration.meta?.taskField).toBe("task");
-    expect(declaration.meta?.taskVariants?.remaster).toMatchObject({
-      sendTask: false,
-      required: ["clip_id", "model_name", "variation_category"],
+    const raw = stringifyBuiltinModelConfig("suno_image_to_song_chirp_v5");
+    const declaration = parseGenerationModelDeclaration(raw, "suno_image_to_song_chirp_v5.yaml");
+    expect(declaration.adapter).toMatchObject({
+      operation: "music",
+      task: "image_to_song",
+      payload: { mv: "chirp-v5" },
     });
     expect(declaration.meta?.taskVariants?.image_to_song).toMatchObject({
       requiredContent: ["image"],

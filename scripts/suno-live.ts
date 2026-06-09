@@ -5,8 +5,6 @@ import {
   type GenerateRequest,
   type GenerationContentBlock,
   type GenerationDebugEvent,
-  type GenerationModelDeclaration,
-  getBuiltinGenerationModel,
 } from "../src/index.js";
 
 const DEFAULT_BASE_URL = "https://dev.router.neta.art";
@@ -15,8 +13,7 @@ const SUMMARY_PATH = "/tmp/neta-generation-live/live-summary.json";
 const KEY_FILE = "/tmp/neta-router-key";
 const DEFAULT_MAX_WAIT = 900;
 const DEFAULT_POLL_INTERVAL = 5;
-const DEFAULT_MV = "chirp-v5-5";
-const LIVE_OPERATIONS = ["music", "lyrics", "concat", "upsample_tags", "upload_audio"];
+const DEFAULT_MV = "chirp-v5";
 
 type TaskName =
   | "sound"
@@ -258,9 +255,9 @@ function requestFor(task: TaskName): GenerateRequest {
     }
     case "concat":
       return {
-        model: "suno_music",
+        model: "suno_concat",
         content: [],
-        parameters: { operation: "concat", poll_interval: DEFAULT_POLL_INTERVAL, max_wait: DEFAULT_MAX_WAIT },
+        parameters: { poll_interval: DEFAULT_POLL_INTERVAL, max_wait: DEFAULT_MAX_WAIT },
         meta: { clip_id: seed.clipId, is_infill: false },
       };
     case "underpainting":
@@ -311,15 +308,14 @@ function requestFor(task: TaskName): GenerateRequest {
       );
     case "upsample_tags":
       return {
-        model: "suno_music",
+        model: "suno_style_tags",
         content: [{ type: "text", text: "hopeful pop, warm piano, clear chorus" }],
-        parameters: { operation: "upsample_tags" },
       };
     case "upload_audio":
       return {
-        model: "suno_music",
+        model: "suno_upload_audio",
         content: [{ type: "audio", source: { type: "url", url: seed.acapellaAudioUrl } }],
-        parameters: { operation: "upload_audio", poll_interval: DEFAULT_POLL_INTERVAL, max_wait: DEFAULT_MAX_WAIT },
+        parameters: { poll_interval: DEFAULT_POLL_INTERVAL, max_wait: DEFAULT_MAX_WAIT },
       };
   }
 }
@@ -354,23 +350,6 @@ function errorJson(error: unknown) {
   };
 }
 
-function liveSunoModel(): GenerationModelDeclaration {
-  const declaration = getBuiltinGenerationModel("suno_music");
-  if (!declaration?.parameters?.operation || declaration.parameters.operation.type !== "string") {
-    throw new Error("suno_music declaration is unavailable");
-  }
-  return {
-    ...declaration,
-    parameters: {
-      ...declaration.parameters,
-      operation: {
-        ...declaration.parameters.operation,
-        enum: LIVE_OPERATIONS,
-      },
-    },
-  };
-}
-
 function redactAuth(event: GenerationDebugEvent): GenerationDebugEvent {
   if (event.type !== "request") return event;
   const headers = { ...event.headers };
@@ -386,7 +365,6 @@ async function runTask(task: TaskName, apiKey: string, baseUrl: string) {
   const client = createGenerationClient({
     apiKey,
     baseUrl,
-    models: [liveSunoModel()],
     debug: {
       enabled: true,
       includeSensitive: true,

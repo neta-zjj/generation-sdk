@@ -1,10 +1,12 @@
 schema: neta.generation.model.v1
-model: suno_music
-title: Suno Music
-description: Legacy Suno music entrypoint. Prefer versioned models such as suno_music_chirp_fenix and task-specific Suno models.
+model: suno_remaster_chirp_v5
+title: Suno Remaster Chirp v5.0
+description: Suno remaster task with a fixed chirp-v5 engine.
 adapter:
   type: suno.tasks
-  defaults:
+  operation: music
+  task: remaster
+  payload:
     mv: chirp-v5
 content:
   input:
@@ -13,36 +15,7 @@ content:
       max: 16
       merge: newline
       description: Prompt text. The adapter maps merged text to the operation's text field when that field is not provided.
-    - type: audio
-      required: false
-      max: 1
-      sources:
-        - url
-        - base64
-      description: Optional reference audio. The adapter maps it to url when url is not provided.
-    - type: image
-      required: false
-      max: 1
-      sources:
-        - url
-        - base64
-      description: Optional image source. The adapter maps it to image_url when image_url is not provided.
-    - type: video
-      required: false
-      max: 1
-      sources:
-        - url
-        - base64
-      description: Optional video source. The adapter maps it to video_url when video_url is not provided.
 parameters:
-  operation:
-    type: string
-    optional: true
-    default: music
-    enum:
-      - music
-      - lyrics
-    description: Legacy Suno endpoint operation. Prefer first-class Suno model names.
   poll_interval:
     type: integer
     optional: true
@@ -58,7 +31,6 @@ parameters:
     max: 3600
     description: Maximum seconds to wait for task completion.
 meta:
-  taskField: task
   fields:
     title:
       type: string
@@ -95,67 +67,7 @@ meta:
       description: Suno provider metadata payload.
     metadata_params:
       type: object
-      optional: true
-      description: Yunwu/Suno task-specific metadata payload.
-    task:
-      type: string
-      optional: true
-      enum:
-        - extend
-        - upload_extend
-        - infill
-        - fixed_infill
-        - infill_intro
-        - infill_outro
-        - cover_infill
-        - cover_extend
-        - artist_infill
-        - artist_consistency
-        - cover
-        - image_to_song
-        - video_to_song
-        - concat
-        - sound
-        - underpainting
-        - overpainting
-        - remaster
-        - vox
-        - chop_sample_condition
-        - mashup_condition
-        - playlist_condition
-      description: Legacy integrated Suno task for operation=music. Prefer task-specific Suno models.
-    mv:
-      type: string
-      optional: true
-      description: Legacy Suno music model version override.
-    task_id:
-      type: string
-      optional: true
-      description: Existing Suno task id used for continuation-style tasks.
-    clip_id:
-      type: string
-      optional: true
-      description: Existing Suno clip id used for legacy task payloads.
-    continue_clip_id:
-      type: string
-      optional: true
-      description: Clip id or URL to continue from.
-    continue_at:
-      type: number
-      optional: true
-      description: Continue position in seconds.
-    cover_clip_id:
-      type: string
-      optional: true
-      description: Clip id to cover.
-    persona_id:
-      type: string
-      optional: true
-      description: Suno persona id for artist-consistency tasks.
-    artist_clip_id:
-      type: string
-      optional: true
-      description: Source clip id for artist-consistency tasks.
+      description: Remaster metadata with clip_id and variation_category.
   taskVariants:
     extend:
       required:

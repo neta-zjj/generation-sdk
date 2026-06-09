@@ -12,7 +12,7 @@ import { mergeTextBlocks } from "../validation.js";
 const REQUEST_TIMEOUT_MS = 60_000;
 const DEFAULT_POLL_INTERVAL_SEC = 5;
 const DEFAULT_MAX_WAIT_SEC = 600;
-const DEFAULT_MUSIC_VERSION = "chirp-v5-5";
+const DEFAULT_MUSIC_VERSION = "chirp-v5";
 
 const OPERATION_PATHS: Record<
   string,
@@ -63,6 +63,10 @@ function asInteger(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isInteger(value) ? value : fallback;
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return isRecord(value) ? value : {};
+}
+
 function successCode(value: unknown): boolean {
   const code = String(value ?? "")
     .trim()
@@ -108,13 +112,23 @@ function normalizeTask(operation: string, data: unknown): SunoTaskDto | null {
 }
 
 function getOperation(input: GenerationAdapterInput): string {
-  const operation = asString(input.parameters.operation) ?? "music";
+  const fixedOperation = asString(input.declaration.adapter.operation);
+  const requestedOperation = asString(input.parameters.operation);
+  if (fixedOperation && requestedOperation && fixedOperation !== requestedOperation) {
+    throw new GenerationValidationError(
+      `${input.declaration.model} uses Suno operation ${fixedOperation}; parameters.operation cannot override it`,
+    );
+  }
+  const operation = fixedOperation ?? requestedOperation ?? "music";
   if (!OPERATION_PATHS[operation]) throw new GenerationValidationError(`Unsupported Suno operation: ${operation}`);
   return operation;
 }
 
 async function buildPayload(input: GenerationAdapterInput, operation: string): Promise<Record<string, unknown>> {
-  const payload: Record<string, unknown> = { ...input.meta };
+  const payload: Record<string, unknown> = {
+    ...asRecord(input.declaration.adapter.defaults),
+    ...input.meta,
+  };
   const config = OPERATION_PATHS[operation];
 
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
@@ -135,14 +149,28 @@ async function buildPayload(input: GenerationAdapterInput, operation: string): P
   const imageBlock = input.request.content.find(
     (block): block is Extract<GenerationContentBlock, { type: "image" }> => block.type === "image",
   );
-  if (imageBlock && payload.image_url === undefined)
-    payload.image_url = await input.context.resolveSource(imageBlock.source);
+  let imageUrl: string | undefined;
+  if (imageBlock) {
+    imageUrl = await input.context.resolveSource(imageBlock.source);
+    if (payload.image_url === undefined) payload.image_url = imageUrl;
+  }
 
   const videoBlock = input.request.content.find(
     (block): block is Extract<GenerationContentBlock, { type: "video" }> => block.type === "video",
   );
-  if (videoBlock && payload.video_url === undefined)
-    payload.video_url = await input.context.resolveSource(videoBlock.source);
+  let videoUrl: string | undefined;
+  if (videoBlock) {
+    videoUrl = await input.context.resolveSource(videoBlock.source);
+    if (payload.video_url === undefined) payload.video_url = videoUrl;
+  }
+
+  applyFixedPayload(input, payload, asRecord(input.declaration.adapter.payload));
+  const fixedTask = asString(input.declaration.adapter.task);
+  if (fixedTask) applyFixedPayload(input, payload, { task: fixedTask });
+
+  const task = asString(payload.task);
+  if (task === "image_to_song" && imageUrl) setMetadataParam(payload, "image_url", imageUrl);
+  if (task === "video_to_song" && videoUrl) setMetadataParam(payload, "video_url", videoUrl);
 
   normalizeMusicTaskPayload(input, operation, payload);
 
@@ -152,6 +180,28 @@ async function buildPayload(input: GenerationAdapterInput, operation: string): P
 
   validateSunoPayload(operation, payload);
   return payload;
+}
+
+function applyFixedPayload(
+  input: GenerationAdapterInput,
+  payload: Record<string, unknown>,
+  fixed: Record<string, unknown>,
+): void {
+  for (const [key, value] of Object.entries(fixed)) {
+    if (value === undefined) continue;
+    if (payload[key] !== undefined && payload[key] !== value) {
+      throw new GenerationValidationError(
+        `${input.declaration.model} fixes Suno ${key}; meta.${key} cannot override it`,
+      );
+    }
+    payload[key] = value;
+  }
+}
+
+function setMetadataParam(payload: Record<string, unknown>, key: string, value: string): void {
+  const metadataParams = isRecord(payload.metadata_params) ? payload.metadata_params : {};
+  if (metadataParams[key] === undefined) metadataParams[key] = value;
+  payload.metadata_params = metadataParams;
 }
 
 function contentCount(content: GenerationContentBlock[], type: GenerationContentSpec["type"]): number {

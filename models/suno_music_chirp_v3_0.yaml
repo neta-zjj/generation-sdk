@@ -1,0 +1,70 @@
+schema: neta.generation.model.v1
+model: suno_music_chirp_v3_0
+title: Suno Music Chirp v3.0
+description: Suno text-to-music model with a fixed Yunwu mv version.
+adapter:
+  type: suno.tasks
+  operation: music
+  payload:
+    mv: chirp-v3-0
+content:
+  input:
+    - type: text
+      required: true
+      max: 16
+      merge: newline
+      description: Prompt text. The adapter maps merged text to the operation's text field when that field is not provided.
+parameters:
+  poll_interval:
+    type: integer
+    optional: true
+    default: 5
+    min: 1
+    max: 60
+    description: Seconds between task status checks.
+  max_wait:
+    type: integer
+    optional: true
+    default: 600
+    min: 30
+    max: 3600
+    description: Maximum seconds to wait for task completion.
+meta:
+  fields:
+    title:
+      type: string
+      optional: true
+      description: Suno song title.
+    tags:
+      type: string
+      optional: true
+      description: Comma-separated Suno music style tags.
+    prompt:
+      type: string
+      optional: true
+      description: Provider prompt override.
+    gpt_description_prompt:
+      type: string
+      optional: true
+      description: Suno inspiration-mode prompt.
+    negative_tags:
+      type: string
+      optional: true
+      description: Styles to avoid.
+    generation_type:
+      type: string
+      optional: true
+      description: Suno generation type.
+    make_instrumental:
+      type: boolean
+      optional: true
+      default: false
+      description: Generate instrumental music.
+    metadata:
+      type: object
+      optional: true
+      description: Suno provider metadata payload.
+    metadata_params:
+      type: object
+      optional: true
+      description: Yunwu/Suno task-specific metadata payload.

@@ -32,9 +32,12 @@ type TaskName =
   | "video_to_song"
   | "concat"
   | "underpainting"
+  | "overpainting"
   | "remaster"
   | "vox"
+  | "chop_sample_condition"
   | "mashup_condition"
+  | "playlist_condition"
   | "lyrics"
   | "upsample_tags"
   | "upload_audio"
@@ -60,9 +63,12 @@ const taskNames: TaskName[] = [
   "video_to_song",
   "concat",
   "underpainting",
+  "overpainting",
   "remaster",
   "vox",
+  "chop_sample_condition",
   "mashup_condition",
+  "playlist_condition",
   "lyrics",
   "upsample_tags",
   "upload_audio",
@@ -363,8 +369,8 @@ function requestFor(task: TaskName): GenerateRequest {
         underpainting_end_s: useBaseClip ? 14 : 10,
         override_fields: prompt ? ["prompt", "tags"] : ["tags"],
       };
-      return musicRequest(
-        "underpainting",
+      return taskModelRequest(
+        "suno_underpainting_chirp_v5",
         {
           title: title(task),
           tags: metadataParams.tags,
@@ -383,6 +389,21 @@ function requestFor(task: TaskName): GenerateRequest {
         prompt ? [{ type: "text", text: prompt }] : [],
       );
     }
+    case "overpainting":
+      return taskModelRequest(
+        "suno_overpainting_chirp_v5",
+        {
+          title: title(task),
+          tags: "pop,female voice",
+          make_instrumental: false,
+          metadata_params: {
+            overpainting_clip_id: seed.baseAudioUrl,
+            overpainting_start_s: 0,
+            overpainting_end_s: 30,
+          },
+        },
+        [{ type: "text", text: "[Verse]\nnew hopeful lyrics\n[Chorus]\nwarm piano carries the night" }],
+      );
     case "remaster":
     case "remaster_retry":
       return taskModelRequest(
@@ -396,6 +417,21 @@ function requestFor(task: TaskName): GenerateRequest {
         },
         [{ type: "text", text: "remaster this clip with cleaner mix and warm piano tone" }],
       );
+    case "chop_sample_condition":
+      return taskModelRequest(
+        "suno_chop_sample_condition_chirp_v5",
+        {
+          title: title(task),
+          tags: "pop,female voice",
+          make_instrumental: false,
+          metadata_params: {
+            chop_sample_clip_id: seed.uploadAudioUrl,
+            chop_sample_start_s: 0,
+            chop_sample_end_s: 30,
+          },
+        },
+        [{ type: "text", text: "[Verse]\nhum this into a complete song\n[Chorus]\nwarm piano opens the sky" }],
+      );
     case "mashup_condition":
       return taskModelRequest(
         "suno_mashup_chirp_v5",
@@ -406,6 +442,20 @@ function requestFor(task: TaskName): GenerateRequest {
           metadata_params: { mashup_clip_ids: [seed.clipId, seed.secondClipId] },
         },
         [{ type: "text", text: "[Verse]\nblend these two references\n[Chorus]\nmake a bright warm piano hook" }],
+      );
+    case "playlist_condition":
+      return taskModelRequest(
+        "suno_playlist_condition_chirp_v5",
+        {
+          title: title(task),
+          tags: "",
+          make_instrumental: false,
+          metadata_params: {
+            playlist_id: "inspiration",
+            playlist_clip_ids: [seed.clipId, seed.secondClipId],
+          },
+        },
+        [{ type: "text", text: "[Verse]\nwrite a new song inspired by these references" }],
       );
     case "lyrics":
       return {

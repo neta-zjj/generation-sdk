@@ -134,9 +134,12 @@ const sunoTaskVariants = {
   concat: { required: ["clip_id"] },
   sound: { required: ["metadata_params"] },
   underpainting: { required: ["metadata_params"] },
+  overpainting: { required: ["metadata_params"] },
   remaster: { required: ["metadata_params"] },
   vox: { required: ["artist_clip_id"] },
+  chop_sample_condition: { required: ["metadata_params"] },
   mashup_condition: { required: ["metadata_params"] },
+  playlist_condition: { required: ["metadata_params"] },
 } satisfies NonNullable<GenerationModelDeclaration["meta"]>["taskVariants"];
 
 const sunoLegacyMeta = {
@@ -467,6 +470,26 @@ const sunoModels = [
     },
   }),
   sunoTaskModel({
+    model: "suno_underpainting_chirp_v5",
+    title: "Suno Underpainting Chirp v5.0",
+    description: "Suno add-accompaniment task with a fixed chirp-v5 engine.",
+    task: "underpainting",
+    content: { text: "optional" },
+    fields: {
+      metadata_params: { type: "object", description: "Underpainting clip and timing metadata." },
+    },
+  }),
+  sunoTaskModel({
+    model: "suno_overpainting_chirp_v5",
+    title: "Suno Overpainting Chirp v5.0",
+    description: "Suno add-vocal task with a fixed chirp-v5 engine.",
+    task: "overpainting",
+    content: { text: "optional" },
+    fields: {
+      metadata_params: { type: "object", description: "Overpainting clip and timing metadata." },
+    },
+  }),
+  sunoTaskModel({
     model: "suno_vox_chirp_v5",
     title: "Suno Vox Chirp v5.0",
     description: "Suno hum-to-song task with a fixed chirp-v5 engine.",
@@ -477,6 +500,16 @@ const sunoModels = [
     },
   }),
   sunoTaskModel({
+    model: "suno_chop_sample_condition_chirp_v5",
+    title: "Suno Chop Sample Condition Chirp v5.0",
+    description: "Suno sample-to-song task with a fixed chirp-v5 engine.",
+    task: "chop_sample_condition",
+    content: { text: "optional" },
+    fields: {
+      metadata_params: { type: "object", description: "Chop-sample clip and timing metadata." },
+    },
+  }),
+  sunoTaskModel({
     model: "suno_mashup_chirp_v5",
     title: "Suno Mashup Chirp v5.0",
     description: "Suno mashup task with a fixed chirp-v5 engine.",
@@ -484,6 +517,16 @@ const sunoModels = [
     content: { text: "optional" },
     fields: {
       metadata_params: { type: "object", description: "Mashup metadata with mashup_clip_ids." },
+    },
+  }),
+  sunoTaskModel({
+    model: "suno_playlist_condition_chirp_v5",
+    title: "Suno Playlist Condition Chirp v5.0",
+    description: "Suno inspiration task with a fixed chirp-v5 engine.",
+    task: "playlist_condition",
+    content: { text: "optional" },
+    fields: {
+      metadata_params: { type: "object", description: "Playlist inspiration metadata with playlist_clip_ids." },
     },
   }),
 ] satisfies GenerationModelDeclaration[];

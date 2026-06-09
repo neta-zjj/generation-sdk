@@ -36,9 +36,14 @@ type TaskResponse<T = unknown> = {
 
 type SunoTaskDto = {
   task_id?: unknown;
+  taskBatchId?: unknown;
+  task_batch_id?: unknown;
   action?: unknown;
   status?: unknown;
+  taskStatus?: unknown;
+  task_status?: unknown;
   fail_reason?: unknown;
+  failReason?: unknown;
   result_url?: unknown;
   progress?: unknown;
   submit_time?: unknown;
@@ -98,15 +103,28 @@ function extractTaskId(value: unknown): string | undefined {
 }
 
 function normalizeStatus(value: unknown): string {
-  return String(value ?? "")
+  const status = String(value ?? "")
     .trim()
     .toLowerCase();
+  if (status === "finished") return "success";
+  if (status === "fail" || status === "rejected") return "failed";
+  return status;
 }
 
 function normalizeTask(operation: string, data: unknown): SunoTaskDto | null {
   if (Array.isArray(data)) return data.length > 0 ? normalizeTask(operation, data[0]) : null;
   if (!isRecord(data)) return null;
-  if ("status" in data || "task_id" in data) return data as SunoTaskDto;
+  if ("status" in data || "taskStatus" in data || "task_status" in data || "task_id" in data || "taskBatchId" in data) {
+    const hasProviderEnvelope =
+      "taskStatus" in data || "task_status" in data || "taskBatchId" in data || "task_batch_id" in data;
+    return {
+      ...data,
+      task_id: data.task_id ?? data.taskBatchId ?? data.task_batch_id,
+      status: data.status ?? data.taskStatus ?? data.task_status,
+      fail_reason: data.fail_reason ?? data.failReason,
+      data: data.data ?? (hasProviderEnvelope ? data : undefined),
+    } as SunoTaskDto;
+  }
   if (Array.isArray(data.data) && data.data.length > 0) return normalizeTask(operation, data.data[0]);
   return { action: operation, status: "SUCCESS", data };
 }

@@ -51,6 +51,30 @@ const sunoTaskModelCases = [
     meta: { continue_clip_id: "clip_origin", metadata_params: { infill_start_s: 10, infill_end_s: 20 } },
   },
   {
+    model: "suno_underpainting_chirp_v5",
+    task: "underpainting",
+    content: [{ type: "text" as const, text: "add warm accompaniment under this vocal" }],
+    meta: {
+      metadata_params: {
+        underpainting_clip_id: "https://example.com/vocal.mp3",
+        underpainting_start_s: 0,
+        underpainting_end_s: 10,
+      },
+    },
+  },
+  {
+    model: "suno_overpainting_chirp_v5",
+    task: "overpainting",
+    content: [{ type: "text" as const, text: "[Verse]\nnew lyric line\n[Chorus]\nwarm hook" }],
+    meta: {
+      metadata_params: {
+        overpainting_clip_id: "https://example.com/base.mp3",
+        overpainting_start_s: 0,
+        overpainting_end_s: 30,
+      },
+    },
+  },
+  {
     model: "suno_vox_chirp_v5",
     task: "vox",
     content: [{ type: "text" as const, text: "turn this reference into a complete song" }],
@@ -61,6 +85,24 @@ const sunoTaskModelCases = [
     task: "mashup_condition",
     content: [{ type: "text" as const, text: "blend these two references into a new chorus" }],
     meta: { metadata_params: { mashup_clip_ids: ["clip_a", "clip_b"] } },
+  },
+  {
+    model: "suno_chop_sample_condition_chirp_v5",
+    task: "chop_sample_condition",
+    content: [{ type: "text" as const, text: "[Verse]\nturn this hum into a song" }],
+    meta: {
+      metadata_params: {
+        chop_sample_clip_id: "https://example.com/hum.mp3",
+        chop_sample_start_s: 0,
+        chop_sample_end_s: 30,
+      },
+    },
+  },
+  {
+    model: "suno_playlist_condition_chirp_v5",
+    task: "playlist_condition",
+    content: [{ type: "text" as const, text: "[Verse]\nwrite a song inspired by these references" }],
+    meta: { metadata_params: { playlist_id: "inspiration", playlist_clip_ids: ["clip_a", "clip_b"] } },
   },
 ] as const;
 
@@ -392,6 +434,72 @@ describe("suno.tasks adapter", () => {
         type: "image",
         source: { type: "url", url: "https://example.com/cover.jpg" },
         meta: expect.objectContaining({ id: "item_1", clip_id: "clip_1", tags: "cinematic pop" }),
+      },
+    ]);
+  });
+
+  it("normalizes Yunwu taskStatus fetch responses", async () => {
+    vi.useFakeTimers();
+    const fetchMock = async (url: string | URL | Request) => {
+      if (String(url).endsWith("/suno/submit/music")) {
+        return new Response(JSON.stringify({ code: 200, data: "task_yunwu_status" }), { status: 200 });
+      }
+      return new Response(
+        JSON.stringify({
+          code: 200,
+          data: {
+            taskBatchId: "task_yunwu_status",
+            taskStatus: "finished",
+            items: [
+              {
+                id: "item_1",
+                clipId: "clip_1",
+                title: "Yunwu Finished",
+                status: 30,
+                progress: 100,
+                progressMsg: "Production completed",
+                cld2AudioUrl: "https://example.com/yunwu.mp3",
+                cld2ImageUrl: "https://example.com/yunwu.jpg",
+              },
+            ],
+          },
+        }),
+        { status: 200 },
+      );
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const promise = client.generate({
+      model: "suno_overpainting_chirp_v5",
+      content: [{ type: "text", text: "[Verse]\nnew hopeful lyrics" }],
+      parameters: { poll_interval: 1, max_wait: 30 },
+      meta: {
+        metadata_params: {
+          overpainting_clip_id: "https://example.com/base.mp3",
+          overpainting_start_s: 0,
+          overpainting_end_s: 30,
+        },
+      },
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    const output = await promise;
+    vi.useRealTimers();
+
+    expect(output).toEqual([
+      {
+        type: "audio",
+        source: { type: "url", url: "https://example.com/yunwu.mp3" },
+        meta: expect.objectContaining({
+          task_id: "task_yunwu_status",
+          clip_id: "clip_1",
+          status: 30,
+          progress_message: "Production completed",
+        }),
+      },
+      {
+        type: "image",
+        source: { type: "url", url: "https://example.com/yunwu.jpg" },
+        meta: expect.objectContaining({ task_id: "task_yunwu_status", clip_id: "clip_1" }),
       },
     ]);
   });

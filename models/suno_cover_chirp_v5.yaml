@@ -143,12 +143,21 @@ meta:
     underpainting:
       required:
         - metadata_params
+    overpainting:
+      required:
+        - metadata_params
     remaster:
       required:
         - metadata_params
     vox:
       required:
         - artist_clip_id
+    chop_sample_condition:
+      required:
+        - metadata_params
     mashup_condition:
+      required:
+        - metadata_params
+    playlist_condition:
       required:
         - metadata_params

@@ -1,11 +1,11 @@
 schema: neta.generation.model.v1
-model: suno_sound_chirp_v5
-title: Suno Sound Chirp v5.0
-description: Suno sound-effect generation task with a fixed chirp-v5 engine.
+model: suno_underpainting_chirp_v5
+title: Suno Underpainting Chirp v5.0
+description: Suno add-accompaniment task with a fixed chirp-v5 engine.
 adapter:
   type: suno.tasks
   operation: music
-  task: sound
+  task: underpainting
   payload:
     mv: chirp-v5
 content:
@@ -67,7 +67,7 @@ meta:
       description: Suno provider metadata payload.
     metadata_params:
       type: object
-      description: Sound task metadata payload.
+      description: Underpainting clip and timing metadata.
   taskVariants:
     extend:
       required:

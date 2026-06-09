@@ -120,8 +120,12 @@ const client = createGenerationClient({
 - `suno_extend_chirp_v5`
 - `suno_cover_chirp_v5`
 - `suno_infill_chirp_v5`
+- `suno_underpainting_chirp_v5`
+- `suno_overpainting_chirp_v5`
 - `suno_vox_chirp_v5`
+- `suno_chop_sample_condition_chirp_v5`
 - `suno_mashup_chirp_v5`
+- `suno_playlist_condition_chirp_v5`
 
 Built-in model declarations share the same client-level `apiKey` and `baseUrl`.
 
@@ -198,9 +202,10 @@ Suno uses one shared adapter with multiple public model declarations. Stable Sun
 - `suno_music_chirp_fenix`
 
 Task-specific Suno capabilities are also models, for example `suno_lyrics`, `suno_sound_chirp_v5`,
-`suno_image_to_song_chirp_v5`, `suno_video_to_song_chirp_v5`, and `suno_remaster_chirp_v5`. Provider-specific fields such
-as `title`, `tags`, `make_instrumental`, and `metadata_params` still belong in `meta`. The legacy `suno_music` model remains
-available for older `parameters.operation` / `meta.task` requests, but new code should prefer the first-class model names.
+`suno_image_to_song_chirp_v5`, `suno_video_to_song_chirp_v5`, `suno_remaster_chirp_v5`,
+`suno_overpainting_chirp_v5`, and `suno_chop_sample_condition_chirp_v5`. Provider-specific fields such as `title`,
+`tags`, `make_instrumental`, and `metadata_params` still belong in `meta`. The legacy `suno_music` model remains available
+for older `parameters.operation` / `meta.task` requests, but new code should prefer the first-class model names.
 
 ## Load model declarations from files
 

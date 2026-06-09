@@ -35,6 +35,7 @@ type TaskName =
   | "remaster"
   | "vox"
   | "mashup_condition"
+  | "lyrics"
   | "upsample_tags"
   | "upload_audio"
   | "image_to_song_plain"
@@ -54,7 +55,6 @@ const taskNames: TaskName[] = [
   "cover_infill",
   "cover_extend",
   "artist_infill",
-  "artist_consistency",
   "cover",
   "image_to_song",
   "video_to_song",
@@ -63,6 +63,7 @@ const taskNames: TaskName[] = [
   "remaster",
   "vox",
   "mashup_condition",
+  "lyrics",
   "upsample_tags",
   "upload_audio",
 ];
@@ -127,12 +128,37 @@ function musicRequest(
   };
 }
 
+function taskModelRequest(
+  model: string,
+  meta: Record<string, unknown>,
+  content: GenerateRequest["content"],
+): GenerateRequest {
+  return {
+    model,
+    content,
+    parameters: { poll_interval: DEFAULT_POLL_INTERVAL, max_wait: DEFAULT_MAX_WAIT },
+    meta,
+  };
+}
+
+function infillMetadataParams(task: TaskName) {
+  return {
+    continue_clip_id: seed.clipId,
+    continued_aligned_prompt: "replace this section with a brighter warm piano phrase",
+    infill_start_s: task === "infill_intro" ? 0 : 8,
+    infill_end_s: task === "infill_outro" ? 28 : 14,
+    infill_context_start_s: 0,
+    infill_context_end_s: 32,
+    metadata: { infill_lyrics: "brighter warm piano phrase" },
+  };
+}
+
 function requestFor(task: TaskName): GenerateRequest {
   const basePrompt = "short original hopeful instrumental pop, warm piano, clear chorus";
   switch (task) {
     case "sound":
-      return musicRequest(
-        task,
+      return taskModelRequest(
+        "suno_sound_chirp_v5",
         {
           title: title(task),
           tags: "ambient, rain, cinematic",
@@ -142,14 +168,13 @@ function requestFor(task: TaskName): GenerateRequest {
         [{ type: "text", text: "gentle rain ambience with distant thunder" }],
       );
     case "extend":
-      return musicRequest(
-        task,
+      return taskModelRequest(
+        "suno_extend_chirp_v5",
         {
           title: title(task),
           tags: "hopeful pop, warm piano",
           make_instrumental: true,
           task_id: seed.taskId,
-          clip_id: seed.clipId,
           continue_clip_id: seed.clipId,
           continue_at: 20,
         },
@@ -170,16 +195,40 @@ function requestFor(task: TaskName): GenerateRequest {
         [{ type: "text", text: "extend the uploaded reference with a short warm piano hook" }],
       );
     case "infill":
+      return taskModelRequest(
+        "suno_infill_chirp_v5",
+        {
+          title: title(task),
+          tags: "hopeful pop, warm piano",
+          make_instrumental: true,
+          task_id: seed.taskId,
+          clip_id: seed.clipId,
+          continue_clip_id: seed.clipId,
+          continue_at: 20,
+          metadata_params: infillMetadataParams(task),
+        },
+        [{ type: "text", text: basePrompt }],
+      );
     case "fixed_infill":
     case "infill_intro":
     case "infill_outro":
     case "cover_infill":
-    case "cover_extend":
     case "artist_infill":
-    case "artist_consistency":
-    case "cover":
-    case "vox":
-    case "mashup_condition":
+      return musicRequest(
+        task,
+        {
+          title: title(task),
+          tags: "hopeful pop, warm piano",
+          make_instrumental: true,
+          task_id: seed.taskId,
+          clip_id: seed.clipId,
+          continue_clip_id: seed.clipId,
+          continue_at: 20,
+          metadata_params: infillMetadataParams(task),
+        },
+        [{ type: "text", text: basePrompt }],
+      );
+    case "cover_extend":
       return musicRequest(
         task,
         {
@@ -193,6 +242,49 @@ function requestFor(task: TaskName): GenerateRequest {
         },
         [{ type: "text", text: basePrompt }],
       );
+    case "cover":
+      return taskModelRequest(
+        "suno_cover_chirp_v5",
+        {
+          title: title(task),
+          tags: "hopeful pop, warm piano",
+          make_instrumental: false,
+          task_id: seed.taskId,
+          cover_clip_id: seed.clipId,
+          continue_clip_id: seed.clipId,
+          continue_at: 20,
+        },
+        [
+          {
+            type: "text",
+            text: "[Verse]\nnew hopeful lyrics over warm piano\n[Chorus]\ncarry us home in morning light",
+          },
+        ],
+      );
+    case "vox":
+      return taskModelRequest(
+        "suno_vox_chirp_v5",
+        {
+          title: title(task),
+          tags: "pop,female voice",
+          make_instrumental: false,
+          artist_clip_id: seed.clipId,
+        },
+        [{ type: "text", text: "[Verse]\nnew hopeful lyrics\n[Chorus]\nwarm piano carries us home" }],
+      );
+    case "artist_consistency":
+      return musicRequest(
+        task,
+        {
+          mv: "chirp-v4-tau",
+          title: title(task),
+          tags: "hopeful pop, warm piano",
+          make_instrumental: false,
+          persona_id: getArg("persona-id"),
+          artist_clip_id: getArg("artist-clip-id") ?? seed.clipId,
+        },
+        [{ type: "text", text: "[Verse]\nnew hopeful lyrics\n[Chorus]\nwarm piano carries us home" }],
+      );
     case "image_to_song":
     case "image_to_song_plain": {
       const prompt = "short original instrumental inspired by a quiet waterfall, warm piano";
@@ -201,10 +293,9 @@ function requestFor(task: TaskName): GenerateRequest {
         tags: "ambient instrumental, warm piano",
         image_url: seed.imageUrl,
       };
-      return musicRequest(
-        "image_to_song",
+      return taskModelRequest(
+        "suno_image_to_song_chirp_v5",
         {
-          mv: "chirp-fenix",
           title: title(task),
           tags: "ambient instrumental, warm piano",
           negative_tags: "",
@@ -231,10 +322,9 @@ function requestFor(task: TaskName): GenerateRequest {
         tags: "cinematic instrumental, warm piano",
         video_url: seed.videoUrl,
       };
-      return musicRequest(
-        "video_to_song",
+      return taskModelRequest(
+        "suno_video_to_song_chirp_v5",
         {
-          mv: "chirp-fenix",
           title: title(task),
           tags: "cinematic instrumental, warm piano",
           negative_tags: "",
@@ -268,15 +358,14 @@ function requestFor(task: TaskName): GenerateRequest {
       const metadataParams = {
         prompt,
         tags: "hopeful pop, warm piano",
-        underpainting_clip_id: useBaseClip ? seed.clipId : seed.uploadClipId,
-        underpainting_start_s: useBaseClip ? 8 : 1,
-        underpainting_end_s: useBaseClip ? 14 : 3,
+        underpainting_clip_id: useBaseClip ? seed.clipId : seed.acapellaAudioUrl,
+        underpainting_start_s: useBaseClip ? 8 : 0,
+        underpainting_end_s: useBaseClip ? 14 : 10,
         override_fields: prompt ? ["prompt", "tags"] : ["tags"],
       };
       return musicRequest(
         "underpainting",
         {
-          mv: "chirp-bluejay",
           title: title(task),
           tags: metadataParams.tags,
           negative_tags: "",
@@ -296,16 +385,34 @@ function requestFor(task: TaskName): GenerateRequest {
     }
     case "remaster":
     case "remaster_retry":
-      return musicRequest(
-        "remaster",
+      return taskModelRequest(
+        "suno_remaster_chirp_v5",
         {
-          task_id: getArg("remaster-task-id"),
-          clip_id: getArg("remaster-clip-id") ?? seed.remasterClipId,
-          model_name: getArg("remaster-model-name") ?? "chirp-carp",
-          variation_category: getArg("remaster-variation") ?? "subtle",
+          prompt: "keep the original mood and clean up the mix",
+          metadata_params: {
+            clip_id: getArg("remaster-clip-id") ?? seed.remasterClipId,
+            variation_category: getArg("remaster-variation") ?? "normal",
+          },
         },
         [{ type: "text", text: "remaster this clip with cleaner mix and warm piano tone" }],
       );
+    case "mashup_condition":
+      return taskModelRequest(
+        "suno_mashup_chirp_v5",
+        {
+          title: title(task),
+          tags: "hopeful pop, warm piano",
+          make_instrumental: false,
+          metadata_params: { mashup_clip_ids: [seed.clipId, seed.secondClipId] },
+        },
+        [{ type: "text", text: "[Verse]\nblend these two references\n[Chorus]\nmake a bright warm piano hook" }],
+      );
+    case "lyrics":
+      return {
+        model: "suno_lyrics",
+        content: [{ type: "text", text: "write a hopeful chorus about sunrise after a storm" }],
+        parameters: { poll_interval: DEFAULT_POLL_INTERVAL, max_wait: DEFAULT_MAX_WAIT },
+      };
     case "upsample_tags":
       return {
         model: "suno_style_tags",

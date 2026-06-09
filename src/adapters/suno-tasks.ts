@@ -171,6 +171,10 @@ async function buildPayload(input: GenerationAdapterInput, operation: string): P
   const task = asString(payload.task);
   if (task === "image_to_song" && imageUrl) setMetadataParam(payload, "image_url", imageUrl);
   if (task === "video_to_song" && videoUrl) setMetadataParam(payload, "video_url", videoUrl);
+  if (task === "cover" && payload.clip_id === undefined) {
+    const coverClipId = asString(payload.cover_clip_id);
+    if (coverClipId) payload.clip_id = coverClipId;
+  }
 
   normalizeMusicTaskPayload(input, operation, payload);
 

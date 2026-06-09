@@ -117,12 +117,9 @@ meta:
         - concat
         - sound
         - underpainting
-        - overpainting
         - remaster
         - vox
-        - chop_sample_condition
         - mashup_condition
-        - playlist_condition
       description: Legacy integrated Suno task for operation=music. Prefer task-specific Suno models.
     mv:
       type: string
@@ -194,7 +191,10 @@ meta:
       required:
         - persona_id
         - artist_clip_id
-    cover: {}
+    cover:
+      required:
+        - task_id
+        - continue_clip_id
     image_to_song:
       requiredContent:
         - image
@@ -214,21 +214,12 @@ meta:
     underpainting:
       required:
         - metadata_params
-    overpainting:
-      required:
-        - metadata_params
     remaster:
       required:
         - metadata_params
     vox:
       required:
-        - metadata_params
-    chop_sample_condition:
-      required:
-        - metadata_params
+        - artist_clip_id
     mashup_condition:
-      required:
-        - metadata_params
-    playlist_condition:
       required:
         - metadata_params

@@ -128,18 +128,15 @@ const sunoTaskVariants = {
   cover_extend: sunoContinuationTaskVariant,
   artist_infill: { required: ["continue_clip_id", "metadata_params"] },
   artist_consistency: { required: ["persona_id", "artist_clip_id"] },
-  cover: {},
+  cover: { required: ["task_id", "continue_clip_id"] },
   image_to_song: { requiredContent: ["image"], required: ["metadata_params"] },
   video_to_song: { requiredContent: ["video"], required: ["metadata_params"] },
   concat: { required: ["clip_id"] },
   sound: { required: ["metadata_params"] },
   underpainting: { required: ["metadata_params"] },
-  overpainting: { required: ["metadata_params"] },
   remaster: { required: ["metadata_params"] },
-  vox: { required: ["metadata_params"] },
-  chop_sample_condition: { required: ["metadata_params"] },
+  vox: { required: ["artist_clip_id"] },
   mashup_condition: { required: ["metadata_params"] },
-  playlist_condition: { required: ["metadata_params"] },
 } satisfies NonNullable<GenerationModelDeclaration["meta"]>["taskVariants"];
 
 const sunoLegacyMeta = {
@@ -453,6 +450,9 @@ const sunoModels = [
     content: { text: "optional" },
     fields: {
       cover_clip_id: { type: "string", description: "Clip id to cover." },
+      task_id: { type: "string", description: "Source Suno task id used for cover routing." },
+      continue_clip_id: { type: "string", description: "Source clip id used by the provider cover workflow." },
+      continue_at: { type: "number", optional: true, description: "Source clip continuation position in seconds." },
     },
   }),
   sunoTaskModel({
@@ -467,23 +467,13 @@ const sunoModels = [
     },
   }),
   sunoTaskModel({
-    model: "suno_underpainting_chirp_v5",
-    title: "Suno Underpainting Chirp v5.0",
-    description: "Suno add-accompaniment task with a fixed chirp-v5 engine.",
-    task: "underpainting",
+    model: "suno_vox_chirp_v5",
+    title: "Suno Vox Chirp v5.0",
+    description: "Suno hum-to-song task with a fixed chirp-v5 engine.",
+    task: "vox",
     content: { text: "optional" },
     fields: {
-      metadata_params: { type: "object", description: "Underpainting clip and timing metadata." },
-    },
-  }),
-  sunoTaskModel({
-    model: "suno_overpainting_chirp_v5",
-    title: "Suno Overpainting Chirp v5.0",
-    description: "Suno add-vocal task with a fixed chirp-v5 engine.",
-    task: "overpainting",
-    content: { text: "optional" },
-    fields: {
-      metadata_params: { type: "object", description: "Overpainting clip and timing metadata." },
+      artist_clip_id: { type: "string", description: "Reference hum or vocal clip id." },
     },
   }),
   sunoTaskModel({

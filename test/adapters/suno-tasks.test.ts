@@ -12,7 +12,7 @@ const sunoTaskModelCases = [
     model: "suno_cover_chirp_v5",
     task: "cover",
     content: [{ type: "text" as const, text: "cover this with new lyrics" }],
-    meta: { cover_clip_id: "clip_origin" },
+    meta: { cover_clip_id: "clip_origin", task_id: "task_origin", continue_clip_id: "clip_origin" },
   },
   {
     model: "suno_image_to_song_chirp_v5",
@@ -51,18 +51,10 @@ const sunoTaskModelCases = [
     meta: { continue_clip_id: "clip_origin", metadata_params: { infill_start_s: 10, infill_end_s: 20 } },
   },
   {
-    model: "suno_underpainting_chirp_v5",
-    task: "underpainting",
-    content: [{ type: "text" as const, text: "add warm piano accompaniment" }],
-    meta: {
-      metadata_params: { underpainting_clip_id: "clip_origin", underpainting_start_s: 0, underpainting_end_s: 30 },
-    },
-  },
-  {
-    model: "suno_overpainting_chirp_v5",
-    task: "overpainting",
-    content: [{ type: "text" as const, text: "add a clear vocal melody" }],
-    meta: { metadata_params: { overpainting_clip_id: "clip_origin", overpainting_start_s: 0, overpainting_end_s: 30 } },
+    model: "suno_vox_chirp_v5",
+    task: "vox",
+    content: [{ type: "text" as const, text: "turn this reference into a complete song" }],
+    meta: { artist_clip_id: "clip_origin", tags: "pop,female voice", make_instrumental: false },
   },
   {
     model: "suno_mashup_chirp_v5",
@@ -269,7 +261,9 @@ describe("suno.tasks adapter", () => {
         title: "Cover Test",
         tags: "warm piano",
         make_instrumental: false,
+        task_id: "task_origin",
         cover_clip_id: "clip_origin",
+        continue_clip_id: "clip_origin",
       },
     });
     await vi.advanceTimersByTimeAsync(1000);
@@ -283,7 +277,10 @@ describe("suno.tasks adapter", () => {
       title: "Cover Test",
       tags: "warm piano",
       make_instrumental: false,
+      task_id: "task_origin",
+      clip_id: "clip_origin",
       cover_clip_id: "clip_origin",
+      continue_clip_id: "clip_origin",
     });
   });
 
@@ -479,6 +476,24 @@ describe("suno.tasks adapter", () => {
         parameters: { poll_interval: 1, max_wait: 30 },
       }),
     ).rejects.toThrow("Missing required meta: cover_clip_id");
+
+    await expect(() =>
+      client.validate({
+        model: "suno_cover_chirp_v5",
+        content: [{ type: "text", text: "cover this" }],
+        parameters: { poll_interval: 1, max_wait: 30 },
+        meta: { cover_clip_id: "clip_origin" },
+      }),
+    ).toThrow("Missing required meta: task_id");
+
+    await expect(() =>
+      client.validate({
+        model: "suno_cover_chirp_v5",
+        content: [{ type: "text", text: "cover this" }],
+        parameters: { poll_interval: 1, max_wait: 30 },
+        meta: { cover_clip_id: "clip_origin", task_id: "task_origin" },
+      }),
+    ).toThrow("Missing required meta: continue_clip_id");
 
     await expect(() =>
       client.validate({

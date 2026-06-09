@@ -120,8 +120,7 @@ const client = createGenerationClient({
 - `suno_extend_chirp_v5`
 - `suno_cover_chirp_v5`
 - `suno_infill_chirp_v5`
-- `suno_underpainting_chirp_v5`
-- `suno_overpainting_chirp_v5`
+- `suno_vox_chirp_v5`
 - `suno_mashup_chirp_v5`
 
 Built-in model declarations share the same client-level `apiKey` and `baseUrl`.

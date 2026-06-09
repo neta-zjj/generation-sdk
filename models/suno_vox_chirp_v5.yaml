@@ -1,11 +1,11 @@
 schema: neta.generation.model.v1
-model: suno_overpainting_chirp_v5
-title: Suno Overpainting Chirp v5.0
-description: Suno add-vocal task with a fixed chirp-v5 engine.
+model: suno_vox_chirp_v5
+title: Suno Vox Chirp v5.0
+description: Suno hum-to-song task with a fixed chirp-v5 engine.
 adapter:
   type: suno.tasks
   operation: music
-  task: overpainting
+  task: vox
   payload:
     mv: chirp-v5
 content:
@@ -67,7 +67,11 @@ meta:
       description: Suno provider metadata payload.
     metadata_params:
       type: object
-      description: Overpainting clip and timing metadata.
+      optional: true
+      description: Yunwu/Suno task-specific metadata payload.
+    artist_clip_id:
+      type: string
+      description: Reference hum or vocal clip id.
   taskVariants:
     extend:
       required:
@@ -106,7 +110,10 @@ meta:
       required:
         - persona_id
         - artist_clip_id
-    cover: {}
+    cover:
+      required:
+        - task_id
+        - continue_clip_id
     image_to_song:
       requiredContent:
         - image
@@ -126,21 +133,12 @@ meta:
     underpainting:
       required:
         - metadata_params
-    overpainting:
-      required:
-        - metadata_params
     remaster:
       required:
         - metadata_params
     vox:
       required:
-        - metadata_params
-    chop_sample_condition:
-      required:
-        - metadata_params
+        - artist_clip_id
     mashup_condition:
-      required:
-        - metadata_params
-    playlist_condition:
       required:
         - metadata_params

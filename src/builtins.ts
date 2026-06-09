@@ -19,6 +19,50 @@ const imageSizeParameters = {
   },
 } satisfies GenerationModelDeclaration["parameters"];
 
+const dramatiqImageParameters = {
+  size: {
+    type: "string",
+    optional: true,
+    default: "1024x1024",
+    description: "Output image size as WIDTHxHEIGHT.",
+    examples: ["1024x1024", "768x1024", "1024x768"],
+  },
+  negative_prompt: {
+    type: "string",
+    optional: true,
+    description: "Negative prompt forwarded to the Dramatiq Comfy workflow.",
+  },
+  seed: {
+    type: "integer",
+    optional: true,
+    min: 0,
+    description: "Random seed for reproducibility.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
+const dramatiqI2IParameters = {
+  ...dramatiqImageParameters,
+  controlnet_weight: {
+    type: "number",
+    optional: true,
+    min: 0,
+    max: 2,
+    description: "ControlNet tile weight. The provider default is 0.8.",
+  },
+  ipadapter_face_image_ref: {
+    type: "string",
+    optional: true,
+    description: "Optional face reference image URL for IP-Adapter.",
+  },
+  ipadapter_face_weight: {
+    type: "number",
+    optional: true,
+    min: 0,
+    max: 2,
+    description: "IP-Adapter face weight. The provider default is 0.6 when a face reference is supplied.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
 function videoParameters(defaults: { resolution: string; maxWait: number }) {
   return {
     duration: {
@@ -231,6 +275,91 @@ const builtinModels = [
             { type: "text", text: "a vibrant infographic explaining photosynthesis with clear readable labels" },
           ],
           parameters: { aspect_ratio: "16:9", image_size: "1K" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "noobxl-t2i-onediff",
+    title: "NoobXL T2I OneDiff",
+    description: "USA new-api Dramatiq text-to-image model backed by the ComfyUI actor.",
+    allowUnknownParameters: true,
+    adapter: { type: "openai.images" },
+    content: {
+      input: [{ type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Prompt text." }],
+    },
+    parameters: dramatiqImageParameters,
+    examples: [
+      {
+        title: "Text to image",
+        request: {
+          model: "noobxl-t2i-onediff",
+          content: [{ type: "text", text: "anime key visual, luminous city at night, crisp linework" }],
+          parameters: { size: "1024x1024", negative_prompt: "low quality, blurry" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "noobxl-i2i-ipa-onediff",
+    title: "NoobXL I2I IPA OneDiff",
+    description: "USA new-api Dramatiq image-to-image model backed by the ComfyUI actor.",
+    allowUnknownParameters: true,
+    adapter: { type: "openai.images" },
+    content: {
+      input: [
+        { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Prompt text." },
+        {
+          type: "image",
+          required: true,
+          min: 1,
+          max: 1,
+          sources: ["url", "base64"],
+          description: "Single source image.",
+        },
+      ],
+    },
+    parameters: dramatiqI2IParameters,
+    examples: [
+      {
+        title: "Image to image",
+        request: {
+          model: "noobxl-i2i-ipa-onediff",
+          content: [
+            { type: "text", text: "keep the character identity, redraw as a polished anime illustration" },
+            { type: "image", source: { type: "url", url: "https://example.com/reference.png" } },
+          ],
+          parameters: { size: "1024x1024", controlnet_weight: 0.8 },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "birefnet-general",
+    title: "BiRefNet General",
+    description: "USA new-api Dramatiq single-image tool for BiRefNet segmentation and background removal.",
+    adapter: { type: "openai.images" },
+    content: {
+      input: [
+        {
+          type: "image",
+          required: true,
+          min: 1,
+          max: 1,
+          sources: ["url", "base64"],
+          description: "Single source image.",
+        },
+      ],
+    },
+    examples: [
+      {
+        title: "Remove background",
+        request: {
+          model: "birefnet-general",
+          content: [{ type: "image", source: { type: "url", url: "https://example.com/portrait.png" } }],
         },
       },
     ],

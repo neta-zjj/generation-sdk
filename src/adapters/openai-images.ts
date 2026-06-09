@@ -42,9 +42,14 @@ function collectOpenAiImagesNoOutputDetails(raw: OpenAiImagesResponse): Record<s
   });
 }
 
+function requiresPrompt(input: GenerationAdapterInput): boolean {
+  const textSpec = input.declaration.content.input.find((spec) => spec.type === "text");
+  return !!textSpec && (textSpec.required === true || (textSpec.min ?? 0) > 0);
+}
+
 export async function openAiImagesAdapter(input: GenerationAdapterInput): Promise<GenerationContentBlock[]> {
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
-  if (!prompt) throw new GenerationValidationError("Prompt text is required");
+  if (!prompt && requiresPrompt(input)) throw new GenerationValidationError("Prompt text is required");
 
   const images = await Promise.all(
     input.request.content

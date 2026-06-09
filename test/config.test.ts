@@ -6,6 +6,7 @@ import {
   createGenerationClient,
   exportBuiltinModelConfig,
   parseGenerationModelDeclaration,
+  readGenerationModelDeclarationsFromDirectory,
   stringifyBuiltinModelConfig,
 } from "../src/index.js";
 
@@ -38,6 +39,14 @@ describe("config", () => {
         expect(() => client.validate(example.request), `${model.model}: ${example.title ?? "example"}`).not.toThrow();
       }
     }
+  });
+
+  it("parses published model declaration files", async () => {
+    const declarations = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
+    const models = declarations.map((declaration) => declaration.model);
+    expect(models).toContain("noobxl-t2i-onediff");
+    expect(models).toContain("noobxl-i2i-ipa-onediff");
+    expect(models).toContain("birefnet-general");
   });
 
   it("exports model declarations", async () => {

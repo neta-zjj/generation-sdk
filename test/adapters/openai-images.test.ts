@@ -47,6 +47,93 @@ describe("openai.images adapter", () => {
     expect(output[0]).toEqual({ type: "image", source: { type: "base64", mediaType: "image/png", data: "abc" } });
   });
 
+  it("builds USA new-api Dramatiq t2i requests", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ data: [{ url: "https://example.com/noobxl.png" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await client.generate({
+      model: "noobxl-t2i-onediff",
+      content: [{ type: "text", text: "anime key visual" }],
+      parameters: { size: "768x1024", negative_prompt: "blurry", seed: 123 },
+    });
+
+    expect(calls[0]?.url).toBe("https://router.neta.art/v1/images/generations");
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
+      model: "noobxl-t2i-onediff",
+      prompt: "anime key visual",
+      size: "768x1024",
+      negative_prompt: "blurry",
+      seed: 123,
+    });
+  });
+
+  it("builds USA new-api Dramatiq i2i requests", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ data: [{ url: "https://example.com/i2i.png" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await client.generate({
+      model: "noobxl-i2i-ipa-onediff",
+      content: [
+        { type: "text", text: "redraw this character" },
+        { type: "image", source: { type: "url", url: "https://example.com/ref.png" } },
+      ],
+      parameters: {
+        size: "1024x1024",
+        controlnet_weight: 0.7,
+        ipadapter_face_image_ref: "https://example.com/face.png",
+        ipadapter_face_weight: 0.5,
+      },
+    });
+
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
+      model: "noobxl-i2i-ipa-onediff",
+      prompt: "redraw this character",
+      size: "1024x1024",
+      controlnet_weight: 0.7,
+      ipadapter_face_image_ref: "https://example.com/face.png",
+      ipadapter_face_weight: 0.5,
+      image: ["https://example.com/ref.png"],
+    });
+  });
+
+  it("allows single-image Dramatiq tools without prompt text", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ data: [{ url: "https://example.com/cutout.png" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const output = await client.generate({
+      model: "birefnet-general",
+      content: [{ type: "image", source: { type: "url", url: "https://example.com/portrait.png" } }],
+    });
+
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
+      model: "birefnet-general",
+      prompt: "",
+      image: ["https://example.com/portrait.png"],
+    });
+    expect(output[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/cutout.png" } });
+  });
+
   it("includes provider diagnostics when a successful response has no output", async () => {
     const fetchMock = async () =>
       new Response(

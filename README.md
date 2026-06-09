@@ -100,6 +100,9 @@ const client = createGenerationClient({
 
 - `gpt-image-2`
 - `gemini-3.1-flash-image-preview`
+- `noobxl-t2i-onediff`
+- `noobxl-i2i-ipa-onediff`
+- `birefnet-general`
 - `seedance-2-0`
 - `seedance-2-0-fast`
 - `suno_music`
@@ -119,6 +122,32 @@ const output = await client.generate({
     aspect_ratio: "3:4",
     image_size: "2K",
   },
+});
+```
+
+## USA new-api Dramatiq images
+
+The USA new-api Dramatiq image models use the OpenAI-compatible image endpoint:
+
+- `noobxl-t2i-onediff`
+- `noobxl-i2i-ipa-onediff`
+- `birefnet-general`
+
+```ts
+await client.generate({
+  model: "noobxl-t2i-onediff",
+  content: [{ type: "text", text: "anime key visual, luminous city at night" }],
+  parameters: {
+    size: "1024x1024",
+    negative_prompt: "low quality, blurry",
+  },
+});
+
+await client.generate({
+  model: "birefnet-general",
+  content: [
+    { type: "image", source: { type: "url", url: "https://example.com/portrait.png" } },
+  ],
 });
 ```
 

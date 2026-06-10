@@ -109,7 +109,7 @@ const sunoCommonMetaFields = {
   metadata_params: {
     type: "object",
     optional: true,
-    description: "Yunwu/Suno task-specific metadata payload.",
+    description: "Suno task-specific metadata payload.",
   },
 } satisfies NonNullable<GenerationModelDeclaration["meta"]>["fields"];
 
@@ -243,7 +243,7 @@ function sunoVersionModel(version: (typeof sunoVersions)[number]): GenerationMod
     schema: MODEL_SCHEMA,
     model: version.model,
     title: version.title,
-    description: "Suno text-to-music model with a fixed Yunwu mv version.",
+    description: "Suno text-to-music model with a fixed Suno model version.",
     adapter: { type: "suno.tasks", operation: "music", payload: { mv: version.mv } },
     content: {
       input: sunoContentInput({ text: "required" }),

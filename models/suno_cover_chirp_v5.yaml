@@ -68,7 +68,7 @@ meta:
     metadata_params:
       type: object
       optional: true
-      description: Yunwu/Suno task-specific metadata payload.
+      description: Suno task-specific metadata payload.
     cover_clip_id:
       type: string
       description: Clip id to cover.

@@ -96,7 +96,7 @@ meta:
     metadata_params:
       type: object
       optional: true
-      description: Yunwu/Suno task-specific metadata payload.
+      description: Suno task-specific metadata payload.
     task:
       type: string
       optional: true

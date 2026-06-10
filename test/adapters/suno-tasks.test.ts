@@ -368,17 +368,17 @@ describe("suno.tasks adapter", () => {
     });
   });
 
-  it("parses Yunwu Suno item media fields from task results", async () => {
+  it("parses Suno item media fields from task results", async () => {
     vi.useFakeTimers();
     const fetchMock = async (url: string | URL | Request) => {
       if (String(url).endsWith("/suno/submit/music")) {
-        return new Response(JSON.stringify({ code: "success", data: "task_yunwu" }), { status: 200 });
+        return new Response(JSON.stringify({ code: "success", data: "task_item_media" }), { status: 200 });
       }
       return new Response(
         JSON.stringify({
           code: "success",
           data: {
-            task_id: "task_yunwu",
+            task_id: "task_item_media",
             action: "music",
             status: "SUCCESS",
             progress: "100%",
@@ -438,28 +438,28 @@ describe("suno.tasks adapter", () => {
     ]);
   });
 
-  it("normalizes Yunwu taskStatus fetch responses", async () => {
+  it("normalizes taskStatus fetch responses", async () => {
     vi.useFakeTimers();
     const fetchMock = async (url: string | URL | Request) => {
       if (String(url).endsWith("/suno/submit/music")) {
-        return new Response(JSON.stringify({ code: 200, data: "task_yunwu_status" }), { status: 200 });
+        return new Response(JSON.stringify({ code: 200, data: "task_status" }), { status: 200 });
       }
       return new Response(
         JSON.stringify({
           code: 200,
           data: {
-            taskBatchId: "task_yunwu_status",
+            taskBatchId: "task_status",
             taskStatus: "finished",
             items: [
               {
                 id: "item_1",
                 clipId: "clip_1",
-                title: "Yunwu Finished",
+                title: "Finished",
                 status: 30,
                 progress: 100,
                 progressMsg: "Production completed",
-                cld2AudioUrl: "https://example.com/yunwu.mp3",
-                cld2ImageUrl: "https://example.com/yunwu.jpg",
+                cld2AudioUrl: "https://example.com/status.mp3",
+                cld2ImageUrl: "https://example.com/status.jpg",
               },
             ],
           },
@@ -488,9 +488,9 @@ describe("suno.tasks adapter", () => {
     expect(output).toEqual([
       {
         type: "audio",
-        source: { type: "url", url: "https://example.com/yunwu.mp3" },
+        source: { type: "url", url: "https://example.com/status.mp3" },
         meta: expect.objectContaining({
-          task_id: "task_yunwu_status",
+          task_id: "task_status",
           clip_id: "clip_1",
           status: 30,
           progress_message: "Production completed",
@@ -498,8 +498,8 @@ describe("suno.tasks adapter", () => {
       },
       {
         type: "image",
-        source: { type: "url", url: "https://example.com/yunwu.jpg" },
-        meta: expect.objectContaining({ task_id: "task_yunwu_status", clip_id: "clip_1" }),
+        source: { type: "url", url: "https://example.com/status.jpg" },
+        meta: expect.objectContaining({ task_id: "task_status", clip_id: "clip_1" }),
       },
     ]);
   });
@@ -561,7 +561,7 @@ describe("suno.tasks adapter", () => {
         model: "suno_music",
         content: [{ type: "text", text: "hello" }],
         parameters: { operation: "music" },
-        meta: { task: "not_a_yunwu_task" },
+        meta: { task: "not_a_supported_task" },
       }),
     ).rejects.toThrow("meta.task must be one of:");
   });

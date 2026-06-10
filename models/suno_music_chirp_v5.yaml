@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: suno_music_chirp_v5
 title: Suno Music Chirp v5.0
-description: Suno text-to-music model with a fixed Yunwu mv version.
+description: Suno text-to-music model with a fixed Suno model version.
 adapter:
   type: suno.tasks
   operation: music
@@ -67,4 +67,4 @@ meta:
     metadata_params:
       type: object
       optional: true
-      description: Yunwu/Suno task-specific metadata payload.
+      description: Suno task-specific metadata payload.

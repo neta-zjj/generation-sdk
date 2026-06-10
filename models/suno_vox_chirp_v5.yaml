@@ -68,7 +68,7 @@ meta:
     metadata_params:
       type: object
       optional: true
-      description: Yunwu/Suno task-specific metadata payload.
+      description: Suno task-specific metadata payload.
     artist_clip_id:
       type: string
       description: Reference hum or vocal clip id.

@@ -182,40 +182,6 @@ Suno uses one shared adapter with a small public model set: `suno_music_chirp_fe
 `suno_image_to_song_chirp_v5`, `suno_video_to_song_chirp_v5`, and `suno_vox_chirp_v5`. Provider-specific fields such as
 `title`, `tags`, `make_instrumental`, and `metadata_params` belong in `meta`.
 
-Active Suno models:
-
-| Model | Status | Purpose |
-| --- | --- | --- |
-| `suno_music_chirp_fenix` | Active | Text-to-music generation with the fixed `chirp-fenix` engine. |
-| `suno_style_tags` | Active | Upsample or refine style tags from text input. |
-| `suno_upload_audio` | Active | Upload reference audio for later Suno workflows. |
-| `suno_cover_chirp_v5` | Active | Generate a cover from an existing source clip. |
-| `suno_infill_chirp_v5` | Active | Locally edit or replace a segment in an existing clip. |
-| `suno_sound_chirp_v5` | Active | Generate sound-effect style audio. |
-| `suno_image_to_song_chirp_v5` | Active | Generate a song from an image plus optional prompt text. |
-| `suno_video_to_song_chirp_v5` | Active | Generate a song from a video plus optional prompt text. |
-| `suno_vox_chirp_v5` | Active | Generate a song from a hum or vocal reference clip. |
-
-Disabled Suno models are kept as `models/*.yaml.bak`, so directory loading and built-in model exports do not activate them:
-
-| Model | Status | Purpose |
-| --- | --- | --- |
-| `suno_music` | Disabled backup | Legacy integrated Suno music entrypoint using `parameters.operation` and `meta.task`. |
-| `suno_music_chirp_v3_0` | Disabled backup | Text-to-music generation with the fixed `chirp-v3-0` engine. |
-| `suno_music_chirp_v3_5` | Disabled backup | Text-to-music generation with the fixed `chirp-v3-5` engine. |
-| `suno_music_chirp_v4` | Disabled backup | Text-to-music generation with the fixed `chirp-v4` engine. |
-| `suno_music_chirp_auk` | Disabled backup | Text-to-music generation with the fixed `chirp-auk` engine. |
-| `suno_music_chirp_v5` | Disabled backup | Text-to-music generation with the fixed `chirp-v5` engine. |
-| `suno_lyrics` | Disabled backup | Generate lyrics from text input. |
-| `suno_concat` | Disabled backup | Concatenate existing Suno clips. |
-| `suno_extend_chirp_v5` | Disabled backup | Continue an existing clip. |
-| `suno_remaster_chirp_v5` | Disabled backup | Remaster an existing clip. |
-| `suno_underpainting_chirp_v5` | Disabled backup | Add accompaniment under an existing clip. |
-| `suno_overpainting_chirp_v5` | Disabled backup | Add vocals over an existing clip. |
-| `suno_chop_sample_condition_chirp_v5` | Disabled backup | Generate a song from a sampled clip condition. |
-| `suno_mashup_chirp_v5` | Disabled backup | Generate a mashup from multiple reference clips. |
-| `suno_playlist_condition_chirp_v5` | Disabled backup | Generate music from playlist or inspiration conditions. |
-
 ## Load model declarations from files
 
 ```ts

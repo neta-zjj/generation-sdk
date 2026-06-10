@@ -100,6 +100,10 @@ const client = createGenerationClient({
 
 - `gpt-image-2`
 - `gemini-3.1-flash-image-preview`
+- `kling-text-to-video`
+- `kling-image-to-video`
+- `kling-omni-video`
+- `kling-multi-image-to-video`
 - `seedance-2-0`
 - `seedance-2-0-fast`
 - `suno_music`
@@ -150,6 +154,27 @@ await client.generate({
   ],
 });
 ```
+
+Kling exposes stable capability model ids while the adapter sends the latest upstream `model_name` for each capability:
+
+```ts
+await client.generate({
+  model: "kling-image-to-video",
+  content: [
+    { type: "text", text: "gently turn toward the camera with soft natural motion" },
+    { type: "image", source: { type: "url", url: "https://example.com/input.png" } },
+  ],
+  parameters: {
+    duration: 5,
+    aspect_ratio: "16:9",
+  },
+});
+```
+
+Kling built-in pricing is aligned with Yunwu Model Hub. `kling-text-to-video`, `kling-image-to-video`, and
+`kling-multi-image-to-video` use Yunwu `kling-video` pricing; `kling-omni-video` uses Yunwu `kling-omni-video` pricing.
+Both are currently `modelPrice: 0.017`, displayed by Yunwu as `1.190` credits per request, with token groups
+`default: 1` and `特价kling: 0.7`.
 
 ## Music generation
 
@@ -261,6 +286,7 @@ Built-in adapters:
 - `openai.images`
 - `gemini.generateContent`
 - `ark.videoGenerations`
+- `kling.videoGenerations`
 - `suno.tasks`
 
 You can register custom adapters:

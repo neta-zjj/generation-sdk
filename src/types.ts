@@ -73,6 +73,18 @@ export type GenerationMetaSpec = {
   taskVariants?: Record<string, GenerationMetaTaskVariantSpec>;
 };
 
+export type GenerationPricingSpec = {
+  source?: string;
+  provider?: string;
+  model?: string;
+  billingType?: string;
+  quotaType?: number;
+  modelPrice: number;
+  displayPrice?: number;
+  displayUnit?: string;
+  groups?: Record<string, number>;
+};
+
 export type GenerationModelDeclaration = {
   schema: typeof MODEL_SCHEMA;
   model: string;
@@ -87,6 +99,7 @@ export type GenerationModelDeclaration = {
   };
   parameters?: Record<string, GenerationParameterSpec>;
   meta?: GenerationMetaSpec;
+  pricing?: GenerationPricingSpec;
   examples?: Array<{
     title?: string;
     request: GenerateRequest;

@@ -45,12 +45,34 @@ function isMetaSpec(value: unknown): boolean {
   );
 }
 
+function isPricingSpec(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.modelPrice === "number" &&
+    Number.isFinite(value.modelPrice) &&
+    (value.source === undefined || typeof value.source === "string") &&
+    (value.provider === undefined || typeof value.provider === "string") &&
+    (value.model === undefined || typeof value.model === "string") &&
+    (value.billingType === undefined || typeof value.billingType === "string") &&
+    (value.quotaType === undefined || (typeof value.quotaType === "number" && Number.isInteger(value.quotaType))) &&
+    (value.displayPrice === undefined ||
+      (typeof value.displayPrice === "number" && Number.isFinite(value.displayPrice))) &&
+    (value.displayUnit === undefined || typeof value.displayUnit === "string") &&
+    (value.groups === undefined ||
+      (isRecord(value.groups) &&
+        Object.values(value.groups).every(
+          (groupRatio) => typeof groupRatio === "number" && Number.isFinite(groupRatio),
+        )))
+  );
+}
+
 export function isGenerationModelDeclaration(value: unknown): value is GenerationModelDeclaration {
   if (!isRecord(value)) return false;
   const adapter = value.adapter;
   const content = value.content;
   const parameters = value.parameters;
   const meta = value.meta;
+  const pricing = value.pricing;
   const examples = value.examples;
   return (
     value.schema === MODEL_SCHEMA &&
@@ -63,6 +85,7 @@ export function isGenerationModelDeclaration(value: unknown): value is Generatio
     Array.isArray(content.input) &&
     (parameters === undefined || (isRecord(parameters) && Object.values(parameters).every(isParameterSpec))) &&
     (meta === undefined || isMetaSpec(meta)) &&
+    (pricing === undefined || isPricingSpec(pricing)) &&
     (examples === undefined || Array.isArray(examples))
   );
 }

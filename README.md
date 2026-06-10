@@ -171,11 +171,6 @@ await client.generate({
 });
 ```
 
-Kling built-in pricing is aligned with Yunwu Model Hub. `kling-text-to-video`, `kling-image-to-video`, and
-`kling-multi-image-to-video` use Yunwu `kling-video` pricing; `kling-omni-video` uses Yunwu `kling-omni-video` pricing.
-Both are currently `modelPrice: 0.017`, displayed by Yunwu as `1.190` credits per request, with token groups
-`default: 1` and `特价kling: 0.7`.
-
 ## Music generation
 
 ```ts

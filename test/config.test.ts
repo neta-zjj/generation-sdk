@@ -31,25 +31,6 @@ describe("config", () => {
     });
   });
 
-  it("roundtrips built-in model pricing declarations", () => {
-    const raw = stringifyBuiltinModelConfig("kling-text-to-video");
-    const declaration = parseGenerationModelDeclaration(raw, "kling-text-to-video.yaml");
-    expect(declaration.pricing).toEqual({
-      source: "https://yunwu.ai/pricing?keyword=kling",
-      provider: "yunwu",
-      model: "kling-video",
-      billingType: "pay_per_view",
-      quotaType: 1,
-      modelPrice: 0.017,
-      displayPrice: 1.19,
-      displayUnit: "yunwu_credit",
-      groups: {
-        default: 1,
-        特价kling: 0.7,
-      },
-    });
-  });
-
   it("validates every built-in model example", () => {
     const client = createGenerationClient({ apiKey: "test" });
     for (const model of client.listModels()) {

@@ -157,25 +157,6 @@ function klingVideoParameters(options: {
   return parameters;
 }
 
-const yunwuKlingGroups = {
-  default: 1,
-  特价kling: 0.7,
-};
-
-function yunwuKlingPricing(model: "kling-video" | "kling-omni-video") {
-  return {
-    source: "https://yunwu.ai/pricing?keyword=kling",
-    provider: "yunwu",
-    model,
-    billingType: "pay_per_view",
-    quotaType: 1,
-    modelPrice: 0.017,
-    displayPrice: 1.19,
-    displayUnit: "yunwu_credit",
-    groups: yunwuKlingGroups,
-  } satisfies GenerationModelDeclaration["pricing"];
-}
-
 const sunoContinuationTaskVariant = {
   required: ["task_id", "clip_id", "continue_clip_id"],
 };
@@ -343,7 +324,6 @@ const builtinModels = [
       input: [{ type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." }],
     },
     parameters: klingVideoParameters({ maxDuration: 10, negativePrompt: true, seed: true }),
-    pricing: yunwuKlingPricing("kling-video"),
     examples: [
       {
         title: "Text to video",
@@ -374,7 +354,6 @@ const builtinModels = [
       ],
     },
     parameters: klingVideoParameters({ maxDuration: 10, negativePrompt: true, seed: true }),
-    pricing: yunwuKlingPricing("kling-video"),
     examples: [
       {
         title: "Image to video",
@@ -414,7 +393,6 @@ const builtinModels = [
       ],
     },
     parameters: klingVideoParameters({ maxDuration: 15, sound: true }),
-    pricing: yunwuKlingPricing("kling-omni-video"),
     meta: {
       fields: {
         multi_shot: {
@@ -470,7 +448,6 @@ const builtinModels = [
       ],
     },
     parameters: klingVideoParameters({ maxDuration: 10, negativePrompt: true, seed: true }),
-    pricing: yunwuKlingPricing("kling-video"),
     examples: [
       {
         title: "Multi-image reference to video",

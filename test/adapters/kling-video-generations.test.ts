@@ -81,22 +81,6 @@ describe("kling.videoGenerations adapter", () => {
       "kling-omni-video",
       "kling-text-to-video",
     ]);
-    expect(client.getModel("kling-text-to-video")?.pricing).toMatchObject({
-      provider: "yunwu",
-      model: "kling-video",
-      modelPrice: 0.017,
-      displayPrice: 1.19,
-      groups: { default: 1, 特价kling: 0.7 },
-    });
-    expect(client.getModel("kling-image-to-video")?.pricing?.model).toBe("kling-video");
-    expect(client.getModel("kling-multi-image-to-video")?.pricing?.model).toBe("kling-video");
-    expect(client.getModel("kling-omni-video")?.pricing).toMatchObject({
-      provider: "yunwu",
-      model: "kling-omni-video",
-      modelPrice: 0.017,
-      displayPrice: 1.19,
-      groups: { default: 1, 特价kling: 0.7 },
-    });
   });
 
   it("posts latest Kling text-to-video payload", async () => {

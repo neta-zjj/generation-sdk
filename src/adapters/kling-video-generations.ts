@@ -1,6 +1,6 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
-import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
+import type { GenerationAdapterInput, GenerationContentBlock, GenerationSource } from "../types.js";
 import { compactObject, getBlockMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
 
@@ -158,6 +158,11 @@ function getImageRole(block: Extract<GenerationContentBlock, { type: "image" }>)
   return typeof role === "string" && role.trim() ? role.trim() : undefined;
 }
 
+async function resolveKlingImageSource(input: GenerationAdapterInput, source: GenerationSource): Promise<string> {
+  if (source.type === "base64") return source.data;
+  return input.context.resolveSource(source);
+}
+
 async function resolveImages(input: GenerationAdapterInput): Promise<ResolvedImage[]> {
   const imageBlocks = input.request.content.filter(
     (block): block is Extract<GenerationContentBlock, { type: "image" }> => block.type === "image",
@@ -165,7 +170,7 @@ async function resolveImages(input: GenerationAdapterInput): Promise<ResolvedIma
   return Promise.all(
     imageBlocks.map(async (block) => {
       const role = getImageRole(block);
-      const url = await input.context.resolveSource(block.source);
+      const url = await resolveKlingImageSource(input, block.source);
       return role ? { url, role } : { url };
     }),
   );

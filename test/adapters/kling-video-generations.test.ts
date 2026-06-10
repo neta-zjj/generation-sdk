@@ -20,6 +20,14 @@ function imageBlock(url: string, meta?: Record<string, unknown>): GenerationCont
   };
 }
 
+function base64ImageBlock(data: string, meta?: Record<string, unknown>): GenerationContentBlock {
+  return {
+    type: "image",
+    source: { type: "base64", mediaType: "image/png", data },
+    ...(meta ? { meta } : {}),
+  };
+}
+
 function createClient() {
   const requests: CapturedRequest[] = [];
   const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
@@ -170,6 +178,31 @@ describe("kling.videoGenerations adapter", () => {
     }
   });
 
+  it("posts bare base64 for latest Kling image-to-video payload", async () => {
+    vi.useFakeTimers();
+    try {
+      const { client, requests } = createClient();
+      const outputPromise = client.generate({
+        model: "kling-image-to-video",
+        content: [
+          textBlock("gently turn toward the camera"),
+          base64ImageBlock("first-frame-base64"),
+          base64ImageBlock("last-frame-base64"),
+        ],
+        parameters: { poll_interval: 1 },
+      });
+
+      await generateWithTimers(outputPromise);
+
+      expect(requests[0]?.body).toMatchObject({
+        image: "first-frame-base64",
+        image_tail: "last-frame-base64",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("posts latest Kling Omni-Video payload", async () => {
     vi.useFakeTimers();
     try {
@@ -198,6 +231,33 @@ describe("kling.videoGenerations adapter", () => {
         image_list: [
           { image_url: "https://example.com/first.png", type: "first_frame" },
           { image_url: "https://example.com/last.png", type: "end_frame" },
+        ],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("posts bare base64 for latest Kling Omni-Video payload", async () => {
+    vi.useFakeTimers();
+    try {
+      const { client, requests } = createClient();
+      const outputPromise = client.generate({
+        model: "kling-omni-video",
+        content: [
+          textBlock("<<<image_1>>> moves toward <<<image_2>>>"),
+          base64ImageBlock("omni-first-base64", { role: "first_frame" }),
+          base64ImageBlock("omni-last-base64", { role: "last_frame" }),
+        ],
+        parameters: { poll_interval: 1 },
+      });
+
+      await generateWithTimers(outputPromise);
+
+      expect(requests[0]?.body).toMatchObject({
+        image_list: [
+          { image_url: "omni-first-base64", type: "first_frame" },
+          { image_url: "omni-last-base64", type: "end_frame" },
         ],
       });
     } finally {
@@ -263,6 +323,30 @@ describe("kling.videoGenerations adapter", () => {
         cfg_scale: 0.5,
         aspect_ratio: "16:9",
         image_list: [{ image: "https://example.com/ref-1.png" }, { image: "https://example.com/ref-2.png" }],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("posts bare base64 for latest Kling multi-image reference video payload", async () => {
+    vi.useFakeTimers();
+    try {
+      const { client, requests } = createClient();
+      const outputPromise = client.generate({
+        model: "kling-multi-image-to-video",
+        content: [
+          textBlock("combine the references into one cinematic shot"),
+          base64ImageBlock("multi-ref-1-base64"),
+          base64ImageBlock("multi-ref-2-base64"),
+        ],
+        parameters: { poll_interval: 1 },
+      });
+
+      await generateWithTimers(outputPromise);
+
+      expect(requests[0]?.body).toMatchObject({
+        image_list: [{ image: "multi-ref-1-base64" }, { image: "multi-ref-2-base64" }],
       });
     } finally {
       vi.useRealTimers();

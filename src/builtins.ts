@@ -113,64 +113,14 @@ const sunoCommonMetaFields = {
   },
 } satisfies NonNullable<GenerationModelDeclaration["meta"]>["fields"];
 
-const sunoContinuationTaskVariant = {
-  required: ["continue_clip_id"],
-};
-
 const sunoTaskVariants = {
-  extend: sunoContinuationTaskVariant,
-  upload_extend: sunoContinuationTaskVariant,
   infill: { required: ["continue_clip_id", "metadata_params"] },
-  fixed_infill: { required: ["continue_clip_id", "metadata_params"] },
-  infill_intro: { required: ["continue_clip_id", "metadata_params"] },
-  infill_outro: { required: ["continue_clip_id", "metadata_params"] },
-  cover_infill: { required: ["continue_clip_id", "metadata_params"] },
-  cover_extend: sunoContinuationTaskVariant,
-  artist_infill: { required: ["continue_clip_id", "metadata_params"] },
-  artist_consistency: { required: ["persona_id", "artist_clip_id"] },
   cover: { required: ["task_id", "continue_clip_id"] },
   image_to_song: { requiredContent: ["image"], required: ["metadata_params"] },
   video_to_song: { requiredContent: ["video"], required: ["metadata_params"] },
-  concat: { required: ["clip_id"] },
   sound: { required: ["metadata_params"] },
-  underpainting: { required: ["metadata_params"] },
-  overpainting: { required: ["metadata_params"] },
-  remaster: { required: ["metadata_params"] },
   vox: { required: ["artist_clip_id"] },
-  chop_sample_condition: { required: ["metadata_params"] },
-  mashup_condition: { required: ["metadata_params"] },
-  playlist_condition: { required: ["metadata_params"] },
 } satisfies NonNullable<GenerationModelDeclaration["meta"]>["taskVariants"];
-
-const sunoLegacyMeta = {
-  taskField: "task",
-  fields: {
-    ...sunoCommonMetaFields,
-    task: {
-      type: "string",
-      optional: true,
-      enum: Object.keys(sunoTaskVariants),
-      description: "Legacy integrated Suno task for operation=music. Prefer task-specific Suno models.",
-    },
-    mv: { type: "string", optional: true, description: "Legacy Suno music model version override." },
-    task_id: {
-      type: "string",
-      optional: true,
-      description: "Existing Suno task id used for continuation-style tasks.",
-    },
-    clip_id: {
-      type: "string",
-      optional: true,
-      description: "Existing Suno clip id used for legacy task payloads.",
-    },
-    continue_clip_id: { type: "string", optional: true, description: "Clip id or URL to continue from." },
-    continue_at: { type: "number", optional: true, description: "Continue position in seconds." },
-    cover_clip_id: { type: "string", optional: true, description: "Clip id to cover." },
-    persona_id: { type: "string", optional: true, description: "Suno persona id for artist-consistency tasks." },
-    artist_clip_id: { type: "string", optional: true, description: "Source clip id for artist-consistency tasks." },
-  },
-  taskVariants: sunoTaskVariants,
-} satisfies GenerationModelDeclaration["meta"];
 
 function sunoContentInput(
   options: { text?: "required" | "optional" | "none"; audio?: boolean; image?: boolean; video?: boolean } = {},
@@ -217,11 +167,6 @@ function sunoContentInput(
 }
 
 const sunoVersions = [
-  { model: "suno_music_chirp_v3_0", title: "Suno Music Chirp v3.0", mv: "chirp-v3-0" },
-  { model: "suno_music_chirp_v3_5", title: "Suno Music Chirp v3.5", mv: "chirp-v3-5" },
-  { model: "suno_music_chirp_v4", title: "Suno Music Chirp v4.0", mv: "chirp-v4" },
-  { model: "suno_music_chirp_auk", title: "Suno Music Chirp Auk v4.5", mv: "chirp-auk" },
-  { model: "suno_music_chirp_v5", title: "Suno Music Chirp v5.0", mv: "chirp-v5" },
   { model: "suno_music_chirp_fenix", title: "Suno Music Chirp Fenix v5.5", mv: "chirp-fenix" },
 ] as const;
 
@@ -293,63 +238,7 @@ function sunoTaskModel(options: {
 }
 
 const sunoModels = [
-  {
-    schema: MODEL_SCHEMA,
-    model: "suno_music",
-    title: "Suno Music",
-    description:
-      "Legacy Suno music entrypoint. Prefer versioned models such as suno_music_chirp_fenix and task-specific Suno models.",
-    adapter: { type: "suno.tasks", defaults: { mv: "chirp-v5" } },
-    content: {
-      input: [
-        ...sunoContentInput({ text: "optional" }),
-        {
-          type: "audio",
-          required: false,
-          max: 1,
-          sources: ["url", "base64"],
-          description: "Optional reference audio. The adapter maps it to url when url is not provided.",
-        },
-        {
-          type: "image",
-          required: false,
-          max: 1,
-          sources: ["url", "base64"],
-          description: "Optional image source. The adapter maps it to image_url when image_url is not provided.",
-        },
-        {
-          type: "video",
-          required: false,
-          max: 1,
-          sources: ["url", "base64"],
-          description: "Optional video source. The adapter maps it to video_url when video_url is not provided.",
-        },
-      ],
-    },
-    parameters: {
-      operation: {
-        type: "string",
-        optional: true,
-        default: "music",
-        enum: ["music", "lyrics"],
-        description: "Legacy Suno endpoint operation. Prefer first-class Suno model names.",
-      },
-      ...sunoTaskParameters,
-    },
-    meta: sunoLegacyMeta,
-  },
   ...sunoVersions.map(sunoVersionModel),
-  {
-    schema: MODEL_SCHEMA,
-    model: "suno_lyrics",
-    title: "Suno Lyrics",
-    description: "Suno lyrics generation model.",
-    adapter: { type: "suno.tasks", operation: "lyrics" },
-    content: {
-      input: sunoContentInput({ text: "required" }),
-    },
-    parameters: sunoTaskParameters,
-  },
   {
     schema: MODEL_SCHEMA,
     model: "suno_style_tags",
@@ -358,23 +247,6 @@ const sunoModels = [
     adapter: { type: "suno.tasks", operation: "upsample_tags" },
     content: {
       input: sunoContentInput({ text: "required" }),
-    },
-  },
-  {
-    schema: MODEL_SCHEMA,
-    model: "suno_concat",
-    title: "Suno Concat",
-    description: "Suno clip concatenation model.",
-    adapter: { type: "suno.tasks", operation: "concat" },
-    content: {
-      input: [],
-    },
-    parameters: sunoTaskParameters,
-    meta: {
-      fields: {
-        clip_id: { type: "string", description: "Clip id to concatenate." },
-        is_infill: { type: "boolean", optional: true, description: "Whether the clip is an infill result." },
-      },
     },
   },
   {
@@ -425,27 +297,6 @@ const sunoModels = [
     },
   }),
   sunoTaskModel({
-    model: "suno_remaster_chirp_v5",
-    title: "Suno Remaster Chirp v5.0",
-    description: "Suno remaster task with a fixed chirp-v5 engine.",
-    task: "remaster",
-    content: { text: "optional" },
-    fields: {
-      metadata_params: { type: "object", description: "Remaster metadata with clip_id and variation_category." },
-    },
-  }),
-  sunoTaskModel({
-    model: "suno_extend_chirp_v5",
-    title: "Suno Extend Chirp v5.0",
-    description: "Suno continuation task with a fixed chirp-v5 engine.",
-    task: "extend",
-    content: { text: "optional" },
-    fields: {
-      continue_clip_id: { type: "string", description: "Clip id or URL to continue from." },
-      continue_at: { type: "number", optional: true, description: "Continue position in seconds." },
-    },
-  }),
-  sunoTaskModel({
     model: "suno_cover_chirp_v5",
     title: "Suno Cover Chirp v5.0",
     description: "Suno cover task with a fixed chirp-v5 engine.",
@@ -470,26 +321,6 @@ const sunoModels = [
     },
   }),
   sunoTaskModel({
-    model: "suno_underpainting_chirp_v5",
-    title: "Suno Underpainting Chirp v5.0",
-    description: "Suno add-accompaniment task with a fixed chirp-v5 engine.",
-    task: "underpainting",
-    content: { text: "optional" },
-    fields: {
-      metadata_params: { type: "object", description: "Underpainting clip and timing metadata." },
-    },
-  }),
-  sunoTaskModel({
-    model: "suno_overpainting_chirp_v5",
-    title: "Suno Overpainting Chirp v5.0",
-    description: "Suno add-vocal task with a fixed chirp-v5 engine.",
-    task: "overpainting",
-    content: { text: "optional" },
-    fields: {
-      metadata_params: { type: "object", description: "Overpainting clip and timing metadata." },
-    },
-  }),
-  sunoTaskModel({
     model: "suno_vox_chirp_v5",
     title: "Suno Vox Chirp v5.0",
     description: "Suno hum-to-song task with a fixed chirp-v5 engine.",
@@ -497,36 +328,6 @@ const sunoModels = [
     content: { text: "optional" },
     fields: {
       artist_clip_id: { type: "string", description: "Reference hum or vocal clip id." },
-    },
-  }),
-  sunoTaskModel({
-    model: "suno_chop_sample_condition_chirp_v5",
-    title: "Suno Chop Sample Condition Chirp v5.0",
-    description: "Suno sample-to-song task with a fixed chirp-v5 engine.",
-    task: "chop_sample_condition",
-    content: { text: "optional" },
-    fields: {
-      metadata_params: { type: "object", description: "Chop-sample clip and timing metadata." },
-    },
-  }),
-  sunoTaskModel({
-    model: "suno_mashup_chirp_v5",
-    title: "Suno Mashup Chirp v5.0",
-    description: "Suno mashup task with a fixed chirp-v5 engine.",
-    task: "mashup_condition",
-    content: { text: "optional" },
-    fields: {
-      metadata_params: { type: "object", description: "Mashup metadata with mashup_clip_ids." },
-    },
-  }),
-  sunoTaskModel({
-    model: "suno_playlist_condition_chirp_v5",
-    title: "Suno Playlist Condition Chirp v5.0",
-    description: "Suno inspiration task with a fixed chirp-v5 engine.",
-    task: "playlist_condition",
-    content: { text: "optional" },
-    fields: {
-      metadata_params: { type: "object", description: "Playlist inspiration metadata with playlist_clip_ids." },
     },
   }),
 ] satisfies GenerationModelDeclaration[];

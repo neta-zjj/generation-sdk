@@ -3,12 +3,6 @@ import { createGenerationClient } from "../../src/index.js";
 
 const sunoTaskModelCases = [
   {
-    model: "suno_extend_chirp_v5",
-    task: "extend",
-    content: [{ type: "text" as const, text: "continue with a brighter chorus" }],
-    meta: { continue_clip_id: "clip_origin" },
-  },
-  {
     model: "suno_cover_chirp_v5",
     task: "cover",
     content: [{ type: "text" as const, text: "cover this with new lyrics" }],
@@ -39,70 +33,16 @@ const sunoTaskModelCases = [
     meta: { metadata_params: { sound: "gentle rain ambience" } },
   },
   {
-    model: "suno_remaster_chirp_v5",
-    task: "remaster",
-    content: [{ type: "text" as const, text: "keep the original mood and clean up the mix" }],
-    meta: { metadata_params: { clip_id: "clip_origin", variation_category: "normal" } },
-  },
-  {
     model: "suno_infill_chirp_v5",
     task: "infill",
     content: [{ type: "text" as const, text: "replace this section with a brighter verse" }],
     meta: { continue_clip_id: "clip_origin", metadata_params: { infill_start_s: 10, infill_end_s: 20 } },
   },
   {
-    model: "suno_underpainting_chirp_v5",
-    task: "underpainting",
-    content: [{ type: "text" as const, text: "add warm accompaniment under this vocal" }],
-    meta: {
-      metadata_params: {
-        underpainting_clip_id: "https://example.com/vocal.mp3",
-        underpainting_start_s: 0,
-        underpainting_end_s: 10,
-      },
-    },
-  },
-  {
-    model: "suno_overpainting_chirp_v5",
-    task: "overpainting",
-    content: [{ type: "text" as const, text: "[Verse]\nnew lyric line\n[Chorus]\nwarm hook" }],
-    meta: {
-      metadata_params: {
-        overpainting_clip_id: "https://example.com/base.mp3",
-        overpainting_start_s: 0,
-        overpainting_end_s: 30,
-      },
-    },
-  },
-  {
     model: "suno_vox_chirp_v5",
     task: "vox",
     content: [{ type: "text" as const, text: "turn this reference into a complete song" }],
     meta: { artist_clip_id: "clip_origin", tags: "pop,female voice", make_instrumental: false },
-  },
-  {
-    model: "suno_mashup_chirp_v5",
-    task: "mashup_condition",
-    content: [{ type: "text" as const, text: "blend these two references into a new chorus" }],
-    meta: { metadata_params: { mashup_clip_ids: ["clip_a", "clip_b"] } },
-  },
-  {
-    model: "suno_chop_sample_condition_chirp_v5",
-    task: "chop_sample_condition",
-    content: [{ type: "text" as const, text: "[Verse]\nturn this hum into a song" }],
-    meta: {
-      metadata_params: {
-        chop_sample_clip_id: "https://example.com/hum.mp3",
-        chop_sample_start_s: 0,
-        chop_sample_end_s: 30,
-      },
-    },
-  },
-  {
-    model: "suno_playlist_condition_chirp_v5",
-    task: "playlist_condition",
-    content: [{ type: "text" as const, text: "[Verse]\nwrite a song inspired by these references" }],
-    meta: { metadata_params: { playlist_id: "inspiration", playlist_clip_ids: ["clip_a", "clip_b"] } },
   },
 ] as const;
 
@@ -178,44 +118,6 @@ describe("suno.tasks adapter", () => {
         text: "la la la",
         meta: expect.objectContaining({ id: "clip_1", title: "Warm Horizon", duration: 180 }),
       },
-    ]);
-  });
-
-  it("routes lyrics to the lyrics endpoint", async () => {
-    vi.useFakeTimers();
-    const calls: Array<{ url: string; init: RequestInit }> = [];
-    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
-      calls.push({ url: String(url), init: init ?? {} });
-      if (String(url).endsWith("/suno/submit/lyrics")) {
-        return new Response(JSON.stringify({ code: 200, data: "task_lyrics" }), { status: 200 });
-      }
-      return new Response(
-        JSON.stringify({
-          code: "success",
-          data: {
-            task_id: "task_lyrics",
-            action: "lyrics",
-            status: "SUCCESS",
-            data: { text: "chorus", title: "Hook" },
-          },
-        }),
-        { status: 200 },
-      );
-    };
-
-    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    const promise = client.generate({
-      model: "suno_lyrics",
-      content: [{ type: "text", text: "write a chorus" }],
-      parameters: { poll_interval: 1, max_wait: 30 },
-    });
-    await vi.advanceTimersByTimeAsync(1000);
-    const output = await promise;
-    vi.useRealTimers();
-
-    expect(calls[0]?.url).toBe("https://router.neta.art/suno/submit/lyrics");
-    expect(output).toEqual([
-      { type: "text", text: "chorus", meta: expect.objectContaining({ title: "Hook", operation: "lyrics" }) },
     ]);
   });
 
@@ -411,7 +313,7 @@ describe("suno.tasks adapter", () => {
 
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
     const promise = client.generate({
-      model: "suno_music_chirp_v5",
+      model: "suno_music_chirp_fenix",
       content: [{ type: "text", text: "warm piano" }],
       parameters: { poll_interval: 1, max_wait: 30 },
     });
@@ -470,14 +372,14 @@ describe("suno.tasks adapter", () => {
 
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
     const promise = client.generate({
-      model: "suno_overpainting_chirp_v5",
+      model: "suno_infill_chirp_v5",
       content: [{ type: "text", text: "[Verse]\nnew hopeful lyrics" }],
       parameters: { poll_interval: 1, max_wait: 30 },
       meta: {
+        continue_clip_id: "clip_1",
         metadata_params: {
-          overpainting_clip_id: "https://example.com/base.mp3",
-          overpainting_start_s: 0,
-          overpainting_end_s: 30,
+          infill_start_s: 0,
+          infill_end_s: 30,
         },
       },
     });
@@ -551,19 +453,6 @@ describe("suno.tasks adapter", () => {
       const body = JSON.parse(String(call.init.body));
       expect(body).toMatchObject({ mv: "chirp-v5", task: sunoTaskModelCases[index]?.task });
     }
-  });
-
-  it("rejects unknown Suno music tasks from meta", async () => {
-    const fetchMock = async () => new Response("{}");
-    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    await expect(
-      client.generate({
-        model: "suno_music",
-        content: [{ type: "text", text: "hello" }],
-        parameters: { operation: "music" },
-        meta: { task: "not_a_supported_task" },
-      }),
-    ).rejects.toThrow("meta.task must be one of:");
   });
 
   it("validates task-specific Suno meta requirements from model declarations", async () => {
@@ -649,9 +538,9 @@ describe("suno.tasks adapter", () => {
 
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
     const promise = client.generate({
-      model: "suno_music",
+      model: "suno_music_chirp_fenix",
       content: [{ type: "text", text: "warm piano" }],
-      parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
+      parameters: { poll_interval: 1, max_wait: 30 },
     });
     await vi.advanceTimersByTimeAsync(1000);
     const output = await promise;
@@ -692,9 +581,9 @@ describe("suno.tasks adapter", () => {
 
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
     const promise = client.generate({
-      model: "suno_music",
+      model: "suno_music_chirp_fenix",
       content: [{ type: "text", text: "warm piano" }],
-      parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
+      parameters: { poll_interval: 1, max_wait: 30 },
     });
     await vi.advanceTimersByTimeAsync(1000);
     const output = await promise;
@@ -731,65 +620,14 @@ describe("suno.tasks adapter", () => {
 
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
     const promise = client.generate({
-      model: "suno_music",
+      model: "suno_music_chirp_fenix",
       content: [{ type: "text", text: "warm piano" }],
-      parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
+      parameters: { poll_interval: 1, max_wait: 30 },
     });
     const assertion = expect(promise).rejects.toThrow("Timed out waiting for Suno task");
     await vi.advanceTimersByTimeAsync(31_000);
     await assertion;
     vi.useRealTimers();
-  });
-
-  it("routes concat to the concat endpoint", async () => {
-    vi.useFakeTimers();
-    const calls: Array<{ url: string; init: RequestInit }> = [];
-    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
-      calls.push({ url: String(url), init: init ?? {} });
-      if (String(url).endsWith("/suno/submit/concat")) {
-        return new Response(JSON.stringify({ code: "success", data: "task_concat" }), { status: 200 });
-      }
-      return new Response(
-        JSON.stringify({
-          code: "success",
-          data: {
-            task_id: "task_concat",
-            action: "concat",
-            status: "SUCCESS",
-            data: {
-              audio_url: "https://example.com/concat.mp3",
-              clip_id: "clip_concat",
-              title: "Full Song",
-            },
-          },
-        }),
-        { status: 200 },
-      );
-    };
-
-    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    const promise = client.generate({
-      model: "suno_concat",
-      content: [],
-      parameters: { poll_interval: 1, max_wait: 30 },
-      meta: { clip_id: "clip_extended", is_infill: false },
-    });
-    await vi.advanceTimersByTimeAsync(1000);
-    const output = await promise;
-    vi.useRealTimers();
-
-    expect(calls[0]?.url).toBe("https://router.neta.art/suno/submit/concat");
-    expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({
-      clip_id: "clip_extended",
-      is_infill: false,
-    });
-    expect(output).toEqual([
-      {
-        type: "audio",
-        source: { type: "url", url: "https://example.com/concat.mp3" },
-        meta: expect.objectContaining({ clip_id: "clip_concat", operation: "concat" }),
-      },
-    ]);
   });
 
   it("rejects successful Suno tasks that return no output", async () => {
@@ -809,9 +647,9 @@ describe("suno.tasks adapter", () => {
 
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
     const promise = client.generate({
-      model: "suno_music",
+      model: "suno_music_chirp_fenix",
       content: [{ type: "text", text: "warm piano" }],
-      parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
+      parameters: { poll_interval: 1, max_wait: 30 },
     });
     const assertion = expect(promise).rejects.toThrow("Suno task succeeded but returned no output");
     await vi.advanceTimersByTimeAsync(1000);
@@ -853,56 +691,6 @@ describe("suno.tasks adapter", () => {
         meta: expect.objectContaining({ operation: "upsample_tags", task_batch_id: "batch_1" }),
       },
     ]);
-  });
-
-  it("sends remaster as a fixed task model", async () => {
-    vi.useFakeTimers();
-    const calls: Array<{ url: string; init: RequestInit }> = [];
-    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
-      calls.push({ url: String(url), init: init ?? {} });
-      if (String(url).endsWith("/suno/submit/music")) {
-        return new Response(JSON.stringify({ code: "success", data: "task_remaster" }), { status: 200 });
-      }
-      return new Response(
-        JSON.stringify({
-          code: "success",
-          data: {
-            task_id: "task_remaster",
-            action: "music",
-            status: "SUCCESS",
-            data: { audio_url: "https://example.com/remaster.mp3" },
-          },
-        }),
-        { status: 200 },
-      );
-    };
-
-    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    const promise = client.generate({
-      model: "suno_remaster_chirp_v5",
-      content: [{ type: "text", text: "keep the original mood and clean up the mix" }],
-      parameters: { poll_interval: 1, max_wait: 30 },
-      meta: {
-        metadata_params: {
-          clip_id: "clip_original",
-          variation_category: "normal",
-        },
-      },
-    });
-    await vi.advanceTimersByTimeAsync(1000);
-    await promise;
-    vi.useRealTimers();
-
-    expect(JSON.parse(String(calls[0]?.init.body))).toMatchObject({
-      mv: "chirp-v5",
-      task: "remaster",
-      prompt: "keep the original mood and clean up the mix",
-      metadata_params: {
-        clip_id: "clip_original",
-        variation_category: "normal",
-      },
-    });
-    expect(JSON.parse(String(calls[0]?.init.body))).not.toHaveProperty("model_name");
   });
 
   it("uploads audio through the upload_audio endpoint", async () => {
@@ -952,18 +740,6 @@ describe("suno.tasks adapter", () => {
     ]);
   });
 
-  it("rejects unsupported Suno operations", async () => {
-    const fetchMock = async () => new Response("{}");
-    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    await expect(
-      client.generate({
-        model: "suno_music",
-        content: [{ type: "text", text: "hello" }],
-        parameters: { operation: "unknown_operation" },
-      }),
-    ).rejects.toThrow("Parameter operation must be one of: music, lyrics");
-  });
-
   it("accepts deprecated request metadata as Suno provider meta", async () => {
     vi.useFakeTimers();
     const calls: Array<{ url: string; init: RequestInit }> = [];
@@ -988,9 +764,9 @@ describe("suno.tasks adapter", () => {
 
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
     const promise = client.generate({
-      model: "suno_music",
+      model: "suno_music_chirp_fenix",
       content: [{ type: "text", text: "warm piano" }],
-      parameters: { operation: "music", poll_interval: 1, max_wait: 30 },
+      parameters: { poll_interval: 1, max_wait: 30 },
       metadata: { title: "Legacy Metadata" },
       meta: { tags: "warm piano" },
     });

@@ -102,30 +102,15 @@ const client = createGenerationClient({
 - `gemini-3.1-flash-image-preview`
 - `seedance-2-0`
 - `seedance-2-0-fast`
-- `suno_music`
-- `suno_music_chirp_v3_0`
-- `suno_music_chirp_v3_5`
-- `suno_music_chirp_v4`
-- `suno_music_chirp_auk`
-- `suno_music_chirp_v5`
 - `suno_music_chirp_fenix`
-- `suno_lyrics`
 - `suno_style_tags`
-- `suno_concat`
 - `suno_upload_audio`
-- `suno_image_to_song_chirp_v5`
-- `suno_video_to_song_chirp_v5`
-- `suno_sound_chirp_v5`
-- `suno_remaster_chirp_v5`
-- `suno_extend_chirp_v5`
 - `suno_cover_chirp_v5`
 - `suno_infill_chirp_v5`
-- `suno_underpainting_chirp_v5`
-- `suno_overpainting_chirp_v5`
+- `suno_sound_chirp_v5`
+- `suno_image_to_song_chirp_v5`
+- `suno_video_to_song_chirp_v5`
 - `suno_vox_chirp_v5`
-- `suno_chop_sample_condition_chirp_v5`
-- `suno_mashup_chirp_v5`
-- `suno_playlist_condition_chirp_v5`
 
 Built-in model declarations share the same client-level `apiKey` and `baseUrl`.
 
@@ -192,20 +177,10 @@ const output = await client.generate({
 console.log(output);
 ```
 
-Suno uses one shared adapter with multiple public model declarations. Stable Suno engine versions are first-class models:
-
-- `suno_music_chirp_v3_0`
-- `suno_music_chirp_v3_5`
-- `suno_music_chirp_v4`
-- `suno_music_chirp_auk`
-- `suno_music_chirp_v5`
-- `suno_music_chirp_fenix`
-
-Task-specific Suno capabilities are also models, for example `suno_lyrics`, `suno_sound_chirp_v5`,
-`suno_image_to_song_chirp_v5`, `suno_video_to_song_chirp_v5`, `suno_remaster_chirp_v5`,
-`suno_overpainting_chirp_v5`, and `suno_chop_sample_condition_chirp_v5`. Provider-specific fields such as `title`,
-`tags`, `make_instrumental`, and `metadata_params` still belong in `meta`. The legacy `suno_music` model remains available
-for older `parameters.operation` / `meta.task` requests, but new code should prefer the first-class model names.
+Suno uses one shared adapter with a small public model set: `suno_music_chirp_fenix`, `suno_style_tags`,
+`suno_upload_audio`, `suno_cover_chirp_v5`, `suno_infill_chirp_v5`, `suno_sound_chirp_v5`,
+`suno_image_to_song_chirp_v5`, `suno_video_to_song_chirp_v5`, and `suno_vox_chirp_v5`. Provider-specific fields such as
+`title`, `tags`, `make_instrumental`, and `metadata_params` belong in `meta`.
 
 ## Load model declarations from files
 

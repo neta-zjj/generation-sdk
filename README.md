@@ -83,7 +83,7 @@ const client = createGenerationClient({
 });
 ```
 
-For a custom logger or full unredacted payloads:
+For a custom logger or unredacted secret headers. Base64 media payloads are always redacted from debug events:
 
 ```ts
 const client = createGenerationClient({

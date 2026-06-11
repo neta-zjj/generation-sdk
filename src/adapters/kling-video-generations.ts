@@ -177,24 +177,22 @@ async function resolveImages(input: GenerationAdapterInput): Promise<ResolvedIma
 }
 
 function hasOfficialOmniMedia(meta: Record<string, unknown>): boolean {
-  return ["image_list", "element_list", "video_list"].some((key) => meta[key] !== undefined);
+  return ["image_list", "element_list", "video_list"].some((key) => {
+    const value = meta[key];
+    return Array.isArray(value) ? value.length > 0 : value !== undefined;
+  });
 }
 
 function hasPlainImagePayload(meta: Record<string, unknown>): boolean {
-  return typeof meta.image === "string";
+  return typeof meta.image === "string" && meta.image.trim().length > 0;
 }
 
 function hasMultiImagePayload(meta: Record<string, unknown>): boolean {
-  return Array.isArray(meta.image_list);
-}
-
-function isMultiShotPayload(meta: Record<string, unknown>): boolean {
-  const value = meta.multi_shot;
-  return value === true || (typeof value === "string" && value.trim().toLowerCase() === "true");
+  return Array.isArray(meta.image_list) && meta.image_list.length > 0;
 }
 
 function hasPromptlessOmniPayload(meta: Record<string, unknown>, images: ResolvedImage[]): boolean {
-  return images.length > 0 || hasOfficialOmniMedia(meta) || hasPlainImagePayload(meta) || isMultiShotPayload(meta);
+  return images.length > 0 || hasOfficialOmniMedia(meta) || hasPlainImagePayload(meta);
 }
 
 function omniImageType(image: ResolvedImage, index: number): string | undefined {

@@ -61,6 +61,22 @@ function createClient() {
   };
 }
 
+function createDebugClient() {
+  const events: unknown[] = [];
+  const fetchMock = async () => {
+    throw new Error("stop after debug request");
+  };
+  return {
+    client: createGenerationClient({
+      apiKey: "sk-test",
+      baseUrl: "https://router.example",
+      debug: { enabled: true, includeSensitive: true, logger: (event) => events.push(event) },
+      fetch: fetchMock as typeof fetch,
+    }),
+    events,
+  };
+}
+
 async function generateWithTimers<T>(value: Promise<T>): Promise<T> {
   await vi.advanceTimersByTimeAsync(1000);
   return value;
@@ -162,6 +178,27 @@ describe("kling.videoGenerations adapter", () => {
     }
   });
 
+  it("posts provider-native Kling image meta payload", async () => {
+    vi.useFakeTimers();
+    try {
+      const { client, requests } = createClient();
+      const outputPromise = client.generate({
+        model: "kling-image-to-video",
+        content: [textBlock("gently turn toward the camera")],
+        parameters: { poll_interval: 1 },
+        meta: { image: "provider-native-image-base64" },
+      });
+
+      await generateWithTimers(outputPromise);
+
+      expect(requests[0]?.body).toMatchObject({
+        image: "provider-native-image-base64",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("posts bare base64 for latest Kling image-to-video payload", async () => {
     vi.useFakeTimers();
     try {
@@ -220,6 +257,48 @@ describe("kling.videoGenerations adapter", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it("redacts Kling base64 payloads from debug events", async () => {
+    const { client, events } = createDebugClient();
+
+    await expect(
+      client.generate({
+        model: "kling-image-to-video",
+        content: [
+          textBlock("move"),
+          base64ImageBlock("image-first-base64"),
+          {
+            type: "image",
+            source: { type: "base64", mediaType: "image/png", data: "data:image/png;base64,image-last-base64" },
+          },
+        ],
+        parameters: { poll_interval: 1 },
+      }),
+    ).rejects.toThrow("stop after debug request");
+    await expect(
+      client.generate({
+        model: "kling-image-to-video",
+        content: [textBlock("move")],
+        meta: {
+          image: "provider-native-base64",
+        },
+      }),
+    ).rejects.toThrow("stop after debug request");
+    await expect(
+      client.generate({
+        model: "kling-multi-image-to-video",
+        content: [textBlock("combine")],
+        meta: { image_list: [{ image: "provider-native-list-base64" }] },
+      }),
+    ).rejects.toThrow("stop after debug request");
+
+    const serialized = JSON.stringify(events);
+    expect(serialized).not.toContain("image-first-base64");
+    expect(serialized).not.toContain("image-last-base64");
+    expect(serialized).not.toContain("provider-native-base64");
+    expect(serialized).not.toContain("provider-native-list-base64");
+    expect(serialized).toContain("[REDACTED]");
   });
 
   it("posts bare base64 for latest Kling Omni-Video payload", async () => {
@@ -282,6 +361,49 @@ describe("kling.videoGenerations adapter", () => {
     }
   });
 
+  it("rejects empty provider-native Kling media inputs", async () => {
+    const client = createGenerationClient({ apiKey: "sk-test" });
+
+    expect(() =>
+      client.validate({
+        model: "kling-image-to-video",
+        content: [textBlock("move")],
+        meta: { image: "" },
+      }),
+    ).not.toThrow();
+    await expect(
+      client.generate({
+        model: "kling-image-to-video",
+        content: [textBlock("move")],
+        meta: { image: "" },
+      }),
+    ).rejects.toThrow("Image input is required");
+
+    await expect(
+      client.generate({
+        model: "kling-multi-image-to-video",
+        content: [textBlock("combine")],
+        meta: { image_list: [] },
+      }),
+    ).rejects.toThrow("Multi-image input is required");
+
+    await expect(
+      client.generate({
+        model: "kling-omni-video",
+        content: [],
+        meta: { image_list: [] },
+      }),
+    ).rejects.toThrow("Prompt text or Omni media input is required");
+
+    await expect(
+      client.generate({
+        model: "kling-omni-video",
+        content: [],
+        meta: { multi_shot: true },
+      }),
+    ).rejects.toThrow("Prompt text or Omni media input is required");
+  });
+
   it("posts latest Kling multi-image reference video payload", async () => {
     vi.useFakeTimers();
     try {
@@ -307,6 +429,28 @@ describe("kling.videoGenerations adapter", () => {
         cfg_scale: 0.5,
         aspect_ratio: "16:9",
         image_list: [{ image: "https://example.com/ref-1.png" }, { image: "https://example.com/ref-2.png" }],
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("posts provider-native Kling multi-image meta payload", async () => {
+    vi.useFakeTimers();
+    try {
+      const imageList = [{ image: "provider-native-ref-1" }, { image: "provider-native-ref-2" }];
+      const { client, requests } = createClient();
+      const outputPromise = client.generate({
+        model: "kling-multi-image-to-video",
+        content: [textBlock("combine the references into one cinematic shot")],
+        parameters: { poll_interval: 1 },
+        meta: { image_list: imageList },
+      });
+
+      await generateWithTimers(outputPromise);
+
+      expect(requests[0]?.body).toMatchObject({
+        image_list: imageList,
       });
     } finally {
       vi.useRealTimers();

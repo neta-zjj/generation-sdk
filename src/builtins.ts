@@ -346,10 +346,11 @@ const builtinModels = [
         { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." },
         {
           type: "image",
-          required: true,
+          required: false,
           max: 2,
           sources: ["url", "base64"],
-          description: "First frame and optional tail frame image input.",
+          description:
+            "First frame and optional tail frame image input. Provider-native image input may be passed in meta.",
         },
       ],
     },
@@ -440,10 +441,10 @@ const builtinModels = [
         { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." },
         {
           type: "image",
-          required: true,
+          required: false,
           max: 4,
           sources: ["url", "base64"],
-          description: "Reference image inputs.",
+          description: "Reference image inputs. Provider-native image_list input may be passed in meta.",
         },
       ],
     },

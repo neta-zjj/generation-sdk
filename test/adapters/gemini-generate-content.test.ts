@@ -45,6 +45,32 @@ describe("gemini.generateContent adapter", () => {
     });
   });
 
+  it("always redacts base64 media even when sensitive debug fields are enabled", async () => {
+    const events: unknown[] = [];
+    const base64Data = "a".repeat(256);
+    const fetchMock = async () =>
+      new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: base64Data } }] } }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+
+    const client = createGenerationClient({
+      apiKey: "secret-key",
+      fetch: fetchMock as typeof fetch,
+      debug: { enabled: true, includeSensitive: true, logger: (event) => events.push(event) },
+    });
+    await client.generate({
+      model: "gemini-3.1-flash-image-preview",
+      content: [{ type: "text", text: "hello" }],
+    });
+
+    const serialized = JSON.stringify(events);
+    expect(serialized).toContain("secret-key");
+    expect(serialized).not.toContain(base64Data);
+  });
+
   it("builds generateContent requests", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {

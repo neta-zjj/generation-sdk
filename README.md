@@ -182,6 +182,8 @@ Suno uses one shared adapter with a small public model set: `suno_music_chirp_fe
 `suno_image_to_song_chirp_v5`, `suno_video_to_song_chirp_v5`, and `suno_vox_chirp_v5`. Provider-specific fields such as
 `title`, `tags`, `make_instrumental`, and `metadata_params` belong in `meta`.
 
+`suno_music` is removed in this release. Migrate to a concrete model name and stop sending `parameters.operation` or `meta.task`.
+
 ## Load model declarations from files
 
 ```ts

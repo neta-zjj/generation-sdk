@@ -31,6 +31,18 @@ describe("config", () => {
     });
   });
 
+  it("does not expose the removed legacy Suno model", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    expect(client.getModel("suno_music")).toBeNull();
+    expect(() =>
+      client.validate({
+        model: "suno_music",
+        content: [{ type: "text", text: "warm piano" }],
+      }),
+    ).toThrow("Generation model is unavailable: suno_music");
+    expect(() => client.stringifyModelConfig("suno_music")).toThrow("Generation model is unavailable: suno_music");
+  });
+
   it("validates every built-in model example", () => {
     const client = createGenerationClient({ apiKey: "test" });
     for (const model of client.listModels()) {

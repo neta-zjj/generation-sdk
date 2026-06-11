@@ -60,6 +60,13 @@ pnpm example:image-editing
 pnpm example:text-to-video
 ```
 
+Live provider tests are separate from `pnpm test` because they use the real SDK client and submit real provider requests. Set
+`NETA_ROUTER_API_KEY` or `NETA_API_KEY`, then run:
+
+```bash
+pnpm test:live:suno
+```
+
 You can also call providers through the CLI:
 
 ```bash

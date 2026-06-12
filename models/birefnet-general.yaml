@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: birefnet-general
 title: BiRefNet General
-description: USA new-api Dramatiq single-image tool for BiRefNet segmentation and background removal.
+description: BiRefNet single-image segmentation and background removal model.
 adapter:
   type: openai.images
 content:

@@ -125,9 +125,9 @@ const output = await client.generate({
 });
 ```
 
-## USA new-api Dramatiq images
+## Image models
 
-The USA new-api Dramatiq image models use the OpenAI-compatible image endpoint:
+These image models use the same client API as the other built-in models:
 
 - `noobxl-t2i-onediff`
 - `noobxl-i2i-ipa-onediff`

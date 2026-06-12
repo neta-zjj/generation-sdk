@@ -19,7 +19,7 @@ const imageSizeParameters = {
   },
 } satisfies GenerationModelDeclaration["parameters"];
 
-const dramatiqImageParameters = {
+const noobxlImageParameters = {
   size: {
     type: "string",
     optional: true,
@@ -30,7 +30,7 @@ const dramatiqImageParameters = {
   negative_prompt: {
     type: "string",
     optional: true,
-    description: "Negative prompt forwarded to the Dramatiq Comfy workflow.",
+    description: "Content to avoid in generated images.",
   },
   seed: {
     type: "integer",
@@ -40,8 +40,8 @@ const dramatiqImageParameters = {
   },
 } satisfies GenerationModelDeclaration["parameters"];
 
-const dramatiqI2IParameters = {
-  ...dramatiqImageParameters,
+const noobxlImageToImageParameters = {
+  ...noobxlImageParameters,
   controlnet_weight: {
     type: "number",
     optional: true,
@@ -283,13 +283,13 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "noobxl-t2i-onediff",
     title: "NoobXL T2I OneDiff",
-    description: "USA new-api Dramatiq text-to-image model backed by the ComfyUI actor.",
+    description: "NoobXL text-to-image model.",
     allowUnknownParameters: true,
     adapter: { type: "openai.images" },
     content: {
       input: [{ type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Prompt text." }],
     },
-    parameters: dramatiqImageParameters,
+    parameters: noobxlImageParameters,
     examples: [
       {
         title: "Text to image",
@@ -305,7 +305,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "noobxl-i2i-ipa-onediff",
     title: "NoobXL I2I IPA OneDiff",
-    description: "USA new-api Dramatiq image-to-image model backed by the ComfyUI actor.",
+    description: "NoobXL image-to-image model with optional face reference controls.",
     allowUnknownParameters: true,
     adapter: { type: "openai.images" },
     content: {
@@ -321,7 +321,7 @@ const builtinModels = [
         },
       ],
     },
-    parameters: dramatiqI2IParameters,
+    parameters: noobxlImageToImageParameters,
     examples: [
       {
         title: "Image to image",
@@ -340,7 +340,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "birefnet-general",
     title: "BiRefNet General",
-    description: "USA new-api Dramatiq single-image tool for BiRefNet segmentation and background removal.",
+    description: "BiRefNet single-image segmentation and background removal model.",
     adapter: { type: "openai.images" },
     content: {
       input: [

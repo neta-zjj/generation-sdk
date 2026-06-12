@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: noobxl-i2i-ipa-onediff
 title: NoobXL I2I IPA OneDiff
-description: USA new-api Dramatiq image-to-image model backed by the ComfyUI actor.
+description: NoobXL image-to-image model with optional face reference controls.
 allowUnknownParameters: true
 adapter:
   type: openai.images
@@ -34,7 +34,7 @@ parameters:
   negative_prompt:
     type: string
     optional: true
-    description: Negative prompt forwarded to the Dramatiq Comfy workflow.
+    description: Content to avoid in generated images.
   seed:
     type: integer
     optional: true

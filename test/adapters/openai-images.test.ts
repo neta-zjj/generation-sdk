@@ -47,7 +47,7 @@ describe("openai.images adapter", () => {
     expect(output[0]).toEqual({ type: "image", source: { type: "base64", mediaType: "image/png", data: "abc" } });
   });
 
-  it("builds USA new-api Dramatiq t2i requests", async () => {
+  it("builds NoobXL text-to-image requests", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
       calls.push({ url: String(url), init: init ?? {} });
@@ -74,7 +74,7 @@ describe("openai.images adapter", () => {
     });
   });
 
-  it("builds USA new-api Dramatiq i2i requests", async () => {
+  it("builds NoobXL image-to-image requests", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
       calls.push({ url: String(url), init: init ?? {} });
@@ -110,7 +110,7 @@ describe("openai.images adapter", () => {
     });
   });
 
-  it("allows single-image Dramatiq tools without prompt text", async () => {
+  it("allows single-image tools without prompt text", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
       calls.push({ url: String(url), init: init ?? {} });

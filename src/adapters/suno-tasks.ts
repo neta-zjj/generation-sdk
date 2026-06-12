@@ -151,14 +151,6 @@ async function buildPayload(input: GenerationAdapterInput, operation: string): P
 
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
   if (prompt && config?.textField && payload[config.textField] === undefined) payload[config.textField] = prompt;
-  if (
-    config?.textField &&
-    config.textField !== "prompt" &&
-    payload[config.textField] === undefined &&
-    payload.prompt !== undefined
-  ) {
-    payload[config.textField] = payload.prompt;
-  }
   const audioBlock = input.request.content.find(
     (block): block is Extract<GenerationContentBlock, { type: "audio" }> => block.type === "audio",
   );

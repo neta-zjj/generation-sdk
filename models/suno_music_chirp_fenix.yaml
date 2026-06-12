@@ -39,10 +39,6 @@ meta:
       type: string
       optional: true
       description: Comma-separated Suno music style tags.
-    prompt:
-      type: string
-      optional: true
-      description: Provider prompt override.
     gpt_description_prompt:
       type: string
       optional: true

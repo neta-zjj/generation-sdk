@@ -100,7 +100,6 @@ const sunoTaskParameters = {
 const sunoCommonMetaFields = {
   title: { type: "string", optional: true, description: "Suno song title." },
   tags: { type: "string", optional: true, description: "Comma-separated Suno music style tags." },
-  prompt: { type: "string", optional: true, description: "Provider prompt override." },
   gpt_description_prompt: { type: "string", optional: true, description: "Suno inspiration-mode prompt." },
   negative_tags: { type: "string", optional: true, description: "Styles to avoid." },
   generation_type: { type: "string", optional: true, description: "Suno generation type." },

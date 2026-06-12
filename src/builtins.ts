@@ -304,7 +304,7 @@ const sunoModels = [
     fields: {
       cover_clip_id: { type: "string", description: "Clip id to cover." },
       task_id: { type: "string", description: "Source Suno task id used for cover routing." },
-      continue_clip_id: { type: "string", description: "Source clip id used by the provider cover workflow." },
+      continue_clip_id: { type: "string", description: "Source clip id used for cover generation." },
       continue_at: { type: "number", optional: true, description: "Source clip continuation position in seconds." },
     },
   }),

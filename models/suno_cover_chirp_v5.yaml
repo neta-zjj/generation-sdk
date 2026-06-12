@@ -73,7 +73,7 @@ meta:
       description: Source Suno task id used for cover routing.
     continue_clip_id:
       type: string
-      description: Source clip id used by the provider cover workflow.
+      description: Source clip id used for cover generation.
     continue_at:
       type: number
       optional: true

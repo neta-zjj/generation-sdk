@@ -19,17 +19,29 @@ describe("config", () => {
   });
 
   it("roundtrips built-in model meta declarations", () => {
-    const raw = stringifyBuiltinModelConfig("suno_music");
-    const declaration = parseGenerationModelDeclaration(raw, "suno_music.yaml");
-    expect(declaration.meta?.taskField).toBe("task");
-    expect(declaration.meta?.taskVariants?.remaster).toMatchObject({
-      sendTask: false,
-      required: ["clip_id", "model_name", "variation_category"],
+    const raw = stringifyBuiltinModelConfig("suno_image_to_song_chirp_v5");
+    const declaration = parseGenerationModelDeclaration(raw, "suno_image_to_song_chirp_v5.yaml");
+    expect(declaration.adapter).toMatchObject({
+      operation: "music",
+      task: "image_to_song",
+      payload: { mv: "chirp-v5" },
     });
     expect(declaration.meta?.taskVariants?.image_to_song).toMatchObject({
       requiredContent: ["image"],
       required: ["metadata_params"],
     });
+  });
+
+  it("does not expose the removed legacy Suno model", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    expect(client.getModel("suno_music")).toBeNull();
+    expect(() =>
+      client.validate({
+        model: "suno_music",
+        content: [{ type: "text", text: "warm piano" }],
+      }),
+    ).toThrow("Generation model is unavailable: suno_music");
+    expect(() => client.stringifyModelConfig("suno_music")).toThrow("Generation model is unavailable: suno_music");
   });
 
   it("validates every built-in model example", () => {
@@ -43,10 +55,14 @@ describe("config", () => {
 
   it("parses published model declaration files", async () => {
     const declarations = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
-    const models = declarations.map((declaration) => declaration.model);
-    expect(models).toContain("noobxl-t2i-onediff");
-    expect(models).toContain("noobxl-i2i-ipa-onediff");
-    expect(models).toContain("birefnet-general");
+    const client = createGenerationClient({ apiKey: "test" });
+
+    expect(declarations.map((declaration) => declaration.model).sort()).toEqual(
+      client
+        .listModels()
+        .map((model) => model.model)
+        .sort(),
+    );
   });
 
   it("exports model declarations", async () => {

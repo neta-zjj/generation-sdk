@@ -122,82 +122,337 @@ function videoParameters(defaults: { resolution: string; maxWait: number }) {
   } satisfies GenerationModelDeclaration["parameters"];
 }
 
-const sunoContinuationTaskVariant = {
-  required: ["task_id", "clip_id", "continue_clip_id"],
-};
+function klingVideoParameters(options: {
+  maxDuration: number;
+  negativePrompt?: boolean;
+  seed?: boolean;
+  sound?: boolean;
+}) {
+  const parameters: GenerationModelDeclaration["parameters"] = {
+    duration: {
+      type: "integer",
+      optional: true,
+      default: 5,
+      min: 5,
+      max: options.maxDuration,
+      description: "Video duration in seconds.",
+    },
+    aspect_ratio: {
+      type: "string",
+      optional: true,
+      default: "16:9",
+      enum: ["16:9", "9:16", "1:1"],
+      description: "Output aspect ratio.",
+    },
+    mode: {
+      type: "string",
+      optional: true,
+      default: "std",
+      enum: ["std", "pro"],
+      description: "Kling generation mode.",
+    },
+    cfg_scale: {
+      type: "number",
+      optional: true,
+      default: 0.5,
+      min: 0,
+      max: 1,
+      description: "Prompt adherence scale.",
+    },
+    poll_interval: {
+      type: "integer",
+      optional: true,
+      default: 5,
+      min: 1,
+      max: 30,
+      description: "Seconds between task status checks.",
+    },
+    max_wait: {
+      type: "integer",
+      optional: true,
+      default: 900,
+      min: 30,
+      max: 1800,
+      description: "Maximum seconds to wait for task completion.",
+    },
+  };
+  if (options.negativePrompt) {
+    parameters.negative_prompt = {
+      type: "string",
+      optional: true,
+      description: "Negative prompt.",
+    };
+  }
+  if (options.seed) {
+    parameters.seed = {
+      type: "integer",
+      optional: true,
+      description: "Random seed for reproducibility.",
+    };
+  }
+  if (options.sound) {
+    parameters.sound = {
+      type: "string",
+      optional: true,
+      enum: ["on", "off"],
+      description: "Enable or disable generated sound when supported.",
+    };
+  }
+  return parameters;
+}
 
-const sunoMeta = {
-  taskField: "task",
-  fields: {
-    task: {
-      type: "string",
-      optional: true,
-      enum: [
-        "extend",
-        "upload_extend",
-        "infill",
-        "fixed_infill",
-        "infill_intro",
-        "infill_outro",
-        "cover_infill",
-        "cover_extend",
-        "artist_infill",
-        "artist_consistency",
-        "cover",
-        "image_to_song",
-        "video_to_song",
-        "concat",
-        "sound",
-        "underpainting",
-        "remaster",
-        "vox",
-        "mashup_condition",
-      ],
-      description: "Integrated Suno music task for operation=music.",
-    },
-    mv: { type: "string", optional: true, description: "Suno music model version." },
-    task_id: {
-      type: "string",
-      optional: true,
-      description: "Existing Suno task id used for continuation-style tasks.",
-    },
-    clip_id: {
-      type: "string",
-      optional: true,
-      description: "Existing Suno clip id used for continuation-style tasks.",
-    },
-    continue_clip_id: { type: "string", optional: true, description: "Clip id to continue from." },
-    continue_at: { type: "number", optional: true, description: "Continue position in seconds." },
-    model_name: { type: "string", optional: true, description: "Suno model name used by remaster." },
-    variation_category: { type: "string", optional: true, description: "Remaster variation category." },
-    metadata_params: {
-      type: "object",
-      optional: true,
-      description: "Yunwu/Suno task-specific metadata payload.",
+const sunoTaskParameters = {
+  poll_interval: {
+    type: "integer",
+    optional: true,
+    default: 5,
+    min: 1,
+    max: 60,
+    description: "Seconds between task status checks.",
+  },
+  max_wait: {
+    type: "integer",
+    optional: true,
+    default: 600,
+    min: 30,
+    max: 3600,
+    description: "Maximum seconds to wait for task completion.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
+const sunoCommonMetaFields = {
+  title: { type: "string", optional: true, description: "Suno song title." },
+  tags: { type: "string", optional: true, description: "Comma-separated Suno music style tags." },
+  gpt_description_prompt: { type: "string", optional: true, description: "Suno inspiration-mode prompt." },
+  negative_tags: { type: "string", optional: true, description: "Styles to avoid." },
+  generation_type: { type: "string", optional: true, description: "Suno generation type." },
+  make_instrumental: { type: "boolean", optional: true, default: false, description: "Generate instrumental music." },
+  metadata: { type: "object", optional: true, description: "Suno provider metadata payload." },
+  metadata_params: {
+    type: "object",
+    optional: true,
+    description: "Suno task-specific metadata payload.",
+  },
+} satisfies NonNullable<GenerationModelDeclaration["meta"]>["fields"];
+
+const sunoTaskVariants = {
+  infill: { required: ["continue_clip_id", "metadata_params"] },
+  cover: { required: ["task_id", "continue_clip_id"] },
+  image_to_song: { requiredContent: ["image"], required: ["metadata_params"] },
+  video_to_song: { requiredContent: ["video"], required: ["metadata_params"] },
+  sound: { required: ["metadata_params"] },
+  vox: { required: ["artist_clip_id"] },
+} satisfies NonNullable<GenerationModelDeclaration["meta"]>["taskVariants"];
+
+function sunoContentInput(
+  options: { text?: "required" | "optional" | "none"; audio?: boolean; image?: boolean; video?: boolean } = {},
+): GenerationModelDeclaration["content"]["input"] {
+  const input: GenerationModelDeclaration["content"]["input"] = [];
+  if (options.text !== "none") {
+    input.push({
+      type: "text",
+      required: options.text === "required",
+      max: 16,
+      merge: "newline",
+      description:
+        "Prompt text. The adapter maps merged text to the operation's text field when that field is not provided.",
+    });
+  }
+  if (options.audio) {
+    input.push({
+      type: "audio",
+      required: true,
+      max: 1,
+      sources: ["url", "base64"],
+      description: "Reference audio.",
+    });
+  }
+  if (options.image) {
+    input.push({
+      type: "image",
+      required: true,
+      max: 1,
+      sources: ["url", "base64"],
+      description: "Reference image.",
+    });
+  }
+  if (options.video) {
+    input.push({
+      type: "video",
+      required: true,
+      max: 1,
+      sources: ["url", "base64"],
+      description: "Reference video.",
+    });
+  }
+  return input;
+}
+
+const sunoVersions = [
+  { model: "suno_music_chirp_fenix", title: "Suno Music Chirp Fenix v5.5", mv: "chirp-fenix" },
+] as const;
+
+const sunoMusicExample = {
+  title: "Music generation",
+  request: {
+    model: "suno_music_chirp_fenix",
+    content: [{ type: "text", text: "uplifting cinematic pop with warm piano and clear chorus" }],
+    meta: {
+      title: "Warm Horizon",
+      tags: "cinematic pop, warm piano",
+      make_instrumental: false,
     },
   },
-  taskVariants: {
-    extend: sunoContinuationTaskVariant,
-    upload_extend: sunoContinuationTaskVariant,
-    infill: sunoContinuationTaskVariant,
-    fixed_infill: sunoContinuationTaskVariant,
-    infill_intro: sunoContinuationTaskVariant,
-    infill_outro: sunoContinuationTaskVariant,
-    cover_infill: sunoContinuationTaskVariant,
-    cover_extend: sunoContinuationTaskVariant,
-    artist_infill: sunoContinuationTaskVariant,
-    artist_consistency: sunoContinuationTaskVariant,
-    cover: sunoContinuationTaskVariant,
-    image_to_song: { requiredContent: ["image"], required: ["metadata_params"] },
-    video_to_song: { requiredContent: ["video"], required: ["metadata_params"] },
-    concat: sunoContinuationTaskVariant,
-    sound: { required: ["metadata_params"] },
-    underpainting: { required: ["metadata_params"] },
-    remaster: { sendTask: false, required: ["clip_id", "model_name", "variation_category"] },
-    vox: sunoContinuationTaskVariant,
-    mashup_condition: sunoContinuationTaskVariant,
+} satisfies NonNullable<GenerationModelDeclaration["examples"]>[number];
+
+function sunoVersionModel(version: (typeof sunoVersions)[number]): GenerationModelDeclaration {
+  return {
+    schema: MODEL_SCHEMA,
+    model: version.model,
+    title: version.title,
+    description: "Suno text-to-music model with a fixed Suno model version.",
+    adapter: { type: "suno.tasks", operation: "music", payload: { mv: version.mv } },
+    content: {
+      input: sunoContentInput({ text: "required" }),
+    },
+    parameters: sunoTaskParameters,
+    meta: {
+      fields: sunoCommonMetaFields,
+    },
+    ...(version.model === "suno_music_chirp_fenix" ? { examples: [sunoMusicExample] } : {}),
+  };
+}
+
+function sunoTaskModel(options: {
+  model: string;
+  title: string;
+  description: string;
+  task: string;
+  mv?: string;
+  content?: Parameters<typeof sunoContentInput>[0];
+  fields?: NonNullable<GenerationModelDeclaration["meta"]>["fields"];
+  examples?: GenerationModelDeclaration["examples"];
+}): GenerationModelDeclaration {
+  return {
+    schema: MODEL_SCHEMA,
+    model: options.model,
+    title: options.title,
+    description: options.description,
+    adapter: {
+      type: "suno.tasks",
+      operation: "music",
+      task: options.task,
+      payload: { mv: options.mv ?? "chirp-v5" },
+    },
+    content: {
+      input: sunoContentInput(options.content ?? { text: "optional" }),
+    },
+    parameters: sunoTaskParameters,
+    meta: {
+      fields: {
+        ...sunoCommonMetaFields,
+        ...options.fields,
+      },
+      taskVariants: sunoTaskVariants,
+    },
+    ...(options.examples ? { examples: options.examples } : {}),
+  };
+}
+
+const sunoModels = [
+  ...sunoVersions.map(sunoVersionModel),
+  {
+    schema: MODEL_SCHEMA,
+    model: "suno_style_tags",
+    title: "Suno Style Tags",
+    description: "Suno style tag upsampling model.",
+    adapter: { type: "suno.tasks", operation: "upsample_tags" },
+    content: {
+      input: sunoContentInput({ text: "required" }),
+    },
   },
-} satisfies GenerationModelDeclaration["meta"];
+  {
+    schema: MODEL_SCHEMA,
+    model: "suno_upload_audio",
+    title: "Suno Upload Audio",
+    description: "Suno reference-audio upload model.",
+    adapter: { type: "suno.tasks", operation: "upload_audio", defaults: { name: "reference-audio", timeout: 120 } },
+    content: {
+      input: sunoContentInput({ text: "none", audio: true }),
+    },
+    parameters: sunoTaskParameters,
+    meta: {
+      fields: {
+        name: { type: "string", optional: true, description: "Upload name." },
+        timeout: { type: "integer", optional: true, description: "Upload timeout in seconds." },
+      },
+    },
+  },
+  sunoTaskModel({
+    model: "suno_image_to_song_chirp_v5",
+    title: "Suno Image to Song Chirp v5.0",
+    description: "Suno image-to-song task with a fixed chirp-v5 engine.",
+    task: "image_to_song",
+    content: { text: "optional", image: true },
+    fields: {
+      metadata_params: { type: "object", description: "Image-to-song metadata payload." },
+    },
+  }),
+  sunoTaskModel({
+    model: "suno_video_to_song_chirp_v5",
+    title: "Suno Video to Song Chirp v5.0",
+    description: "Suno video-to-song task with a fixed chirp-v5 engine.",
+    task: "video_to_song",
+    content: { text: "optional", video: true },
+    fields: {
+      metadata_params: { type: "object", description: "Video-to-song metadata payload." },
+    },
+  }),
+  sunoTaskModel({
+    model: "suno_sound_chirp_v5",
+    title: "Suno Sound Chirp v5.0",
+    description: "Suno sound-effect generation task with a fixed chirp-v5 engine.",
+    task: "sound",
+    content: { text: "optional" },
+    fields: {
+      metadata_params: { type: "object", description: "Sound task metadata payload." },
+    },
+  }),
+  sunoTaskModel({
+    model: "suno_cover_chirp_v5",
+    title: "Suno Cover Chirp v5.0",
+    description: "Suno cover task with a fixed chirp-v5 engine.",
+    task: "cover",
+    content: { text: "optional" },
+    fields: {
+      cover_clip_id: { type: "string", description: "Clip id to cover." },
+      task_id: { type: "string", description: "Source Suno task id used for cover routing." },
+      continue_clip_id: { type: "string", description: "Source clip id used for cover generation." },
+      continue_at: { type: "number", optional: true, description: "Source clip continuation position in seconds." },
+    },
+  }),
+  sunoTaskModel({
+    model: "suno_infill_chirp_v5",
+    title: "Suno Infill Chirp v5.0",
+    description: "Suno local edit task with a fixed chirp-v5 engine.",
+    task: "infill",
+    content: { text: "optional" },
+    fields: {
+      continue_clip_id: { type: "string", description: "Clip id to edit." },
+      metadata_params: { type: "object", description: "Infill timing and replacement metadata." },
+    },
+  }),
+  sunoTaskModel({
+    model: "suno_vox_chirp_v5",
+    title: "Suno Vox Chirp v5.0",
+    description: "Suno hum-to-song task with a fixed chirp-v5 engine.",
+    task: "vox",
+    content: { text: "optional" },
+    fields: {
+      artist_clip_id: { type: "string", description: "Reference hum or vocal clip id." },
+    },
+  }),
+] satisfies GenerationModelDeclaration[];
 
 const builtinModels = [
   {
@@ -275,6 +530,156 @@ const builtinModels = [
             { type: "text", text: "a vibrant infographic explaining photosynthesis with clear readable labels" },
           ],
           parameters: { aspect_ratio: "16:9", image_size: "1K" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "kling-text-to-video",
+    title: "Kling Text To Video",
+    description: "Kling latest text-to-video generation through Neta Router.",
+    adapter: { type: "kling.videoGenerations" },
+    content: {
+      input: [{ type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." }],
+    },
+    parameters: klingVideoParameters({ maxDuration: 10, negativePrompt: true, seed: true }),
+    examples: [
+      {
+        title: "Text to video",
+        request: {
+          model: "kling-text-to-video",
+          content: [{ type: "text", text: "a small paper boat floating on calm water, cinematic motion" }],
+          parameters: { duration: 5, aspect_ratio: "16:9", mode: "std" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "kling-image-to-video",
+    title: "Kling Image To Video",
+    description: "Kling latest image-to-video generation through Neta Router.",
+    adapter: { type: "kling.videoGenerations" },
+    content: {
+      input: [
+        { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." },
+        {
+          type: "image",
+          required: false,
+          max: 2,
+          sources: ["url", "base64"],
+          description:
+            "First frame and optional tail frame image input. Provider-native image input may be passed in meta.",
+        },
+      ],
+    },
+    parameters: klingVideoParameters({ maxDuration: 10, negativePrompt: true, seed: true }),
+    examples: [
+      {
+        title: "Image to video",
+        request: {
+          model: "kling-image-to-video",
+          content: [
+            { type: "text", text: "gently turn toward the camera with soft natural motion" },
+            { type: "image", source: { type: "url", url: "https://example.com/input.png" } },
+          ],
+          parameters: { duration: 5, aspect_ratio: "16:9" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "kling-omni-video",
+    title: "Kling Omni Video",
+    description: "Kling latest Omni-Video generation through Neta Router.",
+    adapter: { type: "kling.videoGenerations" },
+    content: {
+      input: [
+        {
+          type: "text",
+          required: false,
+          max: 16,
+          merge: "newline",
+          description: "Optional video prompt. Use Kling Omni placeholders such as <<<image_1>>> with image_list.",
+        },
+        {
+          type: "image",
+          required: false,
+          max: 2,
+          sources: ["url", "base64"],
+          description: "Optional simple image input. Provider-native Omni media arrays belong in request meta.",
+        },
+      ],
+    },
+    parameters: klingVideoParameters({ maxDuration: 15, sound: true }),
+    meta: {
+      fields: {
+        multi_shot: {
+          type: "boolean",
+          optional: true,
+          description: "Enable Kling Omni multi-shot mode.",
+        },
+        shot_type: {
+          type: "string",
+          optional: true,
+          description: "Kling Omni shot type.",
+        },
+      },
+    },
+    examples: [
+      {
+        title: "Omni text to video",
+        request: {
+          model: "kling-omni-video",
+          content: [{ type: "text", text: "a small paper boat floating on calm water, cinematic motion" }],
+          parameters: { duration: 5, aspect_ratio: "16:9", mode: "std" },
+        },
+      },
+      {
+        title: "Omni image to video",
+        request: {
+          model: "kling-omni-video",
+          content: [{ type: "text", text: "<<<image_1>>> gently turns toward the camera with soft natural motion" }],
+          parameters: { duration: 5, aspect_ratio: "16:9" },
+          meta: {
+            image_list: [{ image_url: "https://example.com/input.png", type: "first_frame" }],
+          },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "kling-multi-image-to-video",
+    title: "Kling Multi-Image Reference To Video",
+    description: "Kling latest multi-image reference video generation through Neta Router.",
+    adapter: { type: "kling.videoGenerations" },
+    content: {
+      input: [
+        { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." },
+        {
+          type: "image",
+          required: false,
+          max: 4,
+          sources: ["url", "base64"],
+          description: "Reference image inputs. Provider-native image_list input may be passed in meta.",
+        },
+      ],
+    },
+    parameters: klingVideoParameters({ maxDuration: 10, negativePrompt: true, seed: true }),
+    examples: [
+      {
+        title: "Multi-image reference to video",
+        request: {
+          model: "kling-multi-image-to-video",
+          content: [
+            { type: "text", text: "combine the references into one cinematic shot" },
+            { type: "image", source: { type: "url", url: "https://example.com/reference-1.png" } },
+            { type: "image", source: { type: "url", url: "https://example.com/reference-2.png" } },
+          ],
+          parameters: { duration: 5, aspect_ratio: "16:9" },
         },
       },
     ],
@@ -405,132 +810,7 @@ const builtinModels = [
     },
     parameters: videoParameters({ resolution: "720p", maxWait: 600 }),
   },
-  {
-    schema: MODEL_SCHEMA,
-    model: "suno_music",
-    title: "Suno Music",
-    description: "Suno music model for songs, lyrics, sound effects, and integrated music tasks.",
-    adapter: { type: "suno.tasks" },
-    content: {
-      input: [
-        {
-          type: "text",
-          required: false,
-          max: 16,
-          merge: "newline",
-          description:
-            "Optional prompt text. The adapter maps merged text to the operation's text field when that field is not provided.",
-        },
-        {
-          type: "audio",
-          required: false,
-          max: 1,
-          sources: ["url", "base64"],
-          description: "Optional reference audio. The adapter maps it to url when url is not provided.",
-        },
-        {
-          type: "image",
-          required: false,
-          max: 1,
-          sources: ["url", "base64"],
-          description: "Optional image source. The adapter maps it to image_url when image_url is not provided.",
-        },
-        {
-          type: "video",
-          required: false,
-          max: 1,
-          sources: ["url", "base64"],
-          description: "Optional video source. The adapter maps it to video_url when video_url is not provided.",
-        },
-      ],
-    },
-    parameters: {
-      operation: {
-        type: "string",
-        optional: true,
-        default: "music",
-        enum: ["music", "lyrics"],
-        description:
-          "Stable Suno endpoint operation. Provider-specific fields such as task, mv, title, tags, metadataParams, and clip_id belong in request meta.",
-      },
-      poll_interval: {
-        type: "integer",
-        optional: true,
-        default: 5,
-        min: 1,
-        max: 60,
-        description: "Seconds between task status checks.",
-      },
-      max_wait: {
-        type: "integer",
-        optional: true,
-        default: 600,
-        min: 30,
-        max: 3600,
-        description: "Maximum seconds to wait for task completion.",
-      },
-    },
-    meta: sunoMeta,
-    examples: [
-      {
-        title: "Music generation",
-        request: {
-          model: "suno_music",
-          content: [{ type: "text", text: "uplifting cinematic pop with warm piano and clear chorus" }],
-          parameters: { operation: "music" },
-          meta: {
-            mv: "chirp-v5-5",
-            title: "Warm Horizon",
-            tags: "cinematic pop, warm piano",
-            make_instrumental: false,
-          },
-        },
-      },
-      {
-        title: "Lyrics",
-        request: {
-          model: "suno_music",
-          content: [{ type: "text", text: "write a hopeful chorus about sunrise after a storm" }],
-          parameters: { operation: "lyrics" },
-        },
-      },
-      {
-        title: "Sound effect",
-        request: {
-          model: "suno_music",
-          content: [{ type: "text", text: "ambient music with gentle rain and distant thunder" }],
-          parameters: { operation: "music" },
-          meta: {
-            task: "sound",
-            mv: "chirp-v5-5",
-            metadata_params: { sound: "gentle rain ambience with distant thunder" },
-            title: "Gentle Rain",
-            tags: "ambient, rain, cinematic",
-            make_instrumental: true,
-          },
-        },
-      },
-      {
-        title: "Image to song",
-        request: {
-          model: "suno_music",
-          content: [
-            { type: "text", text: "turn this image into a short hopeful pop song" },
-            { type: "image", source: { type: "url", url: "https://picsum.photos/512/512" } },
-          ],
-          parameters: { operation: "music" },
-          meta: {
-            task: "image_to_song",
-            mv: "chirp-v5-5",
-            metadata_params: {
-              image_url: "https://picsum.photos/512/512",
-              prompt: "turn this image into a short hopeful pop song",
-            },
-          },
-        },
-      },
-    ],
-  },
+  ...sunoModels,
 ] satisfies GenerationModelDeclaration[];
 
 export const builtinGenerationModels: GenerationModelDeclaration[] = cloneJson(builtinModels);

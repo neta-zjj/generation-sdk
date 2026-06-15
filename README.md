@@ -90,7 +90,7 @@ const client = createGenerationClient({
 });
 ```
 
-For a custom logger or full unredacted payloads:
+For a custom logger or unredacted secret headers. Base64 media payloads are always redacted from debug events:
 
 ```ts
 const client = createGenerationClient({
@@ -107,6 +107,10 @@ const client = createGenerationClient({
 
 - `gpt-image-2`
 - `gemini-3.1-flash-image-preview`
+- `kling-text-to-video`
+- `kling-image-to-video`
+- `kling-omni-video`
+- `kling-multi-image-to-video`
 - `seedance-2-0`
 - `seedance-2-0-fast`
 - `suno_music_chirp_fenix`
@@ -163,6 +167,22 @@ await client.generate({
     { type: "image", source: { type: "url", url: "https://example.com/start.jpg" }, meta: { role: "first_frame" } },
     { type: "image", source: { type: "url", url: "https://example.com/end.jpg" }, meta: { role: "last_frame" } },
   ],
+});
+```
+
+Kling exposes stable capability model ids while the adapter sends the latest upstream `model_name` for each capability:
+
+```ts
+await client.generate({
+  model: "kling-image-to-video",
+  content: [
+    { type: "text", text: "gently turn toward the camera with soft natural motion" },
+    { type: "image", source: { type: "url", url: "https://example.com/input.png" } },
+  ],
+  parameters: {
+    duration: 5,
+    aspect_ratio: "16:9",
+  },
 });
 ```
 
@@ -270,6 +290,7 @@ Built-in adapters:
 - `openai.images`
 - `gemini.generateContent`
 - `ark.videoGenerations`
+- `kling.videoGenerations`
 - `suno.tasks`
 
 You can register custom adapters:

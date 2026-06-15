@@ -6,6 +6,7 @@ import {
   createGenerationClient,
   exportBuiltinModelConfig,
   parseGenerationModelDeclaration,
+  readGenerationModelDeclarationsFromDirectory,
   stringifyBuiltinModelConfig,
 } from "../src/index.js";
 
@@ -50,6 +51,18 @@ describe("config", () => {
         expect(() => client.validate(example.request), `${model.model}: ${example.title ?? "example"}`).not.toThrow();
       }
     }
+  });
+
+  it("keeps committed YAML declarations in sync with built-in models", async () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    const yamlDeclarations = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
+
+    expect(yamlDeclarations.map((model) => model.model).sort()).toEqual(
+      client
+        .listModels()
+        .map((model) => model.model)
+        .sort(),
+    );
   });
 
   it("exports model declarations", async () => {

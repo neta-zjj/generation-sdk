@@ -26,17 +26,54 @@ import {
 } from "./validation.js";
 
 const DEFAULT_BASE_URL = "https://router.neta.art";
+const REDACTED = "[REDACTED]";
+const SECRET_DEBUG_KEY_PATTERN = /^(authorization|api[-_]?key|token|thoughtSignature)$/i;
+const BASE64_DEBUG_KEY_PATTERN = /^(b64_json|data)$/i;
+const MEDIA_PAYLOAD_KEYS = new Set([
+  "audio",
+  "audio_url",
+  "image",
+  "image_tail",
+  "image_url",
+  "first_frame",
+  "mask",
+  "result_url",
+  "static_mask",
+  "url",
+  "video",
+  "video_url",
+  "watermark_url",
+]);
 
-function redactDebugEvent<T>(value: T): T {
-  if (Array.isArray(value)) return value.map((item) => redactDebugEvent(item)) as T;
+function isUrlLike(value: string): boolean {
+  return /^(https?:|s3:|gs:|file:|blob:)\/\//i.test(value.trim());
+}
+
+function isBase64Like(value: string): boolean {
+  const compact = value.trim().replace(/\s/g, "");
+  if (compact.length < 256 || compact.length % 4 === 1) return false;
+  return /^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(compact);
+}
+
+function shouldRedactString(key: string | undefined, value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  if (/^data:/i.test(trimmed)) return true;
+  if (isBase64Like(trimmed)) return true;
+  return !!key && MEDIA_PAYLOAD_KEYS.has(key.toLowerCase()) && !isUrlLike(trimmed);
+}
+
+function redactDebugEvent<T>(value: T, options: { redactSecrets: boolean }, key?: string): T {
+  if (typeof value === "string") return (shouldRedactString(key, value) ? REDACTED : value) as T;
+  if (Array.isArray(value)) return value.map((item) => redactDebugEvent(item, options, key)) as T;
   if (!value || typeof value !== "object") return value;
 
   const output: Record<string, unknown> = {};
-  for (const [key, child] of Object.entries(value)) {
-    if (/^(authorization|api[-_]?key|token|b64_json|thoughtSignature)$/i.test(key) || key === "data") {
-      output[key] = "[REDACTED]";
+  for (const [childKey, child] of Object.entries(value)) {
+    if (BASE64_DEBUG_KEY_PATTERN.test(childKey) || (options.redactSecrets && SECRET_DEBUG_KEY_PATTERN.test(childKey))) {
+      output[childKey] = REDACTED;
     } else {
-      output[key] = redactDebugEvent(child);
+      output[childKey] = redactDebugEvent(child, options, childKey);
     }
   }
   return output as T;
@@ -53,7 +90,7 @@ function resolveDebugConfig(debug: CreateGenerationClientOptions["debug"]): Gene
       enabled: true,
       includeSensitive: false,
       includeResponseBody: true,
-      logger: (event) => defaultDebugLogger(redactDebugEvent(event)),
+      logger: (event) => defaultDebugLogger(redactDebugEvent(event, { redactSecrets: true })),
     };
   }
   if (!debug.enabled) return undefined;
@@ -63,7 +100,7 @@ function resolveDebugConfig(debug: CreateGenerationClientOptions["debug"]): Gene
     enabled: true,
     includeSensitive,
     includeResponseBody: debug.includeResponseBody ?? true,
-    logger: (event) => logger(includeSensitive ? event : redactDebugEvent(event)),
+    logger: (event) => logger(redactDebugEvent(event, { redactSecrets: !includeSensitive })),
   };
 }
 

@@ -78,6 +78,85 @@ function videoParameters(defaults: { resolution: string; maxWait: number }) {
   } satisfies GenerationModelDeclaration["parameters"];
 }
 
+function klingVideoParameters(options: {
+  maxDuration: number;
+  negativePrompt?: boolean;
+  seed?: boolean;
+  sound?: boolean;
+}) {
+  const parameters: GenerationModelDeclaration["parameters"] = {
+    duration: {
+      type: "integer",
+      optional: true,
+      default: 5,
+      min: 5,
+      max: options.maxDuration,
+      description: "Video duration in seconds.",
+    },
+    aspect_ratio: {
+      type: "string",
+      optional: true,
+      default: "16:9",
+      enum: ["16:9", "9:16", "1:1"],
+      description: "Output aspect ratio.",
+    },
+    mode: {
+      type: "string",
+      optional: true,
+      default: "std",
+      enum: ["std", "pro"],
+      description: "Kling generation mode.",
+    },
+    cfg_scale: {
+      type: "number",
+      optional: true,
+      default: 0.5,
+      min: 0,
+      max: 1,
+      description: "Prompt adherence scale.",
+    },
+    poll_interval: {
+      type: "integer",
+      optional: true,
+      default: 5,
+      min: 1,
+      max: 30,
+      description: "Seconds between task status checks.",
+    },
+    max_wait: {
+      type: "integer",
+      optional: true,
+      default: 900,
+      min: 30,
+      max: 1800,
+      description: "Maximum seconds to wait for task completion.",
+    },
+  };
+  if (options.negativePrompt) {
+    parameters.negative_prompt = {
+      type: "string",
+      optional: true,
+      description: "Negative prompt.",
+    };
+  }
+  if (options.seed) {
+    parameters.seed = {
+      type: "integer",
+      optional: true,
+      description: "Random seed for reproducibility.",
+    };
+  }
+  if (options.sound) {
+    parameters.sound = {
+      type: "string",
+      optional: true,
+      enum: ["on", "off"],
+      description: "Enable or disable generated sound when supported.",
+    };
+  }
+  return parameters;
+}
+
 const sunoTaskParameters = {
   poll_interval: {
     type: "integer",
@@ -407,6 +486,156 @@ const builtinModels = [
             { type: "text", text: "a vibrant infographic explaining photosynthesis with clear readable labels" },
           ],
           parameters: { aspect_ratio: "16:9", image_size: "1K" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "kling-text-to-video",
+    title: "Kling Text To Video",
+    description: "Kling latest text-to-video generation through Neta Router.",
+    adapter: { type: "kling.videoGenerations" },
+    content: {
+      input: [{ type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." }],
+    },
+    parameters: klingVideoParameters({ maxDuration: 10, negativePrompt: true, seed: true }),
+    examples: [
+      {
+        title: "Text to video",
+        request: {
+          model: "kling-text-to-video",
+          content: [{ type: "text", text: "a small paper boat floating on calm water, cinematic motion" }],
+          parameters: { duration: 5, aspect_ratio: "16:9", mode: "std" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "kling-image-to-video",
+    title: "Kling Image To Video",
+    description: "Kling latest image-to-video generation through Neta Router.",
+    adapter: { type: "kling.videoGenerations" },
+    content: {
+      input: [
+        { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." },
+        {
+          type: "image",
+          required: false,
+          max: 2,
+          sources: ["url", "base64"],
+          description:
+            "First frame and optional tail frame image input. Provider-native image input may be passed in meta.",
+        },
+      ],
+    },
+    parameters: klingVideoParameters({ maxDuration: 10, negativePrompt: true, seed: true }),
+    examples: [
+      {
+        title: "Image to video",
+        request: {
+          model: "kling-image-to-video",
+          content: [
+            { type: "text", text: "gently turn toward the camera with soft natural motion" },
+            { type: "image", source: { type: "url", url: "https://example.com/input.png" } },
+          ],
+          parameters: { duration: 5, aspect_ratio: "16:9" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "kling-omni-video",
+    title: "Kling Omni Video",
+    description: "Kling latest Omni-Video generation through Neta Router.",
+    adapter: { type: "kling.videoGenerations" },
+    content: {
+      input: [
+        {
+          type: "text",
+          required: false,
+          max: 16,
+          merge: "newline",
+          description: "Optional video prompt. Use Kling Omni placeholders such as <<<image_1>>> with image_list.",
+        },
+        {
+          type: "image",
+          required: false,
+          max: 2,
+          sources: ["url", "base64"],
+          description: "Optional simple image input. Provider-native Omni media arrays belong in request meta.",
+        },
+      ],
+    },
+    parameters: klingVideoParameters({ maxDuration: 15, sound: true }),
+    meta: {
+      fields: {
+        multi_shot: {
+          type: "boolean",
+          optional: true,
+          description: "Enable Kling Omni multi-shot mode.",
+        },
+        shot_type: {
+          type: "string",
+          optional: true,
+          description: "Kling Omni shot type.",
+        },
+      },
+    },
+    examples: [
+      {
+        title: "Omni text to video",
+        request: {
+          model: "kling-omni-video",
+          content: [{ type: "text", text: "a small paper boat floating on calm water, cinematic motion" }],
+          parameters: { duration: 5, aspect_ratio: "16:9", mode: "std" },
+        },
+      },
+      {
+        title: "Omni image to video",
+        request: {
+          model: "kling-omni-video",
+          content: [{ type: "text", text: "<<<image_1>>> gently turns toward the camera with soft natural motion" }],
+          parameters: { duration: 5, aspect_ratio: "16:9" },
+          meta: {
+            image_list: [{ image_url: "https://example.com/input.png", type: "first_frame" }],
+          },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "kling-multi-image-to-video",
+    title: "Kling Multi-Image Reference To Video",
+    description: "Kling latest multi-image reference video generation through Neta Router.",
+    adapter: { type: "kling.videoGenerations" },
+    content: {
+      input: [
+        { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." },
+        {
+          type: "image",
+          required: false,
+          max: 4,
+          sources: ["url", "base64"],
+          description: "Reference image inputs. Provider-native image_list input may be passed in meta.",
+        },
+      ],
+    },
+    parameters: klingVideoParameters({ maxDuration: 10, negativePrompt: true, seed: true }),
+    examples: [
+      {
+        title: "Multi-image reference to video",
+        request: {
+          model: "kling-multi-image-to-video",
+          content: [
+            { type: "text", text: "combine the references into one cinematic shot" },
+            { type: "image", source: { type: "url", url: "https://example.com/reference-1.png" } },
+            { type: "image", source: { type: "url", url: "https://example.com/reference-2.png" } },
+          ],
+          parameters: { duration: 5, aspect_ratio: "16:9" },
         },
       },
     ],

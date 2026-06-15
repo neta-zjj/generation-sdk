@@ -57,6 +57,8 @@ describe("config", () => {
     const declarations = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
     const client = createGenerationClient({ apiKey: "test" });
 
+    expect(declarations).toEqual(client.listModels());
+
     expect(declarations.map((declaration) => declaration.model).sort()).toEqual(
       client
         .listModels()

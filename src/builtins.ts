@@ -236,12 +236,28 @@ const sunoCommonMetaFields = {
 } satisfies NonNullable<GenerationModelDeclaration["meta"]>["fields"];
 
 const sunoTaskVariants = {
+  extend: { required: ["continue_clip_id"] },
+  upload_extend: { required: ["continue_clip_id"] },
   infill: { required: ["continue_clip_id", "metadata_params"] },
+  fixed_infill: { required: ["continue_clip_id", "metadata_params"] },
+  infill_intro: { required: ["continue_clip_id", "metadata_params"] },
+  infill_outro: { required: ["continue_clip_id", "metadata_params"] },
+  cover_infill: { required: ["continue_clip_id", "metadata_params"] },
+  cover_extend: { required: ["continue_clip_id"] },
+  artist_infill: { required: ["continue_clip_id", "metadata_params"] },
+  artist_consistency: { required: ["persona_id", "artist_clip_id"] },
   cover: { required: ["task_id", "continue_clip_id"] },
   image_to_song: { requiredContent: ["image"], required: ["metadata_params"] },
   video_to_song: { requiredContent: ["video"], required: ["metadata_params"] },
+  concat: { required: ["clip_id"] },
   sound: { required: ["metadata_params"] },
+  underpainting: { required: ["metadata_params"] },
+  overpainting: { required: ["metadata_params"] },
+  remaster: { required: ["metadata_params"] },
   vox: { required: ["artist_clip_id"] },
+  chop_sample_condition: { required: ["metadata_params"] },
+  mashup_condition: { required: ["metadata_params"] },
+  playlist_condition: { required: ["metadata_params"] },
 } satisfies NonNullable<GenerationModelDeclaration["meta"]>["taskVariants"];
 
 function sunoContentInput(
@@ -788,6 +804,21 @@ const builtinModels = [
       ],
     },
     parameters: videoParameters({ resolution: "1080p", maxWait: 900 }),
+    examples: [
+      {
+        title: "Text to video",
+        request: {
+          model: "seedance-2-0",
+          content: [
+            {
+              type: "text",
+              text: "a cat playing piano in a cozy jazz club, cinematic lighting, smooth camera movement",
+            },
+          ],
+          parameters: { duration: 5, resolution: "1080p", aspect_ratio: "16:9" },
+        },
+      },
+    ],
   },
   {
     schema: MODEL_SCHEMA,
@@ -809,6 +840,21 @@ const builtinModels = [
       ],
     },
     parameters: videoParameters({ resolution: "720p", maxWait: 600 }),
+    examples: [
+      {
+        title: "Text to video",
+        request: {
+          model: "seedance-2-0-fast",
+          content: [
+            {
+              type: "text",
+              text: "a cat playing piano in a cozy jazz club, cinematic lighting, smooth camera movement",
+            },
+          ],
+          parameters: { duration: 5, resolution: "720p", aspect_ratio: "16:9" },
+        },
+      },
+    ],
   },
   ...sunoModels,
 ] satisfies GenerationModelDeclaration[];

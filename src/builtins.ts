@@ -19,6 +19,50 @@ const imageSizeParameters = {
   },
 } satisfies GenerationModelDeclaration["parameters"];
 
+const noobxlImageParameters = {
+  size: {
+    type: "string",
+    optional: true,
+    default: "1024x1024",
+    description: "Output image size as WIDTHxHEIGHT.",
+    examples: ["1024x1024", "768x1024", "1024x768"],
+  },
+  negative_prompt: {
+    type: "string",
+    optional: true,
+    description: "Content to avoid in generated images.",
+  },
+  seed: {
+    type: "integer",
+    optional: true,
+    min: 0,
+    description: "Random seed for reproducibility.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
+const noobxlImageToImageParameters = {
+  ...noobxlImageParameters,
+  controlnet_weight: {
+    type: "number",
+    optional: true,
+    min: 0,
+    max: 2,
+    description: "ControlNet tile weight. The provider default is 0.8.",
+  },
+  ipadapter_face_image_ref: {
+    type: "string",
+    optional: true,
+    description: "Optional face reference image URL for IP-Adapter.",
+  },
+  ipadapter_face_weight: {
+    type: "number",
+    optional: true,
+    min: 0,
+    max: 2,
+    description: "IP-Adapter face weight. The provider default is 0.6 when a face reference is supplied.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
 function videoParameters(defaults: { resolution: string; maxWait: number }) {
   return {
     duration: {
@@ -636,6 +680,91 @@ const builtinModels = [
             { type: "image", source: { type: "url", url: "https://example.com/reference-2.png" } },
           ],
           parameters: { duration: 5, aspect_ratio: "16:9" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "noobxl-t2i-onediff",
+    title: "NoobXL T2I OneDiff",
+    description: "NoobXL text-to-image model.",
+    allowUnknownParameters: true,
+    adapter: { type: "openai.images" },
+    content: {
+      input: [{ type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Prompt text." }],
+    },
+    parameters: noobxlImageParameters,
+    examples: [
+      {
+        title: "Text to image",
+        request: {
+          model: "noobxl-t2i-onediff",
+          content: [{ type: "text", text: "anime key visual, luminous city at night, crisp linework" }],
+          parameters: { size: "1024x1024", negative_prompt: "low quality, blurry" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "noobxl-i2i-ipa-onediff",
+    title: "NoobXL I2I IPA OneDiff",
+    description: "NoobXL image-to-image model with optional face reference controls.",
+    allowUnknownParameters: true,
+    adapter: { type: "openai.images" },
+    content: {
+      input: [
+        { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Prompt text." },
+        {
+          type: "image",
+          required: true,
+          min: 1,
+          max: 1,
+          sources: ["url", "base64"],
+          description: "Single source image.",
+        },
+      ],
+    },
+    parameters: noobxlImageToImageParameters,
+    examples: [
+      {
+        title: "Image to image",
+        request: {
+          model: "noobxl-i2i-ipa-onediff",
+          content: [
+            { type: "text", text: "keep the character identity, redraw as a polished anime illustration" },
+            { type: "image", source: { type: "url", url: "https://example.com/reference.png" } },
+          ],
+          parameters: { size: "1024x1024", controlnet_weight: 0.8 },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "birefnet-general",
+    title: "BiRefNet General",
+    description: "BiRefNet single-image segmentation and background removal model.",
+    adapter: { type: "openai.images" },
+    content: {
+      input: [
+        {
+          type: "image",
+          required: true,
+          min: 1,
+          max: 1,
+          sources: ["url", "base64"],
+          description: "Single source image.",
+        },
+      ],
+    },
+    examples: [
+      {
+        title: "Remove background",
+        request: {
+          model: "birefnet-general",
+          content: [{ type: "image", source: { type: "url", url: "https://example.com/portrait.png" } }],
         },
       },
     ],

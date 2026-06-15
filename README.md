@@ -114,6 +114,9 @@ const client = createGenerationClient({
 - `seedance-2-0`
 - `seedance-2-0-fast`
 - `suno_music_chirp_fenix`
+- `noobxl-t2i-onediff`
+- `noobxl-i2i-ipa-onediff`
+- `birefnet-general`
 - `suno_style_tags`
 - `suno_upload_audio`
 - `suno_cover_chirp_v5`
@@ -138,6 +141,32 @@ const output = await client.generate({
     aspect_ratio: "3:4",
     image_size: "2K",
   },
+});
+```
+
+## Image models
+
+These image models use the same client API as the other built-in models:
+
+- `noobxl-t2i-onediff`
+- `noobxl-i2i-ipa-onediff`
+- `birefnet-general`
+
+```ts
+await client.generate({
+  model: "noobxl-t2i-onediff",
+  content: [{ type: "text", text: "anime key visual, luminous city at night" }],
+  parameters: {
+    size: "1024x1024",
+    negative_prompt: "low quality, blurry",
+  },
+});
+
+await client.generate({
+  model: "birefnet-general",
+  content: [
+    { type: "image", source: { type: "url", url: "https://example.com/portrait.png" } },
+  ],
 });
 ```
 

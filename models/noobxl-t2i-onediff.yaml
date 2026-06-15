@@ -1,0 +1,44 @@
+schema: neta.generation.model.v1
+model: noobxl-t2i-onediff
+title: NoobXL T2I OneDiff
+description: NoobXL text-to-image model.
+allowUnknownParameters: true
+adapter:
+  type: openai.images
+content:
+  input:
+    - type: text
+      required: true
+      min: 1
+      max: 16
+      merge: newline
+      description: Prompt text.
+parameters:
+  size:
+    type: string
+    optional: true
+    default: 1024x1024
+    description: Output image size as WIDTHxHEIGHT.
+    examples:
+      - 1024x1024
+      - 768x1024
+      - 1024x768
+  negative_prompt:
+    type: string
+    optional: true
+    description: Content to avoid in generated images.
+  seed:
+    type: integer
+    optional: true
+    min: 0
+    description: Random seed for reproducibility.
+examples:
+  - title: Text to image
+    request:
+      model: noobxl-t2i-onediff
+      content:
+        - type: text
+          text: anime key visual, luminous city at night, crisp linework
+      parameters:
+        size: 1024x1024
+        negative_prompt: low quality, blurry

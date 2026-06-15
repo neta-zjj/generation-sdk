@@ -53,11 +53,11 @@ describe("config", () => {
     }
   });
 
-  it("keeps committed YAML declarations in sync with built-in models", async () => {
+  it("parses published model declaration files", async () => {
+    const declarations = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
     const client = createGenerationClient({ apiKey: "test" });
-    const yamlDeclarations = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
 
-    expect(yamlDeclarations.map((model) => model.model).sort()).toEqual(
+    expect(declarations.map((declaration) => declaration.model).sort()).toEqual(
       client
         .listModels()
         .map((model) => model.model)

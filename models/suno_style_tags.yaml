@@ -1,0 +1,14 @@
+schema: neta.generation.model.v1
+model: suno_style_tags
+title: Suno Style Tags
+description: Suno style tag upsampling model.
+adapter:
+  type: suno.tasks
+  operation: upsample_tags
+content:
+  input:
+    - type: text
+      required: true
+      max: 16
+      merge: newline
+      description: Prompt text. The adapter maps merged text to the operation's text field when that field is not provided.

@@ -1,0 +1,44 @@
+schema: neta.generation.model.v1
+model: suno_upload_audio
+title: Suno Upload Audio
+description: Suno reference-audio upload model.
+adapter:
+  type: suno.tasks
+  operation: upload_audio
+  defaults:
+    name: reference-audio
+    timeout: 120
+content:
+  input:
+    - type: audio
+      required: true
+      max: 1
+      sources:
+        - url
+        - base64
+      description: Reference audio.
+parameters:
+  poll_interval:
+    type: integer
+    optional: true
+    default: 5
+    min: 1
+    max: 60
+    description: Seconds between task status checks.
+  max_wait:
+    type: integer
+    optional: true
+    default: 600
+    min: 30
+    max: 3600
+    description: Maximum seconds to wait for task completion.
+meta:
+  fields:
+    name:
+      type: string
+      optional: true
+      description: Upload name.
+    timeout:
+      type: integer
+      optional: true
+      description: Upload timeout in seconds.

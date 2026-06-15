@@ -49,6 +49,8 @@
     "example:text-to-video": "node --env-file=.env --experimental-strip-types examples/text-to-video.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
+    "test:live": "vitest run --config vitest.live.config.ts",
+    "test:live:suno": "vitest run --config vitest.live.config.ts test/live/suno-live.test.ts",
     "test:watch": "vitest",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",

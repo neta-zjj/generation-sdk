@@ -81,7 +81,7 @@ export type GenerationModelDeclaration = {
   allowUnknownParameters?: boolean;
   adapter: {
     type: string;
-  };
+  } & Record<string, unknown>;
   content: {
     input: GenerationContentSpec[];
   };

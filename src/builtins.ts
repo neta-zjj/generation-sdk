@@ -63,6 +63,59 @@ const noobxlImageToImageParameters = {
   },
 } satisfies GenerationModelDeclaration["parameters"];
 
+const qwenImageEditParameters = {
+  max_side: {
+    type: "integer",
+    optional: true,
+    default: 2048,
+    min: 512,
+    max: 4096,
+    description: "Maximum side length for the reference image canvas.",
+  },
+  negative_prompt: {
+    type: "string",
+    optional: true,
+    default: "",
+    description: "Content to avoid in generated images.",
+  },
+  seed: {
+    type: "integer",
+    optional: true,
+    min: 0,
+    description: "Random seed for reproducibility.",
+  },
+  timeout: {
+    type: "integer",
+    optional: true,
+    default: 300,
+    min: 30,
+    max: 1800,
+    description: "Provider task timeout in seconds.",
+  },
+  poll_interval: {
+    type: "integer",
+    optional: true,
+    default: 2,
+    min: 1,
+    max: 30,
+    description: "Seconds between task status checks.",
+  },
+  max_wait: {
+    type: "integer",
+    optional: true,
+    default: 300,
+    min: 30,
+    max: 1800,
+    description: "Maximum seconds to wait for task completion.",
+  },
+  wait: {
+    type: "boolean",
+    optional: true,
+    default: true,
+    description: "Wait for task completion before returning outputs.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
 function videoParameters(defaults: { resolution: string; maxWait: number }) {
   return {
     duration: {
@@ -753,6 +806,46 @@ const builtinModels = [
             { type: "image", source: { type: "url", url: "https://example.com/reference.png" } },
           ],
           parameters: { size: "1024x1024", controlnet_weight: 0.8 },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "qwen-image-edit",
+    title: "Qwen Image Edit",
+    description: "Qwen image editing model through the Neta app ComfyUI worker.",
+    allowUnknownParameters: true,
+    adapter: {
+      type: "nieta-app",
+      payloadType: "qwen-image-edit",
+      workflowName: "7_qwen_edit/gpu_qwen_image_edit.json",
+      queueName: "qwen_image_edit",
+    },
+    content: {
+      input: [
+        { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Edit instruction text." },
+        {
+          type: "image",
+          required: true,
+          min: 1,
+          max: 3,
+          sources: ["url"],
+          description: "Reference images to edit.",
+        },
+      ],
+    },
+    parameters: qwenImageEditParameters,
+    examples: [
+      {
+        title: "Image edit",
+        request: {
+          model: "qwen-image-edit",
+          content: [
+            { type: "text", text: "change the hair color to red" },
+            { type: "image", source: { type: "url", url: "https://example.com/reference.jpg" } },
+          ],
+          parameters: { max_side: 2048, negative_prompt: "" },
         },
       },
     ],

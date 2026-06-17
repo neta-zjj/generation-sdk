@@ -116,6 +116,7 @@ const client = createGenerationClient({
 - `suno_music_chirp_fenix`
 - `noobxl-t2i-onediff`
 - `noobxl-i2i-ipa-onediff`
+- `qwen-image-edit`
 - `birefnet-general`
 - `suno_style_tags`
 - `suno_upload_audio`
@@ -150,7 +151,12 @@ These image models use the same client API as the other built-in models:
 
 - `noobxl-t2i-onediff`
 - `noobxl-i2i-ipa-onediff`
+- `qwen-image-edit`
 - `birefnet-general`
+
+`qwen-image-edit` uses the `nieta-app` adapter. The public SDK call uses the same `content` and `parameters` shape as
+other generation models, while the adapter submits the provider-native dramatiq/ComfyUI task payload. Use a `baseUrl`
+that exposes the Neta app task endpoints.
 
 ```ts
 await client.generate({
@@ -159,6 +165,17 @@ await client.generate({
   parameters: {
     size: "1024x1024",
     negative_prompt: "low quality, blurry",
+  },
+});
+
+await client.generate({
+  model: "qwen-image-edit",
+  content: [
+    { type: "text", text: "change the hair color to red" },
+    { type: "image", source: { type: "url", url: "https://example.com/reference.jpg" } },
+  ],
+  parameters: {
+    max_side: 2048,
   },
 });
 
@@ -317,6 +334,7 @@ type GenerationSource =
 Built-in adapters:
 
 - `openai.images`
+- `nieta-app`
 - `gemini.generateContent`
 - `ark.videoGenerations`
 - `kling.videoGenerations`

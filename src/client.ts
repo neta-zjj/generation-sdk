@@ -15,6 +15,7 @@ import type {
   CreateGenerationClientOptions,
   GenerateRequest,
   GenerationClient,
+  GenerationClientWithResult,
   GenerationDebugConfig,
   GenerationModelDeclaration,
   GenerationResult,
@@ -136,7 +137,7 @@ function createMetadataCaptureFetch(fetchFn: typeof fetch, onMeta: (meta: Genera
   }) as typeof fetch;
 }
 
-export function createGenerationClient(options: CreateGenerationClientOptions = {}): GenerationClient {
+export function createGenerationClient(options: CreateGenerationClientOptions = {}): GenerationClientWithResult {
   const models = resolveModels(options);
   const byModel = new Map(models.map((declaration) => [declaration.model, declaration]));
   const fetchFn = options.fetch ?? globalThis.fetch;
@@ -178,7 +179,7 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
     });
   }
 
-  const client: GenerationClient = {
+  const client: GenerationClientWithResult = {
     validate(request: GenerateRequest) {
       return validateRequest(request);
     },

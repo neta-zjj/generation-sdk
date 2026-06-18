@@ -37,7 +37,7 @@ export type GenerationResultMeta = {
   router?: {
     requestId?: string;
     taskId?: string;
-    cost: GenerationRouterCostHeaders;
+    cost?: GenerationRouterCostHeaders;
   };
 };
 
@@ -210,11 +210,14 @@ export type CreateGenerationClientOptions = {
 
 export type GenerationClient = {
   generate(request: GenerateRequest): Promise<GenerationContentBlock[]>;
-  generateResult(request: GenerateRequest): Promise<GenerationResult>;
   validate(request: GenerateRequest): ResolvedGenerationRequest;
   listModels(): GenerationModelDeclaration[];
   getModel(model: string): GenerationModelDeclaration | null;
   stringifyModelConfig(model: string, options?: { format?: "yaml" | "json" }): string;
   exportModelConfig(model: string, filePath: string): Promise<void>;
   exportModelConfigs(directory: string): Promise<void>;
+};
+
+export type GenerationClientWithResult = GenerationClient & {
+  generateResult(request: GenerateRequest): Promise<GenerationResult>;
 };

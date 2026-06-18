@@ -27,6 +27,10 @@ function headerNumber(headers: Headers, name: string): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function hasKeys(value: object): boolean {
+  return Object.keys(value).length > 0;
+}
+
 export function extractRouterNewApiMetadata(value: unknown): GenerationRouterNewApiMetadata | undefined {
   if (!isRecord(value) || !isRecord(value.new_api)) return undefined;
   const raw = value.new_api;
@@ -47,7 +51,7 @@ export function extractRouterNewApiMetadata(value: unknown): GenerationRouterNew
   if (failureCategory) metadata.failureCategory = failureCategory;
   if (cost !== undefined) metadata.cost = cost;
   if (costOrigin !== undefined) metadata.costOrigin = costOrigin;
-  return Object.keys(metadata).length > 0 ? metadata : undefined;
+  return hasKeys(metadata) ? metadata : undefined;
 }
 
 export function extractRouterCostHeaders(headers: Headers): GenerationRouterCostHeaders {
@@ -75,7 +79,7 @@ export function extractRouterResultMeta(raw: unknown, headers?: Headers): Genera
   if (newApi?.cost !== undefined) meta.cost = newApi.cost;
   if (newApi?.costOrigin !== undefined) meta.costOrigin = newApi.costOrigin;
   if (router) meta.router = router;
-  return Object.keys(meta).length > 0 ? meta : undefined;
+  return hasKeys(meta) ? meta : undefined;
 }
 
 export function mergeGenerationResultMeta(
@@ -86,32 +90,31 @@ export function mergeGenerationResultMeta(
   if (!second) return first;
   const meta: GenerationResultMeta = { ...first, ...second };
   const newApi = { ...(first.newApi ?? {}), ...(second.newApi ?? {}) };
+  const router = {
+    ...(first.router?.requestId ? { requestId: first.router.requestId } : {}),
+    ...(second.router?.requestId ? { requestId: second.router.requestId } : {}),
+    ...(first.router?.taskId ? { taskId: first.router.taskId } : {}),
+    ...(second.router?.taskId ? { taskId: second.router.taskId } : {}),
+  };
   const routerCost = { ...(first.router?.cost ?? {}), ...(second.router?.cost ?? {}) };
-  if (Object.keys(newApi).length > 0) meta.newApi = newApi;
+  if (hasKeys(newApi)) meta.newApi = newApi;
   const cost = second.cost ?? first.cost;
   const costOrigin = second.costOrigin ?? first.costOrigin;
   if (cost !== undefined) meta.cost = cost;
   if (costOrigin !== undefined) meta.costOrigin = costOrigin;
-  if (Object.keys(routerCost).length > 0) {
-    meta.router = {
-      ...(first.router?.requestId ? { requestId: first.router.requestId } : {}),
-      ...(second.router?.requestId ? { requestId: second.router.requestId } : {}),
-      ...(first.router?.taskId ? { taskId: first.router.taskId } : {}),
-      ...(second.router?.taskId ? { taskId: second.router.taskId } : {}),
-      cost: routerCost,
-    };
-  }
-  return Object.keys(meta).length > 0 ? meta : undefined;
+  if (hasKeys(routerCost)) meta.router = { ...router, cost: routerCost };
+  else if (hasKeys(router)) meta.router = router;
+  return hasKeys(meta) ? meta : undefined;
 }
 
 function buildRouterHeaderMeta(headers: Headers): GenerationResultMeta["router"] | undefined {
   const requestId = headerString(headers, "x-request-id");
   const taskId = headerString(headers, "x-task-id");
   const cost = extractRouterCostHeaders(headers);
-  if (!requestId && !taskId && Object.keys(cost).length === 0) return undefined;
+  if (!requestId && !taskId && !hasKeys(cost)) return undefined;
   return {
     ...(requestId ? { requestId } : {}),
     ...(taskId ? { taskId } : {}),
-    cost,
+    ...(hasKeys(cost) ? { cost } : {}),
   };
 }

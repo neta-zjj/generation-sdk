@@ -1,7 +1,58 @@
 import { describe, expect, it } from "vitest";
-import { createGenerationClient, type GenerationProviderError, openAiImagesAdapter } from "../../src/index.js";
+import {
+  createGenerationClient,
+  type GenerationClient,
+  type GenerationProviderError,
+  mergeGenerationResultMeta,
+  openAiImagesAdapter,
+} from "../../src/index.js";
 
 describe("openai.images adapter", () => {
+  it("keeps GenerationClient mocks source-compatible without generateResult", () => {
+    const client: GenerationClient = {
+      async generate() {
+        return [];
+      },
+      validate(request) {
+        return {
+          declaration: {
+            schema: "neta.generation.model.v1",
+            model: request.model,
+            adapter: { type: "openai.images" },
+            content: { input: [] },
+          },
+          request,
+          parameters: {},
+          meta: {},
+        };
+      },
+      listModels() {
+        return [];
+      },
+      getModel() {
+        return null;
+      },
+      stringifyModelConfig() {
+        return "";
+      },
+      async exportModelConfig() {},
+      async exportModelConfigs() {},
+    };
+
+    expect(client).toBeDefined();
+  });
+
+  it("merges router request ids even without cost headers", () => {
+    expect(mergeGenerationResultMeta({ router: { requestId: "request-1" } }, { router: { taskId: "task-1" } })).toEqual(
+      {
+        router: {
+          requestId: "request-1",
+          taskId: "task-1",
+        },
+      },
+    );
+  });
+
   it("builds image generation requests", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {

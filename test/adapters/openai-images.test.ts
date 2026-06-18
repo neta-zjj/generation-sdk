@@ -31,6 +31,71 @@ describe("openai.images adapter", () => {
     expect(output[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
   });
 
+  it("exposes router cost metadata through generateResult", async () => {
+    const fetchMock = async () =>
+      new Response(
+        JSON.stringify({
+          data: [{ url: "https://example.com/out.png" }],
+          new_api: {
+            request_id: "router-request-1",
+            upstream_request_id: "newapi-request-1",
+            cost: 0.12,
+            cost_origin: 0.24,
+          },
+        }),
+        {
+          status: 200,
+          headers: {
+            "content-type": "application/json",
+            "x-cost-status": "found",
+            "x-cost-quota": "60000",
+            "x-cost-total-tokens": "2269",
+          },
+        },
+      );
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const result = await client.generateResult({
+      model: "gpt-image-2",
+      content: [{ type: "text", text: "hello" }],
+    });
+
+    expect(result.content[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
+    expect(result.meta).toMatchObject({
+      cost: 0.12,
+      costOrigin: 0.24,
+      newApi: {
+        requestId: "router-request-1",
+        upstreamRequestId: "newapi-request-1",
+        cost: 0.12,
+        costOrigin: 0.24,
+      },
+      router: {
+        cost: {
+          status: "found",
+          quota: 60000,
+          totalTokens: 2269,
+        },
+      },
+    });
+  });
+
+  it("keeps generate compatible while capturing router metadata only for generateResult", async () => {
+    const fetchMock = async () =>
+      new Response(JSON.stringify({ data: [{ url: "https://example.com/out.png" }], new_api: { cost: 0.12 } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await expect(
+      client.generate({
+        model: "gpt-image-2",
+        content: [{ type: "text", text: "hello" }],
+      }),
+    ).resolves.toEqual([{ type: "image", source: { type: "url", url: "https://example.com/out.png" } }]);
+  });
+
   it("builds Z-Image Turbo text-to-image requests", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {

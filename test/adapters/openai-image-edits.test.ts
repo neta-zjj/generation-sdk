@@ -34,6 +34,44 @@ describe("openai.imageEdits adapter", () => {
     expect(output[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/edited.png" } });
   });
 
+  it("exposes router cost metadata for image edits", async () => {
+    const fetchMock = async () =>
+      new Response(
+        JSON.stringify({
+          data: [{ url: "https://example.com/edited.png" }],
+          new_api: {
+            request_id: "router-request-1",
+            cost: 0.08,
+            cost_origin: 0.16,
+          },
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const result = await client.generateResult({
+      model: "qwen-image-edit",
+      content: [
+        { type: "text", text: "change the background" },
+        { type: "image", source: { type: "url", url: "https://example.com/input.png" } },
+      ],
+    });
+
+    expect(result.content[0]).toEqual({
+      type: "image",
+      source: { type: "url", url: "https://example.com/edited.png" },
+    });
+    expect(result.meta).toMatchObject({
+      cost: 0.08,
+      costOrigin: 0.16,
+      newApi: {
+        requestId: "router-request-1",
+        cost: 0.08,
+        costOrigin: 0.16,
+      },
+    });
+  });
+
   it("rejects non-url image input", async () => {
     const client = createGenerationClient({ apiKey: "key", fetch: (() => undefined) as unknown as typeof fetch });
     await expect(

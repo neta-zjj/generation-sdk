@@ -9,6 +9,11 @@ import {
 } from "./config.js";
 import { GenerationConfigError } from "./errors.js";
 import { createDebugFetch } from "./http.js";
+import {
+  extractRouterResultMeta,
+  mergeGenerationResultMeta,
+  normalizeGenerationAdapterOutput,
+} from "./router-metadata.js";
 import { defaultGenerationSourceResolver } from "./source.js";
 import type {
   CreateGenerationClientOptions,
@@ -16,6 +21,7 @@ import type {
   GenerationClient,
   GenerationDebugConfig,
   GenerationModelDeclaration,
+  GenerationResultMeta,
 } from "./types.js";
 import { cloneJson } from "./utils.js";
 import {
@@ -112,6 +118,26 @@ function resolveModels(options: CreateGenerationClientOptions): GenerationModelD
   return [...byModel.values()].sort((a, b) => a.model.localeCompare(b.model));
 }
 
+function createMetadataCaptureFetch(fetchFn: typeof fetch, onMeta: (meta: GenerationResultMeta) => void): typeof fetch {
+  return (async (input: string | URL | Request, init?: RequestInit) => {
+    const response = await fetchFn(input, init);
+    const contentType = response.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json") || contentType.includes("+json")) {
+      try {
+        const meta = extractRouterResultMeta(await response.clone().json(), response.headers);
+        if (meta) onMeta(meta);
+      } catch {
+        const meta = extractRouterResultMeta(undefined, response.headers);
+        if (meta) onMeta(meta);
+      }
+    } else {
+      const meta = extractRouterResultMeta(undefined, response.headers);
+      if (meta) onMeta(meta);
+    }
+    return response;
+  }) as typeof fetch;
+}
+
 export function createGenerationClient(options: CreateGenerationClientOptions = {}): GenerationClient {
   const models = resolveModels(options);
   const byModel = new Map(models.map((declaration) => [declaration.model, declaration]));
@@ -140,19 +166,31 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
     },
 
     async generate(request: GenerateRequest) {
+      return (await this.generateResult(request)).content;
+    },
+
+    async generateResult(request: GenerateRequest) {
+      let capturedMeta: GenerationResultMeta | undefined;
       const resolved = this.validate(request);
       const apiKey = request.apiKey ?? options.apiKey;
       if (!apiKey) throw new GenerationConfigError("apiKey is required");
       const adapter = getGenerationAdapter(resolved.declaration.adapter.type, options.adapters);
-      return adapter({
-        ...resolved,
-        context: {
-          apiKey,
-          baseUrl: request.baseUrl ?? options.baseUrl ?? DEFAULT_BASE_URL,
-          fetch: adapterFetch,
-          resolveSource: options.sourceResolver ?? defaultGenerationSourceResolver,
-        },
+      const captureFetch = createMetadataCaptureFetch(adapterFetch, (meta) => {
+        capturedMeta = mergeGenerationResultMeta(capturedMeta, meta);
       });
+      const result = normalizeGenerationAdapterOutput(
+        await adapter({
+          ...resolved,
+          context: {
+            apiKey,
+            baseUrl: request.baseUrl ?? options.baseUrl ?? DEFAULT_BASE_URL,
+            fetch: captureFetch,
+            resolveSource: options.sourceResolver ?? defaultGenerationSourceResolver,
+          },
+        }),
+      );
+      const meta = mergeGenerationResultMeta(capturedMeta, result.meta);
+      return { ...result, ...(meta ? { meta } : {}) };
     },
 
     listModels() {

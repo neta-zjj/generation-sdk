@@ -1,6 +1,7 @@
 import { GenerationProviderError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
-import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
+import { extractRouterResultMeta } from "../router-metadata.js";
+import type { GenerationAdapterInput, GenerationContentBlock, GenerationResult } from "../types.js";
 import { compactArray, compactObject } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
 
@@ -18,6 +19,7 @@ type OpenAiImagesResponse = {
   output_format?: unknown;
   quality?: unknown;
   size?: unknown;
+  new_api?: unknown;
 };
 
 function collectOpenAiImagesNoOutputDetails(raw: OpenAiImagesResponse): Record<string, unknown> {
@@ -47,7 +49,7 @@ function requiresPrompt(input: GenerationAdapterInput): boolean {
   return !!textSpec && (textSpec.required === true || (textSpec.min ?? 0) > 0);
 }
 
-export async function openAiImagesAdapter(input: GenerationAdapterInput): Promise<GenerationContentBlock[]> {
+export async function openAiImagesAdapter(input: GenerationAdapterInput): Promise<GenerationResult> {
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
   if (!prompt && requiresPrompt(input)) throw new GenerationValidationError("Prompt text is required");
 
@@ -80,10 +82,15 @@ export async function openAiImagesAdapter(input: GenerationAdapterInput): Promis
 
   if (!response.ok) {
     const body = await response.text().catch(() => response.statusText);
-    throw new GenerationProviderError("Image generation provider request failed", { status: response.status, body });
+    throw new GenerationProviderError("Image generation provider request failed", {
+      status: response.status,
+      body,
+      details: compactObject({ meta: extractRouterResultMeta(safeJsonParse(body), response.headers) }),
+    });
   }
 
   const raw = (await response.json()) as OpenAiImagesResponse;
+  const meta = extractRouterResultMeta(raw, response.headers);
   const output: GenerationContentBlock[] = [];
   for (const item of raw.data ?? []) {
     if (typeof item.url === "string" && item.url) {
@@ -98,8 +105,16 @@ export async function openAiImagesAdapter(input: GenerationAdapterInput): Promis
   }
   if (output.length === 0) {
     throw new GenerationProviderError("Image generation returned no output", {
-      details: collectOpenAiImagesNoOutputDetails(raw),
+      details: compactObject({ ...collectOpenAiImagesNoOutputDetails(raw), meta }),
     });
   }
-  return output;
+  return { content: output, ...(meta ? { meta } : {}) };
+}
+
+function safeJsonParse(value: string): unknown {
+  try {
+    return value ? JSON.parse(value) : undefined;
+  } catch {
+    return undefined;
+  }
 }

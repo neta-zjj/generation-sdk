@@ -10,6 +10,42 @@ export type GenerationContentBlock =
   | { type: "video"; source: GenerationSource; meta?: GenerationContentBlockMeta }
   | { type: "audio"; source: GenerationSource; meta?: GenerationContentBlockMeta };
 
+export type GenerationRouterNewApiMetadata = {
+  requestId?: string;
+  requestIds?: string[];
+  upstreamRequestId?: string;
+  upstreamRequestIds?: string[];
+  taskId?: string;
+  failureCategory?: string;
+  cost?: number;
+  costOrigin?: number;
+};
+
+export type GenerationRouterCostHeaders = {
+  status?: string;
+  quota?: number;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  originUpstreamModel?: string;
+};
+
+export type GenerationResultMeta = {
+  newApi?: GenerationRouterNewApiMetadata;
+  cost?: number;
+  costOrigin?: number;
+  router?: {
+    requestId?: string;
+    taskId?: string;
+    cost: GenerationRouterCostHeaders;
+  };
+};
+
+export type GenerationResult = {
+  content: GenerationContentBlock[];
+  meta?: GenerationResultMeta;
+};
+
 export type GenerationContentSpec = {
   type: "text" | "image" | "video" | "audio";
   required?: boolean;
@@ -159,7 +195,9 @@ export type GenerationAdapterInput = ResolvedGenerationRequest & {
   context: GenerationAdapterContext;
 };
 
-export type GenerationAdapter = (input: GenerationAdapterInput) => Promise<GenerationContentBlock[]>;
+export type GenerationAdapterOutput = GenerationContentBlock[] | GenerationResult;
+
+export type GenerationAdapter = (input: GenerationAdapterInput) => Promise<GenerationAdapterOutput>;
 
 export type CreateGenerationClientOptions = {
   apiKey?: string;
@@ -174,6 +212,7 @@ export type CreateGenerationClientOptions = {
 
 export type GenerationClient = {
   generate(request: GenerateRequest): Promise<GenerationContentBlock[]>;
+  generateResult(request: GenerateRequest): Promise<GenerationResult>;
   validate(request: GenerateRequest): ResolvedGenerationRequest;
   listModels(): GenerationModelDeclaration[];
   getModel(model: string): GenerationModelDeclaration | null;

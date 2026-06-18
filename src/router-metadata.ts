@@ -1,10 +1,4 @@
-import type {
-  GenerationAdapterOutput,
-  GenerationResult,
-  GenerationResultMeta,
-  GenerationRouterCostHeaders,
-  GenerationRouterNewApiMetadata,
-} from "./types.js";
+import type { GenerationResultMeta, GenerationRouterCostHeaders, GenerationRouterNewApiMetadata } from "./types.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -82,11 +76,6 @@ export function extractRouterResultMeta(raw: unknown, headers?: Headers): Genera
   if (newApi?.costOrigin !== undefined) meta.costOrigin = newApi.costOrigin;
   if (router) meta.router = router;
   return Object.keys(meta).length > 0 ? meta : undefined;
-}
-
-export function normalizeGenerationAdapterOutput(output: GenerationAdapterOutput): GenerationResult {
-  if (Array.isArray(output)) return { content: output };
-  return output;
 }
 
 export function mergeGenerationResultMeta(

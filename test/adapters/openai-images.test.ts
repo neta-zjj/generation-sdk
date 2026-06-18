@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createGenerationClient, type GenerationProviderError } from "../../src/index.js";
+import { createGenerationClient, type GenerationProviderError, openAiImagesAdapter } from "../../src/index.js";
 
 describe("openai.images adapter", () => {
   it("builds image generation requests", async () => {
@@ -32,25 +32,31 @@ describe("openai.images adapter", () => {
   });
 
   it("exposes router cost metadata through generateResult", async () => {
+    let cloneCalls = 0;
     const fetchMock = async () =>
-      new Response(
-        JSON.stringify({
-          data: [{ url: "https://example.com/out.png" }],
-          new_api: {
-            request_id: "router-request-1",
-            upstream_request_id: "newapi-request-1",
-            cost: 0.12,
-            cost_origin: 0.24,
+      trackClone(
+        new Response(
+          JSON.stringify({
+            data: [{ url: "https://example.com/out.png" }],
+            new_api: {
+              request_id: "router-request-1",
+              upstream_request_id: "newapi-request-1",
+              cost: 0.12,
+              cost_origin: 0.24,
+            },
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+              "x-cost-status": "found",
+              "x-cost-quota": "60000",
+              "x-cost-total-tokens": "2269",
+            },
           },
-        }),
-        {
-          status: 200,
-          headers: {
-            "content-type": "application/json",
-            "x-cost-status": "found",
-            "x-cost-quota": "60000",
-            "x-cost-total-tokens": "2269",
-          },
+        ),
+        () => {
+          cloneCalls += 1;
         },
       );
 
@@ -61,6 +67,7 @@ describe("openai.images adapter", () => {
     });
 
     expect(result.content[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
+    expect(cloneCalls).toBe(1);
     expect(result.meta).toMatchObject({
       cost: 0.12,
       costOrigin: 0.24,
@@ -80,12 +87,18 @@ describe("openai.images adapter", () => {
     });
   });
 
-  it("keeps generate compatible while capturing router metadata only for generateResult", async () => {
+  it("keeps generate compatible without metadata response cloning", async () => {
+    let cloneCalls = 0;
     const fetchMock = async () =>
-      new Response(JSON.stringify({ data: [{ url: "https://example.com/out.png" }], new_api: { cost: 0.12 } }), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
+      trackClone(
+        new Response(JSON.stringify({ data: [{ url: "https://example.com/out.png" }], new_api: { cost: 0.12 } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+        () => {
+          cloneCalls += 1;
+        },
+      );
 
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
     await expect(
@@ -94,6 +107,72 @@ describe("openai.images adapter", () => {
         content: [{ type: "text", text: "hello" }],
       }),
     ).resolves.toEqual([{ type: "image", source: { type: "url", url: "https://example.com/out.png" } }]);
+    expect(cloneCalls).toBe(0);
+  });
+
+  it("keeps the public openai images adapter array return contract", async () => {
+    const fetchMock = async () =>
+      new Response(JSON.stringify({ data: [{ url: "https://example.com/out.png" }], new_api: { cost: 0.12 } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+
+    const output = await openAiImagesAdapter({
+      declaration: {
+        schema: "neta.generation.model.v1",
+        model: "gpt-image-2",
+        adapter: { type: "openai.images" },
+        content: { input: [{ type: "text", required: true }] },
+      },
+      request: { model: "gpt-image-2", content: [{ type: "text", text: "hello" }] },
+      parameters: {},
+      meta: {},
+      context: {
+        apiKey: "key",
+        baseUrl: "https://router.neta.art",
+        fetch: fetchMock as typeof fetch,
+        resolveSource: (source) => {
+          if (source.type === "url") return source.url;
+          return source.data;
+        },
+      },
+    });
+
+    expect(Array.isArray(output)).toBe(true);
+    expect(output).toEqual([{ type: "image", source: { type: "url", url: "https://example.com/out.png" } }]);
+  });
+
+  it("exposes numeric cost metadata without cost_origin", async () => {
+    const fetchMock = async () =>
+      new Response(
+        JSON.stringify({
+          data: [{ url: "https://example.com/out.png" }],
+          new_api: {
+            request_id: "router-request-1",
+            cost: 0.12,
+          },
+        }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      );
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const result = await client.generateResult({
+      model: "gpt-image-2",
+      content: [{ type: "text", text: "hello" }],
+    });
+
+    expect(result.content[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
+    expect(result.meta).toMatchObject({
+      cost: 0.12,
+      newApi: {
+        requestId: "router-request-1",
+        cost: 0.12,
+      },
+    });
+    expect(result.meta?.costOrigin).toBeUndefined();
   });
 
   it("builds Z-Image Turbo text-to-image requests", async () => {
@@ -269,3 +348,12 @@ describe("openai.images adapter", () => {
     } satisfies Partial<GenerationProviderError>);
   });
 });
+
+function trackClone(response: Response, onClone: () => void): Response {
+  const clone = response.clone.bind(response);
+  response.clone = () => {
+    onClone();
+    return clone();
+  };
+  return response;
+}

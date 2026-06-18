@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createGenerationClient, type GenerationProviderError } from "../../src/index.js";
+import { createGenerationClient, type GenerationProviderError, openAiImageEditsAdapter } from "../../src/index.js";
 
 describe("openai.imageEdits adapter", () => {
   it("builds image edit requests", async () => {
@@ -70,6 +70,49 @@ describe("openai.imageEdits adapter", () => {
         costOrigin: 0.16,
       },
     });
+  });
+
+  it("keeps the public openai image edits adapter array return contract", async () => {
+    const fetchMock = async () =>
+      new Response(JSON.stringify({ data: [{ url: "https://example.com/edited.png" }], new_api: { cost: 0.08 } }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+
+    const output = await openAiImageEditsAdapter({
+      declaration: {
+        schema: "neta.generation.model.v1",
+        model: "qwen-image-edit",
+        adapter: { type: "openai.imageEdits" },
+        content: {
+          input: [
+            { type: "text", required: true },
+            { type: "image", required: true, sources: ["url"] },
+          ],
+        },
+      },
+      request: {
+        model: "qwen-image-edit",
+        content: [
+          { type: "text", text: "change the background" },
+          { type: "image", source: { type: "url", url: "https://example.com/input.png" } },
+        ],
+      },
+      parameters: {},
+      meta: {},
+      context: {
+        apiKey: "key",
+        baseUrl: "https://router.neta.art",
+        fetch: fetchMock as typeof fetch,
+        resolveSource: (source) => {
+          if (source.type === "url") return source.url;
+          return source.data;
+        },
+      },
+    });
+
+    expect(Array.isArray(output)).toBe(true);
+    expect(output).toEqual([{ type: "image", source: { type: "url", url: "https://example.com/edited.png" } }]);
   });
 
   it("rejects non-url image input", async () => {

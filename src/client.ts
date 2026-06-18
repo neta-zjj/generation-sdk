@@ -9,11 +9,7 @@ import {
 } from "./config.js";
 import { GenerationConfigError } from "./errors.js";
 import { createDebugFetch } from "./http.js";
-import {
-  extractRouterResultMeta,
-  mergeGenerationResultMeta,
-  normalizeGenerationAdapterOutput,
-} from "./router-metadata.js";
+import { extractRouterResultMeta, mergeGenerationResultMeta } from "./router-metadata.js";
 import { defaultGenerationSourceResolver } from "./source.js";
 import type {
   CreateGenerationClientOptions,
@@ -21,7 +17,9 @@ import type {
   GenerationClient,
   GenerationDebugConfig,
   GenerationModelDeclaration,
+  GenerationResult,
   GenerationResultMeta,
+  ResolvedGenerationRequest,
 } from "./types.js";
 import { cloneJson } from "./utils.js";
 import {
@@ -152,45 +150,50 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
     return declaration;
   }
 
-  return {
+  function validateRequest(request: GenerateRequest): ResolvedGenerationRequest {
+    const declaration = requireModel(request.model);
+    validateGenerationContent(declaration, request.content);
+    const parameters = resolveGenerationParameters(declaration, request.parameters);
+    const meta = resolveGenerationMeta(
+      declaration,
+      mergeGenerationMeta({ ...(request.metadata ?? {}), ...(request.meta ?? {}) }, request.content),
+      request.content,
+    );
+    return { declaration: cloneJson(declaration), request: cloneJson(request), parameters, meta };
+  }
+
+  async function runAdapter(request: GenerateRequest, fetch: typeof globalThis.fetch) {
+    const resolved = validateRequest(request);
+    const apiKey = request.apiKey ?? options.apiKey;
+    if (!apiKey) throw new GenerationConfigError("apiKey is required");
+    const adapter = getGenerationAdapter(resolved.declaration.adapter.type, options.adapters);
+    return adapter({
+      ...resolved,
+      context: {
+        apiKey,
+        baseUrl: request.baseUrl ?? options.baseUrl ?? DEFAULT_BASE_URL,
+        fetch,
+        resolveSource: options.sourceResolver ?? defaultGenerationSourceResolver,
+      },
+    });
+  }
+
+  const client: GenerationClient = {
     validate(request: GenerateRequest) {
-      const declaration = requireModel(request.model);
-      validateGenerationContent(declaration, request.content);
-      const parameters = resolveGenerationParameters(declaration, request.parameters);
-      const meta = resolveGenerationMeta(
-        declaration,
-        mergeGenerationMeta({ ...(request.metadata ?? {}), ...(request.meta ?? {}) }, request.content),
-        request.content,
-      );
-      return { declaration: cloneJson(declaration), request: cloneJson(request), parameters, meta };
+      return validateRequest(request);
     },
 
     async generate(request: GenerateRequest) {
-      return (await this.generateResult(request)).content;
+      return runAdapter(request, adapterFetch);
     },
 
-    async generateResult(request: GenerateRequest) {
+    async generateResult(request: GenerateRequest): Promise<GenerationResult> {
       let capturedMeta: GenerationResultMeta | undefined;
-      const resolved = this.validate(request);
-      const apiKey = request.apiKey ?? options.apiKey;
-      if (!apiKey) throw new GenerationConfigError("apiKey is required");
-      const adapter = getGenerationAdapter(resolved.declaration.adapter.type, options.adapters);
       const captureFetch = createMetadataCaptureFetch(adapterFetch, (meta) => {
         capturedMeta = mergeGenerationResultMeta(capturedMeta, meta);
       });
-      const result = normalizeGenerationAdapterOutput(
-        await adapter({
-          ...resolved,
-          context: {
-            apiKey,
-            baseUrl: request.baseUrl ?? options.baseUrl ?? DEFAULT_BASE_URL,
-            fetch: captureFetch,
-            resolveSource: options.sourceResolver ?? defaultGenerationSourceResolver,
-          },
-        }),
-      );
-      const meta = mergeGenerationResultMeta(capturedMeta, result.meta);
-      return { ...result, ...(meta ? { meta } : {}) };
+      const content = await runAdapter(request, captureFetch);
+      return { content, ...(capturedMeta ? { meta: capturedMeta } : {}) };
     },
 
     listModels() {
@@ -214,6 +217,8 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
       return writeGenerationModelDeclarations(models, directory);
     },
   };
+
+  return client;
 }
 
 export async function createGenerationClientFromFiles(

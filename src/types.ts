@@ -195,9 +195,7 @@ export type GenerationAdapterInput = ResolvedGenerationRequest & {
   context: GenerationAdapterContext;
 };
 
-export type GenerationAdapterOutput = GenerationContentBlock[] | GenerationResult;
-
-export type GenerationAdapter = (input: GenerationAdapterInput) => Promise<GenerationAdapterOutput>;
+export type GenerationAdapter = (input: GenerationAdapterInput) => Promise<GenerationContentBlock[]>;
 
 export type CreateGenerationClientOptions = {
   apiKey?: string;

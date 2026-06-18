@@ -1,7 +1,6 @@
 import { GenerationProviderError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
-import { extractRouterResultMeta } from "../router-metadata.js";
-import type { GenerationAdapterInput, GenerationContentBlock, GenerationResult } from "../types.js";
+import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
 import { compactArray, compactObject } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
 
@@ -15,7 +14,6 @@ type OpenAiImageEditsResponse = {
   }>;
   created?: unknown;
   usage?: unknown;
-  new_api?: unknown;
 };
 
 function firstUrlImage(input: GenerationAdapterInput): string {
@@ -45,7 +43,7 @@ function collectOpenAiImageEditsNoOutputDetails(raw: OpenAiImageEditsResponse): 
   });
 }
 
-export async function openAiImageEditsAdapter(input: GenerationAdapterInput): Promise<GenerationResult> {
+export async function openAiImageEditsAdapter(input: GenerationAdapterInput): Promise<GenerationContentBlock[]> {
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
   if (!prompt) throw new GenerationValidationError("Edit instruction is required");
 
@@ -75,12 +73,10 @@ export async function openAiImageEditsAdapter(input: GenerationAdapterInput): Pr
     throw new GenerationProviderError("Image edit provider request failed", {
       status: response.status,
       body: bodyText,
-      details: compactObject({ meta: extractRouterResultMeta(safeJsonParse(bodyText), response.headers) }),
     });
   }
 
   const raw = (await response.json()) as OpenAiImageEditsResponse;
-  const meta = extractRouterResultMeta(raw, response.headers);
   const output: GenerationContentBlock[] = [];
   for (const item of raw.data ?? []) {
     if (typeof item.url === "string" && item.url) {
@@ -95,16 +91,8 @@ export async function openAiImageEditsAdapter(input: GenerationAdapterInput): Pr
   }
   if (output.length === 0) {
     throw new GenerationProviderError("Image edit returned no output", {
-      details: compactObject({ ...collectOpenAiImageEditsNoOutputDetails(raw), meta }),
+      details: collectOpenAiImageEditsNoOutputDetails(raw),
     });
   }
-  return { content: output, ...(meta ? { meta } : {}) };
-}
-
-function safeJsonParse(value: string): unknown {
-  try {
-    return value ? JSON.parse(value) : undefined;
-  } catch {
-    return undefined;
-  }
+  return output;
 }

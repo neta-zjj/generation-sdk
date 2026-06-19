@@ -20,13 +20,6 @@ function headerString(headers: Headers, name: string): string | undefined {
   return headers.get(name) ?? undefined;
 }
 
-function headerNumber(headers: Headers, name: string): number | undefined {
-  const value = headers.get(name);
-  if (!value) return undefined;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : undefined;
-}
-
 function hasKeys(value: object): boolean {
   return Object.keys(value).length > 0;
 }
@@ -57,17 +50,7 @@ export function extractRouterNewApiMetadata(value: unknown): GenerationRouterNew
 export function extractRouterCostHeaders(headers: Headers): GenerationRouterCostHeaders {
   const cost: GenerationRouterCostHeaders = {};
   const status = headerString(headers, "x-cost-status");
-  const quota = headerNumber(headers, "x-cost-quota");
-  const promptTokens = headerNumber(headers, "x-cost-prompt-tokens");
-  const completionTokens = headerNumber(headers, "x-cost-completion-tokens");
-  const totalTokens = headerNumber(headers, "x-cost-total-tokens");
-  const originUpstreamModel = headerString(headers, "x-cost-origin-upstream-model");
   if (status) cost.status = status;
-  if (quota !== undefined) cost.quota = quota;
-  if (promptTokens !== undefined) cost.promptTokens = promptTokens;
-  if (completionTokens !== undefined) cost.completionTokens = completionTokens;
-  if (totalTokens !== undefined) cost.totalTokens = totalTokens;
-  if (originUpstreamModel) cost.originUpstreamModel = originUpstreamModel;
   return cost;
 }
 

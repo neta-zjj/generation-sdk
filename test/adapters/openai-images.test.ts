@@ -101,8 +101,6 @@ describe("openai.images adapter", () => {
             headers: {
               "content-type": "application/json",
               "x-cost-status": "found",
-              "x-cost-quota": "60000",
-              "x-cost-total-tokens": "2269",
             },
           },
         ),
@@ -131,8 +129,6 @@ describe("openai.images adapter", () => {
       router: {
         cost: {
           status: "found",
-          quota: 60000,
-          totalTokens: 2269,
         },
       },
     });

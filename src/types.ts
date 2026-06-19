@@ -23,11 +23,6 @@ export type GenerationRouterNewApiMetadata = {
 
 export type GenerationRouterCostHeaders = {
   status?: string;
-  quota?: number;
-  promptTokens?: number;
-  completionTokens?: number;
-  totalTokens?: number;
-  originUpstreamModel?: string;
 };
 
 export type GenerationResultMeta = {

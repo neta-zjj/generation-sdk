@@ -42,7 +42,7 @@ describe("openai.images adapter", () => {
     expect(client).toBeDefined();
   });
 
-  it("merges router request ids even without cost headers", () => {
+  it("merges router request ids", () => {
     expect(mergeGenerationResultMeta({ router: { requestId: "request-1" } }, { router: { taskId: "task-1" } })).toEqual(
       {
         router: {
@@ -82,7 +82,7 @@ describe("openai.images adapter", () => {
     expect(output[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
   });
 
-  it("exposes router cost metadata through generateResult", async () => {
+  it("exposes new-api cost metadata through generateResult", async () => {
     let cloneCalls = 0;
     const fetchMock = async () =>
       trackClone(
@@ -100,7 +100,6 @@ describe("openai.images adapter", () => {
             status: 200,
             headers: {
               "content-type": "application/json",
-              "x-cost-status": "found",
             },
           },
         ),
@@ -125,11 +124,6 @@ describe("openai.images adapter", () => {
         upstreamRequestId: "newapi-request-1",
         cost: 0.12,
         costOrigin: 0.24,
-      },
-      router: {
-        cost: {
-          status: "found",
-        },
       },
     });
   });

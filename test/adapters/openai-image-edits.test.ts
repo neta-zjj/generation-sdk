@@ -34,7 +34,7 @@ describe("openai.imageEdits adapter", () => {
     expect(output[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/edited.png" } });
   });
 
-  it("exposes router cost metadata for image edits", async () => {
+  it("exposes new-api cost metadata for image edits", async () => {
     const fetchMock = async () =>
       new Response(
         JSON.stringify({

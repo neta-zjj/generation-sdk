@@ -21,10 +21,6 @@ export type GenerationRouterNewApiMetadata = {
   costOrigin?: number;
 };
 
-export type GenerationRouterCostHeaders = {
-  status?: string;
-};
-
 export type GenerationResultMeta = {
   newApi?: GenerationRouterNewApiMetadata;
   cost?: number;
@@ -32,7 +28,6 @@ export type GenerationResultMeta = {
   router?: {
     requestId?: string;
     taskId?: string;
-    cost?: GenerationRouterCostHeaders;
   };
 };
 

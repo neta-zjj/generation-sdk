@@ -1,4 +1,4 @@
-import type { GenerationResultMeta, GenerationRouterCostHeaders, GenerationRouterNewApiMetadata } from "./types.js";
+import type { GenerationResultMeta, GenerationRouterNewApiMetadata } from "./types.js";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
@@ -47,13 +47,6 @@ export function extractRouterNewApiMetadata(value: unknown): GenerationRouterNew
   return hasKeys(metadata) ? metadata : undefined;
 }
 
-export function extractRouterCostHeaders(headers: Headers): GenerationRouterCostHeaders {
-  const cost: GenerationRouterCostHeaders = {};
-  const status = headerString(headers, "x-cost-status");
-  if (status) cost.status = status;
-  return cost;
-}
-
 export function extractRouterResultMeta(raw: unknown, headers?: Headers): GenerationResultMeta | undefined {
   const newApi = extractRouterNewApiMetadata(raw);
   const router = headers ? buildRouterHeaderMeta(headers) : undefined;
@@ -79,25 +72,21 @@ export function mergeGenerationResultMeta(
     ...(first.router?.taskId ? { taskId: first.router.taskId } : {}),
     ...(second.router?.taskId ? { taskId: second.router.taskId } : {}),
   };
-  const routerCost = { ...(first.router?.cost ?? {}), ...(second.router?.cost ?? {}) };
   if (hasKeys(newApi)) meta.newApi = newApi;
   const cost = second.cost ?? first.cost;
   const costOrigin = second.costOrigin ?? first.costOrigin;
   if (cost !== undefined) meta.cost = cost;
   if (costOrigin !== undefined) meta.costOrigin = costOrigin;
-  if (hasKeys(routerCost)) meta.router = { ...router, cost: routerCost };
-  else if (hasKeys(router)) meta.router = router;
+  if (hasKeys(router)) meta.router = router;
   return hasKeys(meta) ? meta : undefined;
 }
 
 function buildRouterHeaderMeta(headers: Headers): GenerationResultMeta["router"] | undefined {
   const requestId = headerString(headers, "x-request-id");
   const taskId = headerString(headers, "x-task-id");
-  const cost = extractRouterCostHeaders(headers);
-  if (!requestId && !taskId && !hasKeys(cost)) return undefined;
+  if (!requestId && !taskId) return undefined;
   return {
     ...(requestId ? { requestId } : {}),
     ...(taskId ? { taskId } : {}),
-    ...(hasKeys(cost) ? { cost } : {}),
   };
 }

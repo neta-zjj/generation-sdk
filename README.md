@@ -31,7 +31,7 @@ const output = await client.generate({
 console.log(output);
 ```
 
-Use `generateResult` when you need router metadata such as observed new-api cost:
+Use `generateResult` when you need observed new-api cost:
 
 ```ts
 const result = await client.generateResult({

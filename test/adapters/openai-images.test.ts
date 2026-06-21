@@ -43,14 +43,10 @@ describe("openai.images adapter", () => {
   });
 
   it("merges router request ids", () => {
-    expect(mergeGenerationResultMeta({ router: { requestId: "request-1" } }, { router: { taskId: "task-1" } })).toEqual(
-      {
-        router: {
-          requestId: "request-1",
-          taskId: "task-1",
-        },
-      },
-    );
+    expect(mergeGenerationResultMeta({ cost: 0.1 }, { costOrigin: 0.2 })).toEqual({
+      cost: 0.1,
+      costOrigin: 0.2,
+    });
   });
 
   it("builds image generation requests", async () => {
@@ -116,15 +112,9 @@ describe("openai.images adapter", () => {
 
     expect(result.content[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
     expect(cloneCalls).toBe(1);
-    expect(result.meta).toMatchObject({
+    expect(result.meta).toEqual({
       cost: 0.12,
       costOrigin: 0.24,
-      newApi: {
-        requestId: "router-request-1",
-        upstreamRequestId: "newapi-request-1",
-        cost: 0.12,
-        costOrigin: 0.24,
-      },
     });
   });
 
@@ -206,13 +196,7 @@ describe("openai.images adapter", () => {
     });
 
     expect(result.content[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
-    expect(result.meta).toMatchObject({
-      cost: 0.12,
-      newApi: {
-        requestId: "router-request-1",
-        cost: 0.12,
-      },
-    });
+    expect(result.meta).toEqual({ cost: 0.12 });
     expect(result.meta?.costOrigin).toBeUndefined();
   });
 

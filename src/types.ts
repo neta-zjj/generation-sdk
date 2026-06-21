@@ -10,25 +10,9 @@ export type GenerationContentBlock =
   | { type: "video"; source: GenerationSource; meta?: GenerationContentBlockMeta }
   | { type: "audio"; source: GenerationSource; meta?: GenerationContentBlockMeta };
 
-export type GenerationRouterNewApiMetadata = {
-  requestId?: string;
-  requestIds?: string[];
-  upstreamRequestId?: string;
-  upstreamRequestIds?: string[];
-  taskId?: string;
-  failureCategory?: string;
-  cost?: number;
-  costOrigin?: number;
-};
-
 export type GenerationResultMeta = {
-  newApi?: GenerationRouterNewApiMetadata;
   cost?: number;
   costOrigin?: number;
-  router?: {
-    requestId?: string;
-    taskId?: string;
-  };
 };
 
 export type GenerationResult = {

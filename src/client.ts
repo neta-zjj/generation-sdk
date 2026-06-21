@@ -123,15 +123,11 @@ function createMetadataCaptureFetch(fetchFn: typeof fetch, onMeta: (meta: Genera
     const contentType = response.headers.get("content-type") ?? "";
     if (contentType.includes("application/json") || contentType.includes("+json")) {
       try {
-        const meta = extractRouterResultMeta(await response.clone().json(), response.headers);
+        const meta = extractRouterResultMeta(await response.clone().json());
         if (meta) onMeta(meta);
       } catch {
-        const meta = extractRouterResultMeta(undefined, response.headers);
-        if (meta) onMeta(meta);
+        // No JSON body, no metadata.
       }
-    } else {
-      const meta = extractRouterResultMeta(undefined, response.headers);
-      if (meta) onMeta(meta);
     }
     return response;
   }) as typeof fetch;

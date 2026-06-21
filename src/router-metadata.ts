@@ -1,61 +1,23 @@
-import type { GenerationResultMeta, GenerationRouterNewApiMetadata } from "./types.js";
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function stringValue(value: unknown): string | undefined {
-  return typeof value === "string" && value.trim() ? value.trim() : undefined;
-}
-
-function stringArrayValue(value: unknown): string[] | undefined {
-  return Array.isArray(value) && value.every((item) => typeof item === "string") ? value : undefined;
-}
+import type { GenerationResultMeta } from "./types.js";
 
 function numberValue(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) ? value : undefined;
 }
 
-function headerString(headers: Headers, name: string): string | undefined {
-  return headers.get(name) ?? undefined;
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
-function hasKeys(value: object): boolean {
-  return Object.keys(value).length > 0;
-}
-
-export function extractRouterNewApiMetadata(value: unknown): GenerationRouterNewApiMetadata | undefined {
-  if (!isRecord(value) || !isRecord(value.new_api)) return undefined;
-  const raw = value.new_api;
-  const metadata: GenerationRouterNewApiMetadata = {};
-  const requestId = stringValue(raw.request_id);
-  const requestIds = stringArrayValue(raw.request_ids);
-  const upstreamRequestId = stringValue(raw.upstream_request_id);
-  const upstreamRequestIds = stringArrayValue(raw.upstream_request_ids);
-  const taskId = stringValue(raw.task_id);
-  const failureCategory = stringValue(raw.failure_category);
-  const cost = numberValue(raw.cost);
-  const costOrigin = numberValue(raw.cost_origin);
-  if (requestId) metadata.requestId = requestId;
-  if (requestIds) metadata.requestIds = requestIds;
-  if (upstreamRequestId) metadata.upstreamRequestId = upstreamRequestId;
-  if (upstreamRequestIds) metadata.upstreamRequestIds = upstreamRequestIds;
-  if (taskId) metadata.taskId = taskId;
-  if (failureCategory) metadata.failureCategory = failureCategory;
-  if (cost !== undefined) metadata.cost = cost;
-  if (costOrigin !== undefined) metadata.costOrigin = costOrigin;
-  return hasKeys(metadata) ? metadata : undefined;
-}
-
-export function extractRouterResultMeta(raw: unknown, headers?: Headers): GenerationResultMeta | undefined {
-  const newApi = extractRouterNewApiMetadata(raw);
-  const router = headers ? buildRouterHeaderMeta(headers) : undefined;
+export function extractRouterResultMeta(raw: unknown): GenerationResultMeta | undefined {
+  if (!isRecord(raw)) return undefined;
+  const newApi = (raw as { new_api?: unknown }).new_api;
+  if (!isRecord(newApi)) return undefined;
   const meta: GenerationResultMeta = {};
-  if (newApi) meta.newApi = newApi;
-  if (newApi?.cost !== undefined) meta.cost = newApi.cost;
-  if (newApi?.costOrigin !== undefined) meta.costOrigin = newApi.costOrigin;
-  if (router) meta.router = router;
-  return hasKeys(meta) ? meta : undefined;
+  const cost = numberValue(newApi.cost);
+  const costOrigin = numberValue(newApi.cost_origin);
+  if (cost !== undefined) meta.cost = cost;
+  if (costOrigin !== undefined) meta.costOrigin = costOrigin;
+  return Object.keys(meta).length > 0 ? meta : undefined;
 }
 
 export function mergeGenerationResultMeta(
@@ -65,28 +27,9 @@ export function mergeGenerationResultMeta(
   if (!first) return second;
   if (!second) return first;
   const meta: GenerationResultMeta = { ...first, ...second };
-  const newApi = { ...(first.newApi ?? {}), ...(second.newApi ?? {}) };
-  const router = {
-    ...(first.router?.requestId ? { requestId: first.router.requestId } : {}),
-    ...(second.router?.requestId ? { requestId: second.router.requestId } : {}),
-    ...(first.router?.taskId ? { taskId: first.router.taskId } : {}),
-    ...(second.router?.taskId ? { taskId: second.router.taskId } : {}),
-  };
-  if (hasKeys(newApi)) meta.newApi = newApi;
   const cost = second.cost ?? first.cost;
   const costOrigin = second.costOrigin ?? first.costOrigin;
   if (cost !== undefined) meta.cost = cost;
   if (costOrigin !== undefined) meta.costOrigin = costOrigin;
-  if (hasKeys(router)) meta.router = router;
-  return hasKeys(meta) ? meta : undefined;
-}
-
-function buildRouterHeaderMeta(headers: Headers): GenerationResultMeta["router"] | undefined {
-  const requestId = headerString(headers, "x-request-id");
-  const taskId = headerString(headers, "x-task-id");
-  if (!requestId && !taskId) return undefined;
-  return {
-    ...(requestId ? { requestId } : {}),
-    ...(taskId ? { taskId } : {}),
-  };
+  return Object.keys(meta).length > 0 ? meta : undefined;
 }

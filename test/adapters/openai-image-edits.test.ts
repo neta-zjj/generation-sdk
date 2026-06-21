@@ -61,14 +61,9 @@ describe("openai.imageEdits adapter", () => {
       type: "image",
       source: { type: "url", url: "https://example.com/edited.png" },
     });
-    expect(result.meta).toMatchObject({
+    expect(result.meta).toEqual({
       cost: 0.08,
       costOrigin: 0.16,
-      newApi: {
-        requestId: "router-request-1",
-        cost: 0.08,
-        costOrigin: 0.16,
-      },
     });
   });
 

@@ -4,7 +4,8 @@ import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js
 import { compactObject, getBlockMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
 
-const REQUEST_TIMEOUT_MS = 60_000;
+// Keep per-request timeout comfortably above max_wait so polling controls total wait time.
+const REQUEST_TIMEOUT_MS = 1_860_000;
 const DEFAULT_POLL_INTERVAL_SEC = 2;
 const DEFAULT_MAX_WAIT_SEC = 600;
 

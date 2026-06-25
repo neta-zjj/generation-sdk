@@ -96,6 +96,67 @@ describe("gemini.generateContent adapter", () => {
     expect(output[0]).toEqual({ type: "image", source: { type: "base64", mediaType: "image/png", data: "abc" } });
   });
 
+  it("passes URL image inputs as Gemini fileData without fetching them", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: "abc" } }] } }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await client.generate({
+      model: "gemini-3.1-flash-image-preview",
+      content: [
+        { type: "text", text: "edit this" },
+        { type: "image", source: { type: "url", url: "https://example.com/reference.png" } },
+      ],
+    });
+
+    expect(calls).toHaveLength(1);
+    expect(JSON.parse(calls[0]?.init.body as string)).toEqual({
+      contents: [
+        {
+          parts: [{ text: "edit this" }, { fileData: { fileUri: "https://example.com/reference.png" } }],
+        },
+      ],
+      generationConfig: {
+        responseModalities: ["IMAGE"],
+        responseFormat: { image: { aspectRatio: "1:1", imageSize: "2K" } },
+      },
+    });
+  });
+
+  it("passes base64 image inputs as Gemini inlineData", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: "abc" } }] } }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await client.generate({
+      model: "gemini-3.1-flash-image-preview",
+      content: [
+        { type: "text", text: "edit this" },
+        { type: "image", source: { type: "base64", mediaType: "image/png", data: "aW1hZ2U=" } },
+      ],
+    });
+
+    expect(JSON.parse(calls[0]?.init.body as string).contents[0].parts[1]).toEqual({
+      inlineData: { mimeType: "image/png", data: "aW1hZ2U=" },
+    });
+  });
+
   it("includes Gemini diagnostics when a successful response has no output parts", async () => {
     const fetchMock = async () =>
       new Response(

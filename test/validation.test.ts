@@ -21,4 +21,38 @@ describe("validation", () => {
       }),
     ).toThrow(GenerationValidationError);
   });
+
+  it("rejects base64 media for Seedance video models", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    expect(() =>
+      client.validate({
+        model: "seedance-2-0-fast",
+        content: [
+          { type: "text", text: "animate this reference" },
+          {
+            type: "image",
+            source: { type: "base64", mediaType: "image/png", data: "abc" },
+            meta: { role: "reference_image" },
+          },
+        ],
+      }),
+    ).toThrow("image source is not supported by seedance-2-0-fast: base64");
+  });
+
+  it("rejects unsupported content roles when declared by the model", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    expect(() =>
+      client.validate({
+        model: "seedance-2-0-fast",
+        content: [
+          { type: "text", text: "animate this reference" },
+          {
+            type: "image",
+            source: { type: "url", url: "https://example.com/input.png" },
+            meta: { role: "reference_video" },
+          },
+        ],
+      }),
+    ).toThrow("image role is not supported by seedance-2-0-fast: reference_video");
+  });
 });

@@ -17,8 +17,19 @@ content:
       max: 9
       sources:
         - url
-        - base64
-      description: Optional image input. Use meta.role as first_frame, last_frame, or reference_image.
+      roles:
+        - first_frame
+        - last_frame
+        - reference_image
+      description: Optional public URL image input. Use meta.role as first_frame, last_frame, or reference_image.
+    - type: video
+      required: false
+      max: 1
+      sources:
+        - url
+      roles:
+        - reference_video
+      description: Optional public URL reference video input. Use meta.role as reference_video.
 parameters:
   duration:
     type: integer

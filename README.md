@@ -209,7 +209,7 @@ const output = await client.generate({
 });
 ```
 
-Frame and reference-image video modes use `meta.role`:
+Seedance frame and reference media video modes use `meta.role` with public URL media sources:
 
 ```ts
 await client.generate({
@@ -218,6 +218,17 @@ await client.generate({
     { type: "text", text: "create a smooth dramatic transition" },
     { type: "image", source: { type: "url", url: "https://example.com/start.jpg" }, meta: { role: "first_frame" } },
     { type: "image", source: { type: "url", url: "https://example.com/end.jpg" }, meta: { role: "last_frame" } },
+  ],
+});
+```
+
+```ts
+await client.generate({
+  model: "seedance-2-0-fast",
+  content: [
+    { type: "text", text: "keep the subject from the image and the motion style from the video" },
+    { type: "image", source: { type: "url", url: "https://example.com/subject.jpg" }, meta: { role: "reference_image" } },
+    { type: "video", source: { type: "url", url: "https://example.com/motion.mp4" }, meta: { role: "reference_video" } },
   ],
 });
 ```
@@ -334,6 +345,8 @@ type GenerationSource =
   | { type: "url"; url: string }
   | { type: "base64"; mediaType: string; data: string };
 ```
+
+The content block `type` selects the media kind (`image`, `video`, or `audio`). The source `type` selects how that media is supplied (`url` or `base64`). When a model declares `roles`, `meta.role` selects the media's provider-specific purpose.
 
 ## Adapter types
 

@@ -51,8 +51,9 @@ type ArkTaskStatusResponse = {
   };
 };
 
-type ImageMode = "image" | "frame" | "reference";
-type ResolvedImage = { url: string; role: string | undefined };
+type MediaMode = "image" | "frame" | "reference";
+type MediaKind = "image" | "video";
+type ResolvedMedia = { kind: MediaKind; url: string; role: string | undefined };
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -93,36 +94,69 @@ function resolveSize(resolution: string, aspectRatio: string): { width: number; 
   return { width: width % 2 === 0 ? width : width + 1, height: height % 2 === 0 ? height : height + 1 };
 }
 
-function getImageRole(block: Extract<GenerationContentBlock, { type: "image" }>): string | undefined {
+function getMediaRole(block: Extract<GenerationContentBlock, { type: "image" | "video" }>): string | undefined {
   const role = getBlockMeta(block)?.role;
   return typeof role === "string" && role ? role : undefined;
 }
 
-function classifyImages(images: ResolvedImage[]): ImageMode | null {
-  if (images.length === 0) return null;
-  const hasFirstOrLast = images.some((image) => image.role === "first_frame" || image.role === "last_frame");
-  const hasReference = images.some((image) => image.role === "reference_image");
-  const hasPlain = images.some((image) => !image.role);
-  const modes = [hasPlain, hasFirstOrLast, hasReference].filter(Boolean).length;
+function classifyMedia(media: ResolvedMedia[]): MediaMode | null {
+  if (media.length === 0) return null;
+
+  for (const item of media) {
+    if (
+      item.kind === "image" &&
+      item.role &&
+      item.role !== "first_frame" &&
+      item.role !== "last_frame" &&
+      item.role !== "reference_image"
+    ) {
+      throw new GenerationValidationError("Image input must use meta.role first_frame, last_frame, or reference_image");
+    }
+    if (item.kind === "video" && item.role !== "reference_video") {
+      throw new GenerationValidationError("Video input must use meta.role reference_video");
+    }
+  }
+
+  const hasFrame = media.some(
+    (item) => item.kind === "image" && (item.role === "first_frame" || item.role === "last_frame"),
+  );
+  const hasReference = media.some(
+    (item) =>
+      (item.kind === "image" && item.role === "reference_image") ||
+      (item.kind === "video" && item.role === "reference_video"),
+  );
+  const hasPlain = media.some((item) => item.kind === "image" && !item.role);
+  const modes = [hasPlain, hasFrame, hasReference].filter(Boolean).length;
   if (modes > 1)
     throw new GenerationValidationError(
-      "Cannot mix video image modes: use only plain image, first_frame/last_frame, or reference_image",
+      "Cannot mix video media modes: use only plain image, first_frame/last_frame, or reference_image/reference_video",
     );
   if (hasReference) return "reference";
-  if (hasFirstOrLast) return "frame";
-  return "image";
+  if (hasFrame) return "frame";
+  if (hasPlain) return "image";
+  return null;
 }
 
-function buildMetadataContent(prompt: string, images: ResolvedImage[], mode: Exclude<ImageMode, "image">) {
-  const content: Array<Record<string, unknown>> = [{ type: "text", text: prompt }];
-  for (const image of images) {
-    if (mode === "frame" && image.role !== "first_frame" && image.role !== "last_frame") {
+function buildMetadataContent(media: ResolvedMedia[], mode: Exclude<MediaMode, "image">) {
+  const content: Array<Record<string, unknown>> = [];
+  for (const item of media) {
+    if (mode === "frame" && (item.kind !== "image" || (item.role !== "first_frame" && item.role !== "last_frame"))) {
       throw new GenerationValidationError("Frame mode images must use meta.role first_frame or last_frame");
     }
-    if (mode === "reference" && image.role !== "reference_image") {
-      throw new GenerationValidationError("Reference mode images must use meta.role reference_image");
+    if (
+      mode === "reference" &&
+      !(
+        (item.kind === "image" && item.role === "reference_image") ||
+        (item.kind === "video" && item.role === "reference_video")
+      )
+    ) {
+      throw new GenerationValidationError("Reference mode media must use meta.role reference_image or reference_video");
     }
-    content.push({ type: "image_url", image_url: { url: image.url }, role: image.role });
+    if (item.kind === "image") {
+      content.push({ type: "image_url", image_url: { url: item.url }, role: item.role });
+    } else {
+      content.push({ type: "video_url", video_url: { url: item.url }, role: item.role });
+    }
   }
   return content;
 }
@@ -187,17 +221,19 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
   const prompt = mergeTextBlocks(input.declaration, input.request.content);
   if (!prompt) throw new GenerationValidationError("Prompt text is required");
 
-  const imageBlocks = input.request.content.filter(
-    (block): block is Extract<GenerationContentBlock, { type: "image" }> => block.type === "image",
+  const mediaBlocks = input.request.content.filter(
+    (block): block is Extract<GenerationContentBlock, { type: "image" | "video" }> =>
+      block.type === "image" || block.type === "video",
   );
-  const images = await Promise.all(
-    imageBlocks.map(async (block) => ({
+  const media = await Promise.all(
+    mediaBlocks.map(async (block) => ({
+      kind: block.type,
       url: await input.context.resolveSource(block.source),
-      role: getImageRole(block),
+      role: getMediaRole(block),
     })),
   );
 
-  const mode = classifyImages(images);
+  const mode = classifyMedia(media);
   const resolution = asString(input.parameters.resolution) ?? "720p";
   const aspectRatio = asString(input.parameters.aspect_ratio) ?? "16:9";
   const duration = getIntegerParameter(input.parameters, "duration", 5);
@@ -218,7 +254,7 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
   if (watermark) metadata.watermark = true;
 
   if (mode === "frame" || mode === "reference") {
-    metadata.content = buildMetadataContent(prompt, images, mode);
+    metadata.content = buildMetadataContent(media, mode);
     metadata.resolution = resolution;
     metadata.ratio = aspectRatio;
   } else {
@@ -227,7 +263,8 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
       payload.width = size.width;
       payload.height = size.height;
     }
-    if (images[0]) payload.image = images[0].url;
+    const firstImage = media.find((item) => item.kind === "image");
+    if (firstImage) payload.image = firstImage.url;
   }
   payload.metadata = metadata;
 

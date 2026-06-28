@@ -55,4 +55,17 @@ describe("validation", () => {
       }),
     ).toThrow("image role is not supported by seedance-2-0-fast: reference_video");
   });
+
+  it("rejects missing required content roles when declared by the model", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    expect(() =>
+      client.validate({
+        model: "seedance-2-0-fast",
+        content: [
+          { type: "text", text: "use this motion" },
+          { type: "video", source: { type: "url", url: "https://example.com/motion.mp4" } },
+        ],
+      }),
+    ).toThrow("video role is required by seedance-2-0-fast");
+  });
 });

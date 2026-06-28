@@ -1,6 +1,6 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
-import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
+import type { GenerationAdapterInput, GenerationContentBlock, GenerationSource } from "../types.js";
 import { compactObject, getBlockMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
 
@@ -53,6 +53,7 @@ type ArkTaskStatusResponse = {
 
 type MediaMode = "image" | "frame" | "reference";
 type MediaKind = "image" | "video";
+type InputMedia = { kind: MediaKind; source: GenerationSource; role: string | undefined };
 type ResolvedMedia = { kind: MediaKind; url: string; role: string | undefined };
 
 function sleep(ms: number): Promise<void> {
@@ -99,7 +100,24 @@ function getMediaRole(block: Extract<GenerationContentBlock, { type: "image" | "
   return typeof role === "string" && role ? role : undefined;
 }
 
-function classifyMedia(media: ResolvedMedia[]): MediaMode | null {
+function isFrameImage(item: InputMedia): boolean {
+  return item.kind === "image" && (item.role === "first_frame" || item.role === "last_frame");
+}
+
+function isReferenceMedia(item: InputMedia): boolean {
+  return (
+    (item.kind === "image" && item.role === "reference_image") ||
+    (item.kind === "video" && item.role === "reference_video")
+  );
+}
+
+function assertSingleRole(media: InputMedia[], role: string, message: string): void {
+  if (media.filter((item) => item.role === role).length > 1) {
+    throw new GenerationValidationError(message);
+  }
+}
+
+function classifyMedia(media: InputMedia[]): MediaMode | null {
   if (media.length === 0) return null;
 
   for (const item of media) {
@@ -117,23 +135,29 @@ function classifyMedia(media: ResolvedMedia[]): MediaMode | null {
     }
   }
 
-  const hasFrame = media.some(
-    (item) => item.kind === "image" && (item.role === "first_frame" || item.role === "last_frame"),
-  );
-  const hasReference = media.some(
-    (item) =>
-      (item.kind === "image" && item.role === "reference_image") ||
-      (item.kind === "video" && item.role === "reference_video"),
-  );
+  const hasFrame = media.some(isFrameImage);
+  const hasReference = media.some(isReferenceMedia);
   const hasPlain = media.some((item) => item.kind === "image" && !item.role);
   const modes = [hasPlain, hasFrame, hasReference].filter(Boolean).length;
   if (modes > 1)
     throw new GenerationValidationError(
       "Cannot mix video media modes: use only plain image, first_frame/last_frame, or reference_image/reference_video",
     );
-  if (hasReference) return "reference";
-  if (hasFrame) return "frame";
-  if (hasPlain) return "image";
+  if (hasReference) {
+    assertSingleRole(media, "reference_video", "Reference mode supports at most one reference_video");
+    return "reference";
+  }
+  if (hasFrame) {
+    assertSingleRole(media, "first_frame", "Frame mode supports at most one first_frame image");
+    assertSingleRole(media, "last_frame", "Frame mode supports at most one last_frame image");
+    return "frame";
+  }
+  if (hasPlain) {
+    if (media.filter((item) => item.kind === "image" && !item.role).length > 1) {
+      throw new GenerationValidationError("Plain image mode supports at most one image");
+    }
+    return "image";
+  }
   return null;
 }
 
@@ -159,6 +183,16 @@ function buildMetadataContent(media: ResolvedMedia[], mode: Exclude<MediaMode, "
     }
   }
   return content;
+}
+
+async function resolveMedia(input: GenerationAdapterInput, media: InputMedia[]): Promise<ResolvedMedia[]> {
+  return Promise.all(
+    media.map(async (item) => ({
+      kind: item.kind,
+      role: item.role,
+      url: await input.context.resolveSource(item.source),
+    })),
+  );
 }
 
 function extractTaskId(response: ArkCreateTaskResponse): string {
@@ -225,15 +259,14 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
     (block): block is Extract<GenerationContentBlock, { type: "image" | "video" }> =>
       block.type === "image" || block.type === "video",
   );
-  const media = await Promise.all(
-    mediaBlocks.map(async (block) => ({
-      kind: block.type,
-      url: await input.context.resolveSource(block.source),
-      role: getMediaRole(block),
-    })),
-  );
+  const inputMedia: InputMedia[] = mediaBlocks.map((block) => ({
+    kind: block.type,
+    source: block.source,
+    role: getMediaRole(block),
+  }));
 
-  const mode = classifyMedia(media);
+  const mode = classifyMedia(inputMedia);
+  const media = await resolveMedia(input, inputMedia);
   const resolution = asString(input.parameters.resolution) ?? "720p";
   const aspectRatio = asString(input.parameters.aspect_ratio) ?? "16:9";
   const duration = getIntegerParameter(input.parameters, "duration", 5);

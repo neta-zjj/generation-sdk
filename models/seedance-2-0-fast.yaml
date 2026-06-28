@@ -29,6 +29,7 @@ content:
         - url
       roles:
         - reference_video
+      roleRequired: true
       description: Optional public URL reference video input. Use meta.role as reference_video.
 parameters:
   duration:

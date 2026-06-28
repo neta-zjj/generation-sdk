@@ -37,6 +37,9 @@ export function validateGenerationContent(
     }
 
     const role = getRole(block);
+    if (spec.roleRequired && (typeof role !== "string" || role.length === 0)) {
+      throw new GenerationValidationError(`${block.type} role is required by ${declaration.model}`);
+    }
     if (role !== undefined && spec.roles) {
       if (typeof role !== "string" || role.length === 0 || !spec.roles.includes(role)) {
         throw new GenerationValidationError(

@@ -19,6 +19,28 @@ function parseCreateBody(calls: FetchCall[]): Record<string, unknown> {
   return JSON.parse(String(calls[0]?.init.body ?? "{}")) as Record<string, unknown>;
 }
 
+async function expectVideoGenerationValidationError(content: GenerationContentBlock[], message: string) {
+  let resolvedSources = 0;
+  const client = createGenerationClient({
+    apiKey: "key",
+    fetch: async () => {
+      throw new Error("fetch should not be called");
+    },
+    sourceResolver: (source) => {
+      resolvedSources += 1;
+      return source.type === "url" ? source.url : source.data;
+    },
+  });
+
+  await expect(
+    client.generate({
+      model: "seedance-2-0-fast",
+      content,
+    }),
+  ).rejects.toThrow(message);
+  expect(resolvedSources).toBe(0);
+}
+
 async function runSuccessfulVideoGeneration(content: GenerationContentBlock[]) {
   vi.useFakeTimers();
   const calls: FetchCall[] = [];
@@ -110,10 +132,11 @@ describe("ark.videoGenerations adapter", () => {
     expect(metadata.ratio).toBe("16:9");
   });
 
-  it("sends reference image and reference video as metadata media content", async () => {
+  it("sends reference images and reference video as metadata media content", async () => {
     const { calls } = await runSuccessfulVideoGeneration([
       textBlock("keep the subject from the image and the motion rhythm from the video"),
       imageBlock("https://example.com/subject.jpg", { role: "reference_image" }),
+      imageBlock("https://example.com/style.jpg", { role: "reference_image" }),
       videoBlock("https://example.com/motion.mp4", { role: "reference_video" }),
     ]);
     const body = parseCreateBody(calls);
@@ -122,9 +145,43 @@ describe("ark.videoGenerations adapter", () => {
     expect(body.prompt).toBe("keep the subject from the image and the motion rhythm from the video");
     expect(metadata.content).toEqual([
       { type: "image_url", image_url: { url: "https://example.com/subject.jpg" }, role: "reference_image" },
+      { type: "image_url", image_url: { url: "https://example.com/style.jpg" }, role: "reference_image" },
       { type: "video_url", video_url: { url: "https://example.com/motion.mp4" }, role: "reference_video" },
     ]);
     expect((metadata.content as Array<{ type: string }>).some((item) => item.type === "text")).toBe(false);
+  });
+
+  it("rejects mixed frame and reference media before resolving sources", async () => {
+    await expectVideoGenerationValidationError(
+      [
+        textBlock("this is an invalid mixed media request"),
+        imageBlock("https://example.com/first.jpg", { role: "first_frame" }),
+        imageBlock("https://example.com/ref.jpg", { role: "reference_image" }),
+      ],
+      "Cannot mix video media modes: use only plain image, first_frame/last_frame, or reference_image/reference_video",
+    );
+  });
+
+  it("rejects duplicate frame roles before resolving sources", async () => {
+    await expectVideoGenerationValidationError(
+      [
+        textBlock("this has two first frames"),
+        imageBlock("https://example.com/first-1.jpg", { role: "first_frame" }),
+        imageBlock("https://example.com/first-2.jpg", { role: "first_frame" }),
+      ],
+      "Frame mode supports at most one first_frame image",
+    );
+  });
+
+  it("rejects multiple plain images before resolving sources", async () => {
+    await expectVideoGenerationValidationError(
+      [
+        textBlock("this has too many plain image inputs"),
+        imageBlock("https://example.com/plain-1.jpg"),
+        imageBlock("https://example.com/plain-2.jpg"),
+      ],
+      "Plain image mode supports at most one image",
+    );
   });
 
   it("includes the create-task response when no task id is returned", async () => {

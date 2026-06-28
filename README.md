@@ -76,6 +76,8 @@ pnpm test:live:seedance
 
 The script reads `NETA_ROUTER_API_KEY` or `NETA_API_KEY`, falling back to `/tmp/neta-router-key`, and writes reusable
 JSON results under `/tmp/neta-generation-live/seedance`. Use `-- --download` to also save generated media files.
+It also writes `visual-review.html`, which places the inputs and outputs side by side so the result can be checked for
+actual first/last-frame or reference-media effect. Rebuild that report from an existing run with `-- --report-only`.
 
 You can also call providers through the CLI:
 

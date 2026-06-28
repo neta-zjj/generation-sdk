@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { extname, join } from "node:path";
+import { extname, join, relative, sep } from "node:path";
 import { createGenerationClient } from "../dist/index.js";
 
 const DEFAULT_BASE_URL = "https://router.neta.art";
@@ -80,6 +80,158 @@ function outputSummary(output) {
       meta: block.meta,
     };
   });
+}
+
+function sanitizeOptions(options) {
+  const { apiKey: _apiKey, ...safeOptions } = options;
+  return safeOptions;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function htmlJson(value) {
+  return escapeHtml(JSON.stringify(value, null, 2));
+}
+
+function mediaSrc(options, result, mediaIndex, fallbackUrl) {
+  const path = result.downloads?.[mediaIndex];
+  if (path?.startsWith(options.outDir)) return relative(options.outDir, path).split(sep).join("/");
+  return fallbackUrl;
+}
+
+function renderImage(label, url) {
+  return `<figure><img src="${escapeHtml(url)}" alt="${escapeHtml(label)}"><figcaption>${escapeHtml(label)}</figcaption></figure>`;
+}
+
+function renderVideo(label, url) {
+  return `<figure><video src="${escapeHtml(url)}" controls muted loop playsinline></video><figcaption>${escapeHtml(label)}</figcaption></figure>`;
+}
+
+function renderOutputMedia(options, result) {
+  if (!("output" in result)) return "<p>No output media.</p>";
+  let mediaIndex = 0;
+  return result.output
+    .filter((block) => block.type === "image" || block.type === "video")
+    .map((block) => {
+      const fallbackUrl = block.source.type === "url" ? block.source.url : "";
+      const src = mediaSrc(options, result, mediaIndex, fallbackUrl);
+      mediaIndex += 1;
+      const label = `output ${mediaIndex}: ${block.type}${block.meta?.role ? ` (${block.meta.role})` : ""}`;
+      return block.type === "video" ? renderVideo(label, src) : renderImage(label, src);
+    })
+    .join("\n");
+}
+
+function visualExpectations(task) {
+  if (task === "text") {
+    return [
+      "Generated video should match the pure prompt without requiring any media input.",
+      "Expected visible cue: a red origami crane/object in a clean white tabletop studio scene.",
+    ];
+  }
+
+  if (task === "frames") {
+    return [
+      "The first generated frame should visibly match the red FIRST FRAME input.",
+      "The final generated frame should visibly match the blue LAST FRAME input.",
+      "The middle should transition between those two anchors, not ignore either role.",
+    ];
+  }
+
+  return [
+    "Generated video should preserve visual identity from every reference_image input.",
+    "Generated motion should be judged against the reference_video, but reference_video is a style/motion cue rather than a hard frame lock.",
+    "Do not mark this task as visually passed only because the API request succeeded.",
+  ];
+}
+
+function renderInputs(options, task) {
+  if (task === "text") return "<p>No input media for this task.</p>";
+  if (task === "frames") {
+    return [
+      renderImage("first_frame input", options.firstFrameUrl),
+      renderImage("last_frame input", options.lastFrameUrl),
+    ].join("\n");
+  }
+  return [
+    ...options.referenceImageUrls.map((url, index) => renderImage(`reference_image input ${index + 1}`, url)),
+    renderVideo("reference_video input", options.referenceVideoUrl),
+  ].join("\n");
+}
+
+async function writeVisualReviewReport(options, results) {
+  const sections = results
+    .map(
+      (result) => `<section>
+        <h2>${escapeHtml(result.task)}: ${result.ok ? "transport ok" : "transport failed"}</h2>
+        <div class="expectations">
+          <strong>Visual pass criteria</strong>
+          <ul>${visualExpectations(result.task)
+            .map((item) => `<li>${escapeHtml(item)}</li>`)
+            .join("")}</ul>
+        </div>
+        <h3>Input media</h3>
+        <div class="media-grid">${renderInputs(options, result.task)}</div>
+        <h3>Output media</h3>
+        <div class="media-grid">${renderOutputMedia(options, result)}</div>
+        <details>
+          <summary>SDK request summary</summary>
+          <pre>${htmlJson(result.request)}</pre>
+        </details>
+      </section>`,
+    )
+    .join("\n");
+
+  const reportPath = join(options.outDir, "visual-review.html");
+  await writeFile(
+    reportPath,
+    `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Seedance live visual review</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; color: #161616; background: #f7f7f7; }
+    h1, h2, h3 { margin: 0 0 12px; }
+    section { margin: 24px 0; padding: 16px; background: white; border: 1px solid #ddd; border-radius: 8px; }
+    .media-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; align-items: start; }
+    figure { margin: 0; border: 1px solid #ddd; border-radius: 6px; overflow: hidden; background: #fff; }
+    img, video { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #111; }
+    figcaption { padding: 8px 10px; font-size: 13px; color: #333; }
+    .expectations { margin: 0 0 12px; padding: 10px 12px; background: #f0f4ff; border: 1px solid #c9d6ff; border-radius: 6px; }
+    pre { overflow: auto; padding: 12px; background: #111; color: #f2f2f2; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Seedance live visual review</h1>
+  <p>Generated from the real SDK live smoke script. Transport success is not enough; use the criteria in each section to judge whether roles had visible effect.</p>
+  ${sections}
+</body>
+</html>
+`,
+    "utf8",
+  );
+  return reportPath;
+}
+
+async function loadExistingRun(options, selectedTasks) {
+  const summaryPath = join(options.outDir, "summary.json");
+  const summaryFile = JSON.parse(await readFile(summaryPath, "utf8"));
+  const storedOptions = sanitizeOptions(summaryFile.options ?? {});
+  const mergedOptions = { ...options, ...storedOptions };
+  const tasks =
+    selectedTasks.length > 0 ? selectedTasks : (summaryFile.summary?.map((item) => item.task).filter(Boolean) ?? TASKS);
+  const results = await Promise.all(
+    tasks.map(async (task) => JSON.parse(await readFile(join(options.outDir, task, "result.json"), "utf8"))),
+  );
+  return { options: mergedOptions, results, summaryPath };
 }
 
 function errorJson(error) {
@@ -254,8 +406,10 @@ async function runTask(task, client, options, events) {
 }
 
 async function main() {
-  const apiKey = await readApiKey();
-  const selectedTasks = (getArg("tasks")?.split(",").filter(Boolean) ?? TASKS).map((task) => task.trim());
+  const tasksArg = getArg("tasks");
+  const selectedTasks = (tasksArg === undefined ? TASKS : tasksArg.split(",").filter(Boolean)).map((task) =>
+    task.trim(),
+  );
   const referenceImageUrls = getArgs("reference-image-url");
   const options = {
     baseUrl: getArg("base-url") ?? DEFAULT_BASE_URL,
@@ -274,7 +428,26 @@ async function main() {
   };
 
   await mkdir(options.outDir, { recursive: true });
+  if (hasFlag("report-only")) {
+    const existing = await loadExistingRun(options, tasksArg === undefined ? [] : selectedTasks);
+    const visualReviewPath = await writeVisualReviewReport(existing.options, existing.results);
+    console.log(
+      JSON.stringify(
+        {
+          summary_path: existing.summaryPath,
+          visual_review_file: visualReviewPath,
+          tasks: existing.results.map((r) => r.task),
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+
+  const apiKey = await readApiKey();
   const summary = [];
+  const results = [];
   for (const task of selectedTasks) {
     const clientEvents = [];
     const taskClient = createGenerationClient({
@@ -289,6 +462,7 @@ async function main() {
     });
     console.error(`running ${task} against ${options.baseUrl} with ${options.model}`);
     const result = await runTask(task, taskClient, options, clientEvents);
+    results.push(result);
     summary.push({
       task,
       ok: result.ok,
@@ -303,9 +477,13 @@ async function main() {
     console.error(`${task}: ${result.ok ? "ok" : "failed"} (${result.elapsed_s}s)`);
   }
 
+  const visualReviewPath = await writeVisualReviewReport(options, results);
   const summaryPath = join(options.outDir, "summary.json");
-  await writeFile(summaryPath, JSON.stringify({ options: { ...options, apiKey: "[REDACTED]" }, summary }, null, 2));
-  console.log(JSON.stringify({ summary_path: summaryPath, summary }, null, 2));
+  await writeFile(
+    summaryPath,
+    JSON.stringify({ options: sanitizeOptions(options), summary, visual_review_file: visualReviewPath }, null, 2),
+  );
+  console.log(JSON.stringify({ summary_path: summaryPath, visual_review_file: visualReviewPath, summary }, null, 2));
   if (summary.some((item) => !item.ok)) process.exitCode = 1;
 }
 

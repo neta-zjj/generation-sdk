@@ -13,6 +13,10 @@ function specsByType(specs: GenerationContentSpec[]) {
   return map;
 }
 
+function getRole(block: GenerationContentBlock): unknown {
+  return block.meta?.role;
+}
+
 export function validateGenerationContent(
   declaration: GenerationModelDeclaration,
   content: GenerationContentBlock[],
@@ -30,6 +34,18 @@ export function validateGenerationContent(
       throw new GenerationValidationError(
         `${block.type} source is not supported by ${declaration.model}: ${block.source.type}`,
       );
+    }
+
+    const role = getRole(block);
+    if (spec.roleRequired && (typeof role !== "string" || role.length === 0)) {
+      throw new GenerationValidationError(`${block.type} role is required by ${declaration.model}`);
+    }
+    if (role !== undefined && spec.roles) {
+      if (typeof role !== "string" || role.length === 0 || !spec.roles.includes(role)) {
+        throw new GenerationValidationError(
+          `${block.type} role is not supported by ${declaration.model}: ${String(role)}`,
+        );
+      }
     }
   }
 

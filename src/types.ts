@@ -16,6 +16,8 @@ export type GenerationContentSpec = {
   min?: number;
   max?: number;
   sources?: Array<GenerationSource["type"]>;
+  roles?: string[];
+  roleRequired?: boolean;
   merge?: "newline" | "space" | "concat";
   meta?: Record<string, unknown>;
   description?: string;

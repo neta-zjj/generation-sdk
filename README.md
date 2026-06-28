@@ -67,6 +67,18 @@ Live provider tests are separate from `pnpm test` because they use the real SDK 
 pnpm test:live:suno
 ```
 
+Seedance live smoke tests exercise text-to-video, first/last frame video, and multi-reference-image plus reference-video
+requests through the built SDK:
+
+```bash
+pnpm test:live:seedance
+```
+
+The script reads `NETA_ROUTER_API_KEY` or `NETA_API_KEY`, falling back to `/tmp/neta-router-key`, and writes reusable
+JSON results under `/tmp/neta-generation-live/seedance`. Use `-- --download` to also save generated media files.
+It also writes `visual-review.html`, which places the inputs and outputs side by side so the result can be checked for
+actual first/last-frame or reference-media effect. Rebuild that report from an existing run with `-- --report-only`.
+
 You can also call providers through the CLI:
 
 ```bash
@@ -209,7 +221,7 @@ const output = await client.generate({
 });
 ```
 
-Frame and reference-image video modes use `meta.role`:
+Seedance frame and reference media video modes use `meta.role` with public URL media sources:
 
 ```ts
 await client.generate({
@@ -218,6 +230,17 @@ await client.generate({
     { type: "text", text: "create a smooth dramatic transition" },
     { type: "image", source: { type: "url", url: "https://example.com/start.jpg" }, meta: { role: "first_frame" } },
     { type: "image", source: { type: "url", url: "https://example.com/end.jpg" }, meta: { role: "last_frame" } },
+  ],
+});
+```
+
+```ts
+await client.generate({
+  model: "seedance-2-0-fast",
+  content: [
+    { type: "text", text: "keep the subject from the image and the motion style from the video" },
+    { type: "image", source: { type: "url", url: "https://example.com/subject.jpg" }, meta: { role: "reference_image" } },
+    { type: "video", source: { type: "url", url: "https://example.com/motion.mp4" }, meta: { role: "reference_video" } },
   ],
 });
 ```
@@ -334,6 +357,8 @@ type GenerationSource =
   | { type: "url"; url: string }
   | { type: "base64"; mediaType: string; data: string };
 ```
+
+The content block `type` selects the media kind (`image`, `video`, or `audio`). The source `type` selects how that media is supplied (`url` or `base64`). When a model declares `roles`, `meta.role` selects the media's provider-specific purpose. When it also sets `roleRequired`, that role must be present.
 
 ## Adapter types
 

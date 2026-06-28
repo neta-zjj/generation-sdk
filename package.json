@@ -47,6 +47,7 @@
     "example:image-editing": "node --env-file=.env --experimental-strip-types examples/image-editing.ts",
     "example:music-generation": "node --env-file=.env --experimental-strip-types examples/music-generation.ts",
     "example:text-to-video": "node --env-file=.env --experimental-strip-types examples/text-to-video.ts",
+    "test:live:seedance": "pnpm build && node scripts/seedance-live.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:live": "vitest run --config vitest.live.config.ts",

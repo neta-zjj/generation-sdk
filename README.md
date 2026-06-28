@@ -67,6 +67,16 @@ Live provider tests are separate from `pnpm test` because they use the real SDK 
 pnpm test:live:suno
 ```
 
+Seedance live smoke tests exercise text-to-video, first/last frame video, and multi-reference-image plus reference-video
+requests through the built SDK:
+
+```bash
+pnpm test:live:seedance
+```
+
+The script reads `NETA_ROUTER_API_KEY` or `NETA_API_KEY`, falling back to `/tmp/neta-router-key`, and writes reusable
+JSON results under `/tmp/neta-generation-live/seedance`. Use `-- --download` to also save generated media files.
+
 You can also call providers through the CLI:
 
 ```bash

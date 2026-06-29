@@ -41,7 +41,10 @@ async function expectVideoGenerationValidationError(content: GenerationContentBl
   expect(resolvedSources).toBe(0);
 }
 
-async function runSuccessfulVideoGeneration(content: GenerationContentBlock[]) {
+async function runSuccessfulVideoGeneration(
+  content: GenerationContentBlock[],
+  parameters: Record<string, unknown> = {},
+) {
   vi.useFakeTimers();
   const calls: FetchCall[] = [];
   const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
@@ -59,7 +62,7 @@ async function runSuccessfulVideoGeneration(content: GenerationContentBlock[]) {
     const promise = client.generate({
       model: "seedance-2-0-fast",
       content,
-      parameters: { poll_interval: 1, max_wait: 30 },
+      parameters: { poll_interval: 1, max_wait: 30, ...parameters },
     });
     await vi.advanceTimersByTimeAsync(1000);
     const output = await promise;
@@ -103,14 +106,28 @@ describe("ark.videoGenerations adapter", () => {
   });
 
   it("sends text-to-video prompts without metadata content", async () => {
-    const { calls } = await runSuccessfulVideoGeneration([textBlock("a red cube rotating on a white table")]);
+    const { calls } = await runSuccessfulVideoGeneration([textBlock("a red cube rotating on a white table")], {
+      ratio: "9:16",
+    });
     const body = parseCreateBody(calls);
     const metadata = body.metadata as Record<string, unknown>;
 
     expect(body.prompt).toBe("a red cube rotating on a white table");
-    expect(body.width).toBe(1280);
-    expect(body.height).toBe(720);
+    expect(body.width).toBeUndefined();
+    expect(body.height).toBeUndefined();
     expect(metadata.content).toBeUndefined();
+    expect(metadata.resolution).toBe("720p");
+    expect(metadata.ratio).toBe("9:16");
+  });
+
+  it("maps deprecated aspect_ratio to metadata ratio", async () => {
+    const { calls } = await runSuccessfulVideoGeneration([textBlock("a vertical shot")], {
+      aspect_ratio: "9:16",
+    });
+    const body = parseCreateBody(calls);
+    const metadata = body.metadata as Record<string, unknown>;
+
+    expect(metadata.ratio).toBe("9:16");
   });
 
   it("sends first and last frames as metadata media content without text blocks", async () => {

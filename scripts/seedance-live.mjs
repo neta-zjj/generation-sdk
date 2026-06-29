@@ -288,7 +288,7 @@ function buildRequest(task, options) {
   const parameters = {
     duration: options.duration,
     resolution: options.resolution,
-    aspect_ratio: options.aspectRatio,
+    ratio: options.ratio,
     generate_audio: false,
     return_last_frame: true,
     poll_interval: options.pollInterval,
@@ -417,7 +417,7 @@ async function main() {
     model: getArg("model") ?? "seedance-2-0-fast",
     duration: numberArg("duration", 4),
     resolution: getArg("resolution") ?? "480p",
-    aspectRatio: getArg("aspect-ratio") ?? "16:9",
+    ratio: getArg("ratio") ?? getArg("aspect-ratio") ?? "16:9",
     pollInterval: numberArg("poll-interval", 5),
     maxWait: numberArg("max-wait", 900),
     download: hasFlag("download"),

@@ -9,25 +9,6 @@ const REQUEST_TIMEOUT_MS = 1_860_000;
 const DEFAULT_POLL_INTERVAL_SEC = 2;
 const DEFAULT_MAX_WAIT_SEC = 600;
 
-const RESOLUTION_SHORT_EDGE: Record<string, number> = {
-  "480p": 480,
-  "720p": 720,
-  "1080p": 1080,
-  "2K": 1440,
-};
-
-const ASPECT_RATIOS: Record<string, [number, number] | null> = {
-  "16:9": [16, 9],
-  "9:16": [9, 16],
-  "1:1": [1, 1],
-  "4:3": [4, 3],
-  "3:2": [3, 2],
-  "2:3": [2, 3],
-  "3:4": [3, 4],
-  "21:9": [21, 9],
-  adaptive: null,
-};
-
 type ArkCreateTaskResponse = { id?: unknown; task_id?: unknown; status?: unknown };
 
 type ArkTaskStatusResponse = {
@@ -80,19 +61,6 @@ function normalizeStatus(value: string): string {
 function getIntegerParameter(parameters: Record<string, unknown>, key: string, fallback: number): number {
   const value = parameters[key];
   return typeof value === "number" && Number.isInteger(value) ? value : fallback;
-}
-
-function resolveSize(resolution: string, aspectRatio: string): { width: number; height: number } | null {
-  const ratio = ASPECT_RATIOS[aspectRatio];
-  if (!ratio) return null;
-
-  const shortEdge = RESOLUTION_SHORT_EDGE[resolution];
-  if (!shortEdge) throw new GenerationValidationError(`Unsupported resolution: ${resolution}`);
-
-  const [wRatio, hRatio] = ratio;
-  const width = wRatio >= hRatio ? Math.round((shortEdge * wRatio) / hRatio) : shortEdge;
-  const height = wRatio >= hRatio ? shortEdge : Math.round((shortEdge * hRatio) / wRatio);
-  return { width: width % 2 === 0 ? width : width + 1, height: height % 2 === 0 ? height : height + 1 };
 }
 
 function getMediaRole(block: Extract<GenerationContentBlock, { type: "image" | "video" }>): string | undefined {
@@ -268,7 +236,11 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
   const mode = classifyMedia(inputMedia);
   const media = await resolveMedia(input, inputMedia);
   const resolution = asString(input.parameters.resolution) ?? "720p";
-  const aspectRatio = asString(input.parameters.aspect_ratio) ?? "16:9";
+  const ratio =
+    asString(input.request.parameters?.ratio) ??
+    asString(input.request.parameters?.aspect_ratio) ??
+    asString(input.parameters.ratio) ??
+    "16:9";
   const duration = getIntegerParameter(input.parameters, "duration", 5);
   const fps = getIntegerParameter(input.parameters, "fps", 30);
   const pollIntervalSec = getIntegerParameter(input.parameters, "poll_interval", DEFAULT_POLL_INTERVAL_SEC);
@@ -280,7 +252,7 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
   const seed = asNumber(input.parameters.seed);
 
   const payload: Record<string, unknown> = { model: input.declaration.model, prompt };
-  const metadata: Record<string, unknown> = { duration, fps, generate_audio: generateAudio };
+  const metadata: Record<string, unknown> = { duration, fps, generate_audio: generateAudio, resolution, ratio };
   if (seed !== undefined) metadata.seed = seed;
   if (returnLastFrame) metadata.return_last_frame = true;
   if (cameraFixed) metadata.camera_fixed = true;
@@ -288,14 +260,7 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
 
   if (mode === "frame" || mode === "reference") {
     metadata.content = buildMetadataContent(media, mode);
-    metadata.resolution = resolution;
-    metadata.ratio = aspectRatio;
   } else {
-    const size = resolveSize(resolution, aspectRatio);
-    if (size) {
-      payload.width = size.width;
-      payload.height = size.height;
-    }
     const firstImage = media.find((item) => item.kind === "image");
     if (firstImage) payload.image = firstImage.url;
   }

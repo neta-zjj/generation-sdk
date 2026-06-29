@@ -83,7 +83,7 @@ const noobxlImageToImageParameters = {
   },
 } satisfies GenerationModelDeclaration["parameters"];
 
-function videoParameters(defaults: { resolution: string; maxWait: number }) {
+function seedanceVideoParameters(defaults: { resolution: string; maxWait: number }) {
   return {
     duration: {
       type: "integer",
@@ -100,12 +100,18 @@ function videoParameters(defaults: { resolution: string; maxWait: number }) {
       enum: ["480p", "720p", "1080p", "2K"],
       description: "Output video resolution.",
     },
-    aspect_ratio: {
+    ratio: {
       type: "string",
       optional: true,
       default: "16:9",
       enum: ["16:9", "9:16", "1:1", "4:3", "3:2", "2:3", "3:4", "21:9", "adaptive"],
       description: "Output aspect ratio. Use adaptive to let the model choose.",
+    },
+    aspect_ratio: {
+      type: "string",
+      optional: true,
+      enum: ["16:9", "9:16", "1:1", "4:3", "3:2", "2:3", "3:4", "21:9", "adaptive"],
+      description: "Deprecated alias for ratio.",
     },
     fps: { type: "integer", optional: true, default: 30, min: 1, max: 60, description: "Frames per second." },
     seed: { type: "integer", optional: true, description: "Random seed for reproducibility." },
@@ -891,7 +897,7 @@ const builtinModels = [
         },
       ],
     },
-    parameters: videoParameters({ resolution: "1080p", maxWait: 900 }),
+    parameters: seedanceVideoParameters({ resolution: "1080p", maxWait: 900 }),
     examples: [
       {
         title: "Text to video",
@@ -903,7 +909,7 @@ const builtinModels = [
               text: "a cat playing piano in a cozy jazz club, cinematic lighting, smooth camera movement",
             },
           ],
-          parameters: { duration: 5, resolution: "1080p", aspect_ratio: "16:9" },
+          parameters: { duration: 5, resolution: "1080p", ratio: "16:9" },
         },
       },
     ],
@@ -937,7 +943,7 @@ const builtinModels = [
         },
       ],
     },
-    parameters: videoParameters({ resolution: "720p", maxWait: 600 }),
+    parameters: seedanceVideoParameters({ resolution: "720p", maxWait: 600 }),
     examples: [
       {
         title: "Text to video",
@@ -949,7 +955,7 @@ const builtinModels = [
               text: "a cat playing piano in a cozy jazz club, cinematic lighting, smooth camera movement",
             },
           ],
-          parameters: { duration: 5, resolution: "720p", aspect_ratio: "16:9" },
+          parameters: { duration: 5, resolution: "720p", ratio: "16:9" },
         },
       },
     ],

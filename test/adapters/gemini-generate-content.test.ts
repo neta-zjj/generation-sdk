@@ -31,7 +31,7 @@ describe("gemini.generateContent adapter", () => {
         contents: [{ parts: [{ text: "hello" }] }],
         generationConfig: {
           responseModalities: ["IMAGE"],
-          responseFormat: { image: { aspectRatio: "1:1", imageSize: "2K" } },
+          imageConfig: { aspectRatio: "1:1", imageSize: "2K" },
         },
       },
     });
@@ -126,7 +126,7 @@ describe("gemini.generateContent adapter", () => {
       ],
       generationConfig: {
         responseModalities: ["IMAGE"],
-        responseFormat: { image: { aspectRatio: "1:1", imageSize: "2K" } },
+        imageConfig: { aspectRatio: "1:1", imageSize: "2K" },
       },
     });
   });

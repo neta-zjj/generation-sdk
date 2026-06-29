@@ -148,7 +148,7 @@ export async function geminiGenerateContentAdapter(input: GenerationAdapterInput
     const image: Record<string, string> = {};
     if (typeof aspectRatio === "string") image.aspectRatio = aspectRatio;
     if (typeof imageSize === "string") image.imageSize = imageSize;
-    generationConfig.responseFormat = { image };
+    generationConfig.imageConfig = image;
   }
 
   const payload = {

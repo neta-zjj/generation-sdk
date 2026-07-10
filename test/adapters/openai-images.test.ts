@@ -31,6 +31,65 @@ describe("openai.images adapter", () => {
     expect(output[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
   });
 
+  it("exposes response usage cost metadata through generateResult", async () => {
+    let cloneCalls = 0;
+    const fetchMock = async () =>
+      trackClone(
+        new Response(
+          JSON.stringify({
+            data: [{ url: "https://example.com/out.png" }],
+            request_id: "router-request-1",
+            usage: { cost: 0.12 },
+          }),
+          {
+            status: 200,
+            headers: {
+              "content-type": "application/json",
+            },
+          },
+        ),
+        () => {
+          cloneCalls += 1;
+        },
+      );
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    const result = await client.generateResult({
+      model: "gpt-image-2",
+      content: [{ type: "text", text: "hello" }],
+    });
+
+    expect(result.content[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
+    expect(cloneCalls).toBe(1);
+    expect(result).toMatchObject({
+      requestId: "router-request-1",
+      cost: 0.12,
+    });
+  });
+
+  it("keeps generate compatible without metadata response cloning", async () => {
+    let cloneCalls = 0;
+    const fetchMock = async () =>
+      trackClone(
+        new Response(JSON.stringify({ data: [{ url: "https://example.com/out.png" }], usage: { cost: 0.12 } }), {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        }),
+        () => {
+          cloneCalls += 1;
+        },
+      );
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await expect(
+      client.generate({
+        model: "gpt-image-2",
+        content: [{ type: "text", text: "hello" }],
+      }),
+    ).resolves.toEqual([{ type: "image", source: { type: "url", url: "https://example.com/out.png" } }]);
+    expect(cloneCalls).toBe(0);
+  });
+
   it("builds Z-Image Turbo text-to-image requests", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
@@ -204,3 +263,12 @@ describe("openai.images adapter", () => {
     } satisfies Partial<GenerationProviderError>);
   });
 });
+
+function trackClone(response: Response, onClone: () => void): Response {
+  const clone = response.clone.bind(response);
+  response.clone = () => {
+    onClone();
+    return clone();
+  };
+  return response;
+}

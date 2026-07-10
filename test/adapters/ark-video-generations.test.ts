@@ -221,7 +221,7 @@ describe("ark.videoGenerations adapter", () => {
     } satisfies Partial<GenerationProviderError>);
   });
 
-  it("parses wrapped router task status responses", async () => {
+  it("preserves the router-generated first frame role", async () => {
     vi.useFakeTimers();
     const fetchMock = async (url: string | URL | Request) => {
       if (String(url).endsWith("/v1/video/generations")) {
@@ -260,7 +260,7 @@ describe("ark.videoGenerations adapter", () => {
       {
         type: "image",
         source: { type: "url", url: "https://example.com/first.webp" },
-        meta: { role: "last_frame", task_id: "task-1" },
+        meta: { role: "first_frame", task_id: "task-1" },
       },
     ]);
   });

@@ -10,6 +10,12 @@ export type GenerationContentBlock =
   | { type: "video"; source: GenerationSource; meta?: GenerationContentBlockMeta }
   | { type: "audio"; source: GenerationSource; meta?: GenerationContentBlockMeta };
 
+export type GenerationResult = {
+  content: GenerationContentBlock[];
+  requestId?: string;
+  cost?: number;
+};
+
 export type GenerationContentSpec = {
   type: "text" | "image" | "video" | "audio";
   required?: boolean;
@@ -182,4 +188,8 @@ export type GenerationClient = {
   stringifyModelConfig(model: string, options?: { format?: "yaml" | "json" }): string;
   exportModelConfig(model: string, filePath: string): Promise<void>;
   exportModelConfigs(directory: string): Promise<void>;
+};
+
+export type GenerationClientWithResult = GenerationClient & {
+  generateResult(request: GenerateRequest): Promise<GenerationResult>;
 };

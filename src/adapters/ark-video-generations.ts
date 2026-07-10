@@ -179,7 +179,7 @@ function normalizeTaskStatus(response: ArkTaskStatusResponse) {
     const native = wrapper.data;
     const status = normalizeStatus(asString(native?.status) ?? asString(wrapper.status) ?? "unknown");
     const videoUrl = asString(wrapper.result_url) ?? asString(native?.content?.video_url);
-    const lastFrameUrl = asString(wrapper.first_frame) ?? asString(native?.content?.first_frame);
+    const firstFrameUrl = asString(wrapper.first_frame) ?? asString(native?.content?.first_frame);
     const metadata: Record<string, unknown> = {
       progress: wrapper.progress,
       resolution: native?.resolution,
@@ -192,9 +192,9 @@ function normalizeTaskStatus(response: ArkTaskStatusResponse) {
       usage: native?.usage,
     };
     for (const key of Object.keys(metadata)) if (metadata[key] === undefined) delete metadata[key];
-    return { status, videoUrl, lastFrameUrl, metadata };
+    return { status, videoUrl, firstFrameUrl, metadata };
   }
-  return { status: "unknown", videoUrl: undefined, lastFrameUrl: undefined, metadata: {} };
+  return { status: "unknown", videoUrl: undefined, firstFrameUrl: undefined, metadata: {} };
 }
 
 async function requestJson(input: GenerationAdapterInput, path: string, init: RequestInit): Promise<unknown> {
@@ -293,11 +293,11 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
           meta: { task_id: taskId, status: status.status, ...status.metadata },
         },
       ];
-      if (status.lastFrameUrl)
+      if (status.firstFrameUrl)
         output.push({
           type: "image",
-          source: { type: "url", url: status.lastFrameUrl },
-          meta: { role: "last_frame", task_id: taskId },
+          source: { type: "url", url: status.firstFrameUrl },
+          meta: { role: "first_frame", task_id: taskId },
         });
       return output;
     }

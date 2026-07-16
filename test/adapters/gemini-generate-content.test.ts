@@ -96,6 +96,31 @@ describe("gemini.generateContent adapter", () => {
     expect(output[0]).toEqual({ type: "image", source: { type: "base64", mediaType: "image/png", data: "abc" } });
   });
 
+  it("omits imageSize for fixed-1K Gemini Lite requests", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(
+        JSON.stringify({
+          candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: "abc" } }] } }],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await client.generate({
+      model: "gemini-3.1-flash-lite-image",
+      content: [{ type: "text", text: "hello" }],
+    });
+
+    expect(calls[0]?.url).toBe("https://router.neta.art/v1beta/models/gemini-3.1-flash-lite-image:generateContent");
+    expect(JSON.parse(String(calls[0]?.init.body)).generationConfig).toEqual({
+      responseModalities: ["IMAGE"],
+      imageConfig: { aspectRatio: "1:1" },
+    });
+  });
+
   it("passes URL image inputs as Gemini fileData without fetching them", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {

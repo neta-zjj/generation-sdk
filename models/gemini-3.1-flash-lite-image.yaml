@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: gemini-3.1-flash-lite-image
 title: Gemini 3.1 Flash Lite Image
-description: Excels at text rendering, UI components and icons, commercial visuals, and image editing. It supports both photorealistic and non-photorealistic styles, producing clean, consistent results while preserving key features from references. Strong natural-language understanding and broad world knowledge help it follow complex prompts. This Lite variant is optimized for fast generation at a moderate price.
+description: Excels at text rendering, UI components and icons, commercial visuals, and image editing. It supports both photorealistic and non-photorealistic styles, producing clean, consistent results while preserving key features from references. Strong natural-language understanding and broad world knowledge help it follow complex prompts. This Lite variant produces fixed 1K output and is optimized for fast generation at a moderate price.
 adapter:
   type: gemini.generateContent
 content:
@@ -39,16 +39,6 @@ parameters:
       - "1:8"
       - "8:1"
     description: Output aspect ratio.
-  image_size:
-    type: string
-    optional: true
-    default: 2K
-    enum:
-      - "512"
-      - 1K
-      - 2K
-      - 4K
-    description: Output image resolution.
 examples:
   - title: Basic image
     request:
@@ -58,4 +48,3 @@ examples:
           text: a vibrant infographic explaining photosynthesis with clear readable labels
       parameters:
         aspect_ratio: "16:9"
-        image_size: 1K

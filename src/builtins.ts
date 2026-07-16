@@ -25,9 +25,9 @@ const krea2ImageParameters = {
     optional: true,
     default: "1024x1024",
     description: "Output image size as WIDTHxHEIGHT. Both dimensions must not exceed 1024 and must be multiples of 16.",
+    dimensions: { min: 16, max: 1024, multipleOf: 16 },
     examples: ["1024x1024", "1024x768", "768x1024", "768x768", "512x512"],
   },
-  quality: imageSizeParameters.quality,
 } satisfies GenerationModelDeclaration["parameters"];
 
 const zImageTurboParameters = {
@@ -508,7 +508,39 @@ const sunoModels = [
   }),
 ] satisfies GenerationModelDeclaration[];
 
-function geminiImageModel(model: string, title: string, description: string): GenerationModelDeclaration {
+type GeminiImageModelOptions = {
+  imageSize?: {
+    default: string;
+    values: string[];
+    example: string;
+  };
+};
+
+function geminiImageModel(
+  model: string,
+  title: string,
+  description: string,
+  options: GeminiImageModelOptions = {},
+): GenerationModelDeclaration {
+  const parameters: NonNullable<GenerationModelDeclaration["parameters"]> = {
+    aspect_ratio: {
+      type: "string",
+      optional: true,
+      default: "1:1",
+      enum: ["1:1", "16:9", "4:3", "3:2", "3:4", "2:3", "9:16", "5:4", "4:5", "21:9", "1:4", "4:1", "1:8", "8:1"],
+      description: "Output aspect ratio.",
+    },
+  };
+  if (options.imageSize) {
+    parameters.image_size = {
+      type: "string",
+      optional: true,
+      default: options.imageSize.default,
+      enum: options.imageSize.values,
+      description: "Output image resolution.",
+    };
+  }
+
   return {
     schema: MODEL_SCHEMA,
     model,
@@ -527,22 +559,7 @@ function geminiImageModel(model: string, title: string, description: string): Ge
         },
       ],
     },
-    parameters: {
-      aspect_ratio: {
-        type: "string",
-        optional: true,
-        default: "1:1",
-        enum: ["1:1", "16:9", "4:3", "3:2", "3:4", "2:3", "9:16", "5:4", "4:5", "21:9", "1:4", "4:1", "1:8", "8:1"],
-        description: "Output aspect ratio.",
-      },
-      image_size: {
-        type: "string",
-        optional: true,
-        default: "2K",
-        enum: ["512", "1K", "2K", "4K"],
-        description: "Output image resolution.",
-      },
-    },
+    parameters,
     examples: [
       {
         title: "Basic image",
@@ -551,7 +568,10 @@ function geminiImageModel(model: string, title: string, description: string): Ge
           content: [
             { type: "text", text: "a vibrant infographic explaining photosynthesis with clear readable labels" },
           ],
-          parameters: { aspect_ratio: "16:9", image_size: "1K" },
+          parameters: {
+            aspect_ratio: "16:9",
+            ...(options.imageSize ? { image_size: options.imageSize.example } : {}),
+          },
         },
       },
     ],
@@ -607,7 +627,7 @@ const builtinModels = [
         request: {
           model: "krea2",
           content: [{ type: "text", text: "an elegant editorial portrait with sculptural lighting" }],
-          parameters: { size: "1024x1024", quality: "auto" },
+          parameters: { size: "1024x1024" },
         },
       },
     ],
@@ -674,11 +694,12 @@ const builtinModels = [
     "gemini-3.1-flash-image-preview",
     "Gemini 3.1 Flash Image Preview",
     "Excels at text rendering, UI components and icons, commercial visuals, and image editing. It handles both photorealistic and non-photorealistic styles reliably, producing clean, consistent images while preserving key features from references. Strong natural-language understanding and broad world knowledge help it follow complex prompts. Its images are generally less expressive than those from gpt-image-2, and its style-transfer capabilities are weaker. Moderate speed, but relatively expensive.",
+    { imageSize: { default: "2K", values: ["512", "1K", "2K", "4K"], example: "1K" } },
   ),
   geminiImageModel(
     "gemini-3.1-flash-lite-image",
     "Gemini 3.1 Flash Lite Image",
-    "Excels at text rendering, UI components and icons, commercial visuals, and image editing. It supports both photorealistic and non-photorealistic styles, producing clean, consistent results while preserving key features from references. Strong natural-language understanding and broad world knowledge help it follow complex prompts. This Lite variant is optimized for fast generation at a moderate price.",
+    "Excels at text rendering, UI components and icons, commercial visuals, and image editing. It supports both photorealistic and non-photorealistic styles, producing clean, consistent results while preserving key features from references. Strong natural-language understanding and broad world knowledge help it follow complex prompts. This Lite variant produces fixed 1K output and is optimized for fast generation at a moderate price.",
   ),
   {
     schema: MODEL_SCHEMA,

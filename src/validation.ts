@@ -114,6 +114,30 @@ function mergeMetaFields(target: Record<string, unknown>, meta: Record<string, u
   }
 }
 
+function validateDimensions(
+  label: string,
+  value: string,
+  spec: NonNullable<Extract<GenerationParameterSpec, { type: "string" }>["dimensions"]>,
+): void {
+  const separator = spec.separator ?? "x";
+  const parts = value.split(separator);
+  if (parts.length !== 2 || parts.some((part) => !/^\d+$/.test(part))) {
+    throw new GenerationValidationError(`${label} must be formatted as WIDTH${separator}HEIGHT`);
+  }
+
+  const dimensions = parts.map(Number);
+  const { min, max, multipleOf } = spec;
+  if (min !== undefined && dimensions.some((dimension) => dimension < min)) {
+    throw new GenerationValidationError(`${label} dimensions must be >= ${min}`);
+  }
+  if (max !== undefined && dimensions.some((dimension) => dimension > max)) {
+    throw new GenerationValidationError(`${label} dimensions must be <= ${max}`);
+  }
+  if (multipleOf !== undefined && dimensions.some((dimension) => dimension % multipleOf !== 0)) {
+    throw new GenerationValidationError(`${label} dimensions must be multiples of ${multipleOf}`);
+  }
+}
+
 function validateSpecValue(
   label: string,
   spec: GenerationParameterSpec | GenerationMetaFieldSpec,
@@ -124,6 +148,7 @@ function validateSpecValue(
       if (typeof value !== "string") throw new GenerationValidationError(`${label} must be a string`);
       if (spec.enum && !spec.enum.includes(value))
         throw new GenerationValidationError(`${label} must be one of: ${spec.enum.join(", ")}`);
+      if (spec.dimensions) validateDimensions(label, value, spec.dimensions);
       break;
     case "number":
       if (typeof value !== "number" || !Number.isFinite(value))

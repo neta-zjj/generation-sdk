@@ -18,22 +18,16 @@ parameters:
     optional: true
     default: 1024x1024
     description: Output image size as WIDTHxHEIGHT. Both dimensions must not exceed 1024 and must be multiples of 16.
+    dimensions:
+      min: 16
+      max: 1024
+      multipleOf: 16
     examples:
       - 1024x1024
       - 1024x768
       - 768x1024
       - 768x768
       - 512x512
-  quality:
-    type: string
-    optional: true
-    default: auto
-    enum:
-      - auto
-      - low
-      - medium
-      - high
-    description: Image quality.
 examples:
   - title: Text-to-image
     request:
@@ -43,4 +37,3 @@ examples:
           text: an elegant editorial portrait with sculptural lighting
       parameters:
         size: 1024x1024
-        quality: auto

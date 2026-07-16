@@ -11,9 +11,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
 
+function isPositiveInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value > 0;
+}
+
+function isDimensionsSpec(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (value.separator !== undefined && value.separator !== "x" && value.separator !== "*") return false;
+  if (value.min !== undefined && !isPositiveInteger(value.min)) return false;
+  if (value.max !== undefined && !isPositiveInteger(value.max)) return false;
+  if (value.multipleOf !== undefined && !isPositiveInteger(value.multipleOf)) return false;
+  return value.min === undefined || value.max === undefined || value.min <= value.max;
+}
+
 function isParameterSpec(value: unknown): boolean {
   if (!isRecord(value)) return false;
-  return ["string", "number", "integer", "boolean"].includes(String(value.type));
+  if (!["string", "number", "integer", "boolean"].includes(String(value.type))) return false;
+  return value.type !== "string" || value.dimensions === undefined || isDimensionsSpec(value.dimensions);
 }
 
 function isMetaFieldSpec(value: unknown): boolean {

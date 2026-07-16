@@ -74,21 +74,63 @@ describe("config", () => {
     ).toThrow("Content block type is not supported by krea2: image");
   });
 
-  it("documents valid krea2 image sizes", () => {
+  it("enforces valid krea2 image sizes", () => {
     const client = createGenerationClient({ apiKey: "test" });
     const size = client.getModel("krea2")?.parameters?.size;
     if (!size || size.type !== "string") throw new Error("krea2 size parameter is unavailable");
+    expect(size.dimensions).toEqual({ min: 16, max: 1024, multipleOf: 16 });
 
     for (const value of [size.default, ...(size.examples ?? [])]) {
-      const match = /^(\d+)x(\d+)$/.exec(value ?? "");
-      expect(match, value).not.toBeNull();
-      const width = Number(match?.[1]);
-      const height = Number(match?.[2]);
-      expect(width, value).toBeLessThanOrEqual(1024);
-      expect(height, value).toBeLessThanOrEqual(1024);
-      expect(width % 16, value).toBe(0);
-      expect(height % 16, value).toBe(0);
+      const resolved = client.validate({
+        model: "krea2",
+        content: [{ type: "text", text: "an editorial portrait" }],
+        parameters: { size: value },
+      });
+      expect(resolved.parameters.size).toBe(value);
     }
+
+    const requestWithSize = (value: string) => ({
+      model: "krea2",
+      content: [{ type: "text" as const, text: "an editorial portrait" }],
+      parameters: { size: value },
+    });
+    expect(() => client.validate(requestWithSize("1024"))).toThrow("Parameter size must be formatted as WIDTHxHEIGHT");
+    expect(() => client.validate(requestWithSize("0x1024"))).toThrow("Parameter size dimensions must be >= 16");
+    expect(() => client.validate(requestWithSize("1040x1024"))).toThrow("Parameter size dimensions must be <= 1024");
+    expect(() => client.validate(requestWithSize("1000x1024"))).toThrow(
+      "Parameter size dimensions must be multiples of 16",
+    );
+  });
+
+  it("does not expose unsupported krea2 quality settings", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    expect(client.getModel("krea2")?.parameters).not.toHaveProperty("quality");
+    expect(() =>
+      client.validate({
+        model: "krea2",
+        content: [{ type: "text", text: "an editorial portrait" }],
+        parameters: { quality: "high" },
+      }),
+    ).toThrow("Unknown parameter: quality");
+  });
+
+  it("keeps Gemini Lite output fixed at 1K", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    const lite = client.getModel("gemini-3.1-flash-lite-image");
+    const preview = client.getModel("gemini-3.1-flash-image-preview");
+
+    expect(lite?.parameters).not.toHaveProperty("image_size");
+    expect(preview?.parameters?.image_size).toMatchObject({
+      default: "2K",
+      enum: ["512", "1K", "2K", "4K"],
+    });
+    expect(() =>
+      client.validate({
+        model: "gemini-3.1-flash-lite-image",
+        content: [{ type: "text", text: "a product photo" }],
+        parameters: { image_size: "2K" },
+      }),
+    ).toThrow("Unknown parameter: image_size");
   });
 
   it("publishes the supported NoobXL image sizes", () => {

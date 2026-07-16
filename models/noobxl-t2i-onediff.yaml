@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: noobxl-t2i-onediff
 title: NoobXL T2I OneDiff
-description: NoobXL text-to-image model.
+description: Anime-specialized NoobXL text-to-image model for anime-style illustrations. It works best with English Danbooru tags, which can invoke specific anime characters and illustrator styles. Natural-language understanding is limited. Fast and extremely low cost.
 allowUnknownParameters: true
 adapter:
   type: openai.images

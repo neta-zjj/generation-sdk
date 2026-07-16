@@ -44,6 +44,36 @@ describe("config", () => {
     expect(() => client.stringifyModelConfig("suno_music")).toThrow("Generation model is unavailable: suno_music");
   });
 
+  it("keeps infrastructure names out of model descriptions", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    for (const model of client.listModels()) {
+      expect(model.description, model.model).not.toMatch(/\b(?:router|new[ -]?api)\b/i);
+    }
+  });
+
+  it("does not advertise base64 input sources", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    for (const model of client.listModels()) {
+      for (const input of model.content.input) {
+        expect(input.sources ?? [], `${model.model}: ${input.type}`).not.toContain("base64");
+      }
+    }
+  });
+
+  it("keeps krea2 text-only", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    expect(client.getModel("krea2")?.content.input.map((input) => input.type)).toEqual(["text"]);
+    expect(() =>
+      client.validate({
+        model: "krea2",
+        content: [
+          { type: "text", text: "an editorial portrait" },
+          { type: "image", source: { type: "url", url: "https://example.com/reference.png" } },
+        ],
+      }),
+    ).toThrow("Content block type is not supported by krea2: image");
+  });
+
   it("validates every built-in model example", () => {
     const client = createGenerationClient({ apiKey: "test" });
     for (const model of client.listModels()) {

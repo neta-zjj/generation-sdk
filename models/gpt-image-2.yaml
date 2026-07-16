@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: gpt-image-2
 title: GPT Image 2
-description: Image generation model with optional reference images. Good for photorealistic scenes, detailed images, and image editing with references.
+description: Excels at photorealism, fine detail, text rendering, and sophisticated layouts. It accepts uploaded images as base or reference images and is particularly well suited to realistic imagery, mock website screenshots, infographics, and highly stylized, visually striking illustrations. Strong natural-language understanding and broad world knowledge help it follow complex prompts. Non-photorealistic styles may develop fine-grained texture and lighting artifacts, which can be corrected through prompt refinement or reference images. Low cost, but relatively slow.
 adapter:
   type: openai.images
 content:
@@ -17,7 +17,6 @@ content:
       max: 16
       sources:
         - url
-        - base64
       description: Optional reference images.
 parameters:
   size:

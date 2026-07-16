@@ -305,7 +305,7 @@ function sunoContentInput(
       type: "audio",
       required: true,
       max: 1,
-      sources: ["url", "base64"],
+      sources: ["url"],
       description: "Reference audio.",
     });
   }
@@ -314,7 +314,7 @@ function sunoContentInput(
       type: "image",
       required: true,
       max: 1,
-      sources: ["url", "base64"],
+      sources: ["url"],
       description: "Reference image.",
     });
   }
@@ -323,7 +323,7 @@ function sunoContentInput(
       type: "video",
       required: true,
       max: 1,
-      sources: ["url", "base64"],
+      sources: ["url"],
       description: "Reference video.",
     });
   }
@@ -352,7 +352,8 @@ function sunoVersionModel(version: (typeof sunoVersions)[number]): GenerationMod
     schema: MODEL_SCHEMA,
     model: version.model,
     title: version.title,
-    description: "Suno text-to-music model with a fixed Suno model version.",
+    description:
+      "High-quality music generation model for soundtracks and background music. Produces two MP3 tracks and two JPG cover images per request.",
     adapter: { type: "suno.tasks", operation: "music", payload: { mv: version.mv } },
     content: {
       input: sunoContentInput({ text: "required" }),
@@ -496,13 +497,63 @@ const sunoModels = [
   }),
 ] satisfies GenerationModelDeclaration[];
 
+function geminiImageModel(model: string, title: string, description: string): GenerationModelDeclaration {
+  return {
+    schema: MODEL_SCHEMA,
+    model,
+    title,
+    description,
+    adapter: { type: "gemini.generateContent" },
+    content: {
+      input: [
+        { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Prompt text." },
+        {
+          type: "image",
+          required: false,
+          max: 14,
+          sources: ["url"],
+          description: "Optional reference images.",
+        },
+      ],
+    },
+    parameters: {
+      aspect_ratio: {
+        type: "string",
+        optional: true,
+        default: "1:1",
+        enum: ["1:1", "16:9", "4:3", "3:2", "3:4", "2:3", "9:16", "5:4", "4:5", "21:9", "1:4", "4:1", "1:8", "8:1"],
+        description: "Output aspect ratio.",
+      },
+      image_size: {
+        type: "string",
+        optional: true,
+        default: "2K",
+        enum: ["512", "1K", "2K", "4K"],
+        description: "Output image resolution.",
+      },
+    },
+    examples: [
+      {
+        title: "Basic image",
+        request: {
+          model,
+          content: [
+            { type: "text", text: "a vibrant infographic explaining photosynthesis with clear readable labels" },
+          ],
+          parameters: { aspect_ratio: "16:9", image_size: "1K" },
+        },
+      },
+    ],
+  };
+}
+
 const builtinModels = [
   {
     schema: MODEL_SCHEMA,
     model: "gpt-image-2",
     title: "GPT Image 2",
     description:
-      "Image generation model with optional reference images. Good for photorealistic scenes, detailed images, and image editing with references.",
+      "Excels at photorealism, fine detail, text rendering, and sophisticated layouts. It accepts uploaded images as base or reference images and is particularly well suited to realistic imagery, mock website screenshots, infographics, and highly stylized, visually striking illustrations. Strong natural-language understanding and broad world knowledge help it follow complex prompts. Non-photorealistic styles may develop fine-grained texture and lighting artifacts, which can be corrected through prompt refinement or reference images. Low cost, but relatively slow.",
     adapter: { type: "openai.images" },
     content: {
       input: [
@@ -511,7 +562,7 @@ const builtinModels = [
           type: "image",
           required: false,
           max: 16,
-          sources: ["url", "base64"],
+          sources: ["url"],
           description: "Optional reference images.",
         },
       ],
@@ -530,10 +581,32 @@ const builtinModels = [
   },
   {
     schema: MODEL_SCHEMA,
+    model: "krea2",
+    title: "Krea 2",
+    description:
+      "Designed for visually refined image generation with broad aesthetic diversity. Strong natural-language understanding helps it follow detailed prompts. Text-only input; reference images are not supported. Relatively fast and low cost.",
+    adapter: { type: "openai.images" },
+    content: {
+      input: [{ type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Prompt text." }],
+    },
+    parameters: imageSizeParameters,
+    examples: [
+      {
+        title: "Text-to-image",
+        request: {
+          model: "krea2",
+          content: [{ type: "text", text: "an elegant editorial portrait with sculptural lighting" }],
+          parameters: { size: "1024x1024", quality: "auto" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
     model: "z-image-turbo",
     title: "Z-Image Turbo",
     description:
-      "Fast text-to-image generation through Neta Router. Z-Image Turbo accepts prompt text only; it does not support reference images.",
+      "Fast text-to-image model. Z-Image Turbo accepts prompt text only and does not support reference images.",
     adapter: { type: "openai.images" },
     content: {
       input: [{ type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Prompt text." }],
@@ -586,59 +659,22 @@ const builtinModels = [
       },
     ],
   },
-  {
-    schema: MODEL_SCHEMA,
-    model: "gemini-3.1-flash-image-preview",
-    title: "Gemini 3.1 Flash Image Preview",
-    description:
-      "Gemini image generation and editing model. Good for text rendering, infographics, style transfer, and iterative image editing with references.",
-    adapter: { type: "gemini.generateContent" },
-    content: {
-      input: [
-        { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Prompt text." },
-        {
-          type: "image",
-          required: false,
-          max: 14,
-          sources: ["url", "base64"],
-          description: "Optional reference images.",
-        },
-      ],
-    },
-    parameters: {
-      aspect_ratio: {
-        type: "string",
-        optional: true,
-        default: "1:1",
-        enum: ["1:1", "16:9", "4:3", "3:2", "3:4", "2:3", "9:16", "5:4", "4:5", "21:9", "1:4", "4:1", "1:8", "8:1"],
-        description: "Output aspect ratio.",
-      },
-      image_size: {
-        type: "string",
-        optional: true,
-        default: "2K",
-        enum: ["512", "1K", "2K", "4K"],
-        description: "Output image resolution.",
-      },
-    },
-    examples: [
-      {
-        title: "Basic image",
-        request: {
-          model: "gemini-3.1-flash-image-preview",
-          content: [
-            { type: "text", text: "a vibrant infographic explaining photosynthesis with clear readable labels" },
-          ],
-          parameters: { aspect_ratio: "16:9", image_size: "1K" },
-        },
-      },
-    ],
-  },
+  geminiImageModel(
+    "gemini-3.1-flash-image-preview",
+    "Gemini 3.1 Flash Image Preview",
+    "Excels at text rendering, UI components and icons, commercial visuals, and image editing. It handles both photorealistic and non-photorealistic styles reliably, producing clean, consistent images while preserving key features from references. Strong natural-language understanding and broad world knowledge help it follow complex prompts. Its images are generally less expressive than those from gpt-image-2, and its style-transfer capabilities are weaker. Moderate speed, but relatively expensive.",
+  ),
+  geminiImageModel(
+    "gemini-3.1-flash-lite-image",
+    "Gemini 3.1 Flash Lite Image",
+    "Excels at text rendering, UI components and icons, commercial visuals, and image editing. It supports both photorealistic and non-photorealistic styles, producing clean, consistent results while preserving key features from references. Strong natural-language understanding and broad world knowledge help it follow complex prompts. This Lite variant is optimized for fast generation at a moderate price.",
+  ),
   {
     schema: MODEL_SCHEMA,
     model: "kling-text-to-video",
     title: "Kling Text To Video",
-    description: "Kling latest text-to-video generation through Neta Router.",
+    description:
+      "One of the more affordable text-to-video models, well suited to short-form social media content and rapid creative validation.",
     adapter: { type: "kling.videoGenerations" },
     content: {
       input: [{ type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." }],
@@ -659,7 +695,8 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "kling-image-to-video",
     title: "Kling Image To Video",
-    description: "Kling latest image-to-video generation through Neta Router.",
+    description:
+      "Animates a reference image into a short video. It has the same cost as Kling text-to-video and more permissive content moderation than Seedance.",
     adapter: { type: "kling.videoGenerations" },
     content: {
       input: [
@@ -668,7 +705,7 @@ const builtinModels = [
           type: "image",
           required: false,
           max: 2,
-          sources: ["url", "base64"],
+          sources: ["url"],
           description:
             "First frame and optional tail frame image input. Provider-native image input may be passed in meta.",
         },
@@ -693,7 +730,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "kling-omni-video",
     title: "Kling Omni Video",
-    description: "Kling latest Omni-Video generation through Neta Router.",
+    description: "Kling Omni-Video generation model.",
     adapter: { type: "kling.videoGenerations" },
     content: {
       input: [
@@ -708,7 +745,7 @@ const builtinModels = [
           type: "image",
           required: false,
           max: 2,
-          sources: ["url", "base64"],
+          sources: ["url"],
           description: "Optional simple image input. Provider-native Omni media arrays belong in request meta.",
         },
       ],
@@ -754,7 +791,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "kling-multi-image-to-video",
     title: "Kling Multi-Image Reference To Video",
-    description: "Kling latest multi-image reference video generation through Neta Router.",
+    description: "Kling multi-image reference video generation model.",
     adapter: { type: "kling.videoGenerations" },
     content: {
       input: [
@@ -763,7 +800,7 @@ const builtinModels = [
           type: "image",
           required: false,
           max: 4,
-          sources: ["url", "base64"],
+          sources: ["url"],
           description: "Reference image inputs. Provider-native image_list input may be passed in meta.",
         },
       ],
@@ -788,7 +825,8 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "noobxl-t2i-onediff",
     title: "NoobXL T2I OneDiff",
-    description: "NoobXL text-to-image model.",
+    description:
+      "Anime-specialized NoobXL text-to-image model for anime-style illustrations. It works best with English Danbooru tags, which can invoke specific anime characters and illustrator styles. Natural-language understanding is limited. Fast and extremely low cost.",
     allowUnknownParameters: true,
     adapter: { type: "openai.images" },
     content: {
@@ -810,7 +848,8 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "noobxl-i2i-ipa-onediff",
     title: "NoobXL I2I IPA OneDiff",
-    description: "NoobXL image-to-image model with optional face reference controls.",
+    description:
+      "Anime-specialized NoobXL image-to-image model that redraws a single uploaded image using it as a style or character reference. It works best with English Danbooru tags, which can invoke specific anime characters and illustrator styles. Natural-language understanding is limited. Fast and extremely low cost.",
     allowUnknownParameters: true,
     adapter: { type: "openai.images" },
     content: {
@@ -821,7 +860,7 @@ const builtinModels = [
           required: true,
           min: 1,
           max: 1,
-          sources: ["url", "base64"],
+          sources: ["url"],
           description: "Single source image.",
         },
       ],
@@ -845,7 +884,8 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "birefnet-general",
     title: "BiRefNet General",
-    description: "BiRefNet single-image segmentation and background removal model.",
+    description:
+      "Single-image background removal model that produces images with transparent backgrounds. Well suited to image post-processing and creating web assets. Fast and extremely low cost.",
     adapter: { type: "openai.images" },
     content: {
       input: [
@@ -854,7 +894,7 @@ const builtinModels = [
           required: true,
           min: 1,
           max: 1,
-          sources: ["url", "base64"],
+          sources: ["url"],
           description: "Single source image.",
         },
       ],
@@ -873,7 +913,8 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "seedance-2-0",
     title: "Seedance 2.0",
-    description: "Higher quality Ark video generation model for final production outputs.",
+    description:
+      "High-quality video generation model that accepts text, image, and video inputs. Supports resolutions from 480p to 2K and is well suited to final deliverables.",
     adapter: { type: "ark.videoGenerations" },
     content: {
       input: [
@@ -919,7 +960,7 @@ const builtinModels = [
     model: "seedance-2-0-fast",
     title: "Seedance 2.0 Fast",
     description:
-      "Fast Ark video generation model for drafts, rapid iteration, text-to-video, image-to-video, and reference-guided video generation.",
+      "Fast video generation model that accepts text, image, and video inputs. Faster and less expensive than seedance-2-0, making it well suited to creative validation and draft iteration.",
     adapter: { type: "ark.videoGenerations" },
     content: {
       input: [

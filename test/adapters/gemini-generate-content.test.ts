@@ -131,30 +131,24 @@ describe("gemini.generateContent adapter", () => {
     });
   });
 
-  it("passes base64 image inputs as Gemini inlineData", async () => {
+  it("rejects base64 image inputs", async () => {
     const calls: Array<{ url: string; init: RequestInit }> = [];
     const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
       calls.push({ url: String(url), init: init ?? {} });
-      return new Response(
-        JSON.stringify({
-          candidates: [{ content: { parts: [{ inlineData: { mimeType: "image/png", data: "abc" } }] } }],
-        }),
-        { status: 200, headers: { "content-type": "application/json" } },
-      );
+      return new Response(null, { status: 204 });
     };
 
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    await client.generate({
-      model: "gemini-3.1-flash-image-preview",
-      content: [
-        { type: "text", text: "edit this" },
-        { type: "image", source: { type: "base64", mediaType: "image/png", data: "aW1hZ2U=" } },
-      ],
-    });
-
-    expect(JSON.parse(calls[0]?.init.body as string).contents[0].parts[1]).toEqual({
-      inlineData: { mimeType: "image/png", data: "aW1hZ2U=" },
-    });
+    await expect(
+      client.generate({
+        model: "gemini-3.1-flash-image-preview",
+        content: [
+          { type: "text", text: "edit this" },
+          { type: "image", source: { type: "base64", mediaType: "image/png", data: "aW1hZ2U=" } },
+        ],
+      }),
+    ).rejects.toThrow("image source is not supported by gemini-3.1-flash-image-preview: base64");
+    expect(calls).toHaveLength(0);
   });
 
   it("includes Gemini diagnostics when a successful response has no output parts", async () => {

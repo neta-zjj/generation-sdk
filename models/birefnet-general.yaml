@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: birefnet-general
 title: BiRefNet General
-description: BiRefNet single-image segmentation and background removal model.
+description: Single-image background removal model that produces images with transparent backgrounds. Well suited to image post-processing and creating web assets. Fast and extremely low cost.
 adapter:
   type: openai.images
 content:
@@ -12,7 +12,6 @@ content:
       max: 1
       sources:
         - url
-        - base64
       description: Single source image.
 examples:
   - title: Remove background

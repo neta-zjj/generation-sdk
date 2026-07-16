@@ -15,7 +15,6 @@ content:
       max: 1
       sources:
         - url
-        - base64
       description: Reference audio.
 parameters:
   poll_interval:

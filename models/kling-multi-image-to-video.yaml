@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: kling-multi-image-to-video
 title: Kling Multi-Image Reference To Video
-description: Kling latest multi-image reference video generation through Neta Router.
+description: Kling multi-image reference video generation model.
 adapter:
   type: kling.videoGenerations
 content:
@@ -17,7 +17,6 @@ content:
       max: 4
       sources:
         - url
-        - base64
       description: Reference image inputs. Provider-native image_list input may be passed in meta.
 parameters:
   duration:

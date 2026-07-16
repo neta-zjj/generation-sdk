@@ -19,6 +19,17 @@ const imageSizeParameters = {
   },
 } satisfies GenerationModelDeclaration["parameters"];
 
+const krea2ImageParameters = {
+  size: {
+    type: "string",
+    optional: true,
+    default: "1024x1024",
+    description: "Output image size as WIDTHxHEIGHT. Both dimensions must not exceed 1024 and must be multiples of 16.",
+    examples: ["1024x1024", "1024x768", "768x1024", "768x768", "512x512"],
+  },
+  quality: imageSizeParameters.quality,
+} satisfies GenerationModelDeclaration["parameters"];
+
 const zImageTurboParameters = {
   size: {
     type: "string",
@@ -589,7 +600,7 @@ const builtinModels = [
     content: {
       input: [{ type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Prompt text." }],
     },
-    parameters: imageSizeParameters,
+    parameters: krea2ImageParameters,
     examples: [
       {
         title: "Text-to-image",

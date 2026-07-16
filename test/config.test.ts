@@ -74,6 +74,23 @@ describe("config", () => {
     ).toThrow("Content block type is not supported by krea2: image");
   });
 
+  it("documents valid krea2 image sizes", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    const size = client.getModel("krea2")?.parameters?.size;
+    if (!size || size.type !== "string") throw new Error("krea2 size parameter is unavailable");
+
+    for (const value of [size.default, ...(size.examples ?? [])]) {
+      const match = /^(\d+)x(\d+)$/.exec(value ?? "");
+      expect(match, value).not.toBeNull();
+      const width = Number(match?.[1]);
+      const height = Number(match?.[2]);
+      expect(width, value).toBeLessThanOrEqual(1024);
+      expect(height, value).toBeLessThanOrEqual(1024);
+      expect(width % 16, value).toBe(0);
+      expect(height % 16, value).toBe(0);
+    }
+  });
+
   it("validates every built-in model example", () => {
     const client = createGenerationClient({ apiKey: "test" });
     for (const model of client.listModels()) {

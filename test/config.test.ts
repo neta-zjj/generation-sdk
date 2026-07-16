@@ -78,7 +78,7 @@ describe("config", () => {
     const client = createGenerationClient({ apiKey: "test" });
     const size = client.getModel("krea2")?.parameters?.size;
     if (!size || size.type !== "string") throw new Error("krea2 size parameter is unavailable");
-    expect(size.dimensions).toEqual({ min: 16, max: 1024, multipleOf: 16 });
+    expect(size.dimensions).toEqual({ min: 256, max: 1024, multipleOf: 16 });
 
     for (const value of [size.default, ...(size.examples ?? [])]) {
       const resolved = client.validate({
@@ -95,7 +95,7 @@ describe("config", () => {
       parameters: { size: value },
     });
     expect(() => client.validate(requestWithSize("1024"))).toThrow("Parameter size must be formatted as WIDTHxHEIGHT");
-    expect(() => client.validate(requestWithSize("0x1024"))).toThrow("Parameter size dimensions must be >= 16");
+    expect(() => client.validate(requestWithSize("240x1024"))).toThrow("Parameter size dimensions must be >= 256");
     expect(() => client.validate(requestWithSize("1040x1024"))).toThrow("Parameter size dimensions must be <= 1024");
     expect(() => client.validate(requestWithSize("1000x1024"))).toThrow(
       "Parameter size dimensions must be multiples of 16",

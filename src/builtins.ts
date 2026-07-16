@@ -24,9 +24,10 @@ const krea2ImageParameters = {
     type: "string",
     optional: true,
     default: "1024x1024",
-    description: "Output image size as WIDTHxHEIGHT. Both dimensions must not exceed 1024 and must be multiples of 16.",
-    dimensions: { min: 16, max: 1024, multipleOf: 16 },
-    examples: ["1024x1024", "1024x768", "768x1024", "768x768", "512x512"],
+    description:
+      "Output image size as WIDTHxHEIGHT. Both dimensions must be between 256 and 1024 and must be multiples of 16.",
+    dimensions: { min: 256, max: 1024, multipleOf: 16 },
+    examples: ["1024x1024", "1024x768", "768x1024", "768x768", "512x512", "256x256"],
   },
 } satisfies GenerationModelDeclaration["parameters"];
 

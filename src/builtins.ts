@@ -55,8 +55,8 @@ const noobxlImageParameters = {
     type: "string",
     optional: true,
     default: "1024x1024",
-    description: "Output image size as WIDTHxHEIGHT.",
-    examples: ["1024x1024", "768x1024", "1024x768"],
+    enum: ["1024x1024", "896x1152", "1152x896", "1344x768", "768x1344"],
+    description: "Output image size.",
   },
   negative_prompt: {
     type: "string",

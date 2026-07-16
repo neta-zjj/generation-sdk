@@ -158,14 +158,14 @@ describe("openai.images adapter", () => {
     await client.generate({
       model: "noobxl-t2i-onediff",
       content: [{ type: "text", text: "anime key visual" }],
-      parameters: { size: "768x1024", negative_prompt: "blurry", seed: 123 },
+      parameters: { size: "896x1152", negative_prompt: "blurry", seed: 123 },
     });
 
     expect(calls[0]?.url).toBe("https://router.neta.art/v1/images/generations");
     expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
       model: "noobxl-t2i-onediff",
       prompt: "anime key visual",
-      size: "768x1024",
+      size: "896x1152",
       negative_prompt: "blurry",
       seed: 123,
     });

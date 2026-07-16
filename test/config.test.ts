@@ -91,6 +91,16 @@ describe("config", () => {
     }
   });
 
+  it("publishes the supported NoobXL image sizes", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    const expected = ["1024x1024", "896x1152", "1152x896", "1344x768", "768x1344"];
+
+    for (const model of ["noobxl-t2i-onediff", "noobxl-i2i-ipa-onediff"]) {
+      const size = client.getModel(model)?.parameters?.size;
+      expect(size, model).toMatchObject({ type: "string", default: "1024x1024", enum: expected });
+    }
+  });
+
   it("validates every built-in model example", () => {
     const client = createGenerationClient({ apiKey: "test" });
     for (const model of client.listModels()) {

@@ -29,12 +29,20 @@ export type GenerationContentSpec = {
   description?: string;
 };
 
+export type GenerationDimensionsSpec = {
+  separator?: "x" | "*";
+  min?: number;
+  max?: number;
+  multipleOf?: number;
+};
+
 export type GenerationParameterSpec =
   | {
       type: "string";
       optional?: boolean;
       default?: string;
       enum?: string[];
+      dimensions?: GenerationDimensionsSpec;
       description?: string;
       examples?: string[];
     }

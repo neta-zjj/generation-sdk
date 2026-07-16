@@ -1,0 +1,40 @@
+schema: neta.generation.model.v1
+model: krea2
+title: Krea 2
+description: Designed for visually refined image generation with broad aesthetic diversity. Strong natural-language understanding helps it follow detailed prompts. Text-only input; reference images are not supported. Relatively fast and low cost.
+adapter:
+  type: openai.images
+content:
+  input:
+    - type: text
+      required: true
+      min: 1
+      max: 16
+      merge: newline
+      description: Prompt text.
+parameters:
+  size:
+    type: string
+    optional: true
+    default: 1024x1024
+    description: Output image size as WIDTHxHEIGHT. Both dimensions must be between 256 and 1024 and must be multiples of 16.
+    dimensions:
+      min: 256
+      max: 1024
+      multipleOf: 16
+    examples:
+      - 1024x1024
+      - 1024x768
+      - 768x1024
+      - 768x768
+      - 512x512
+      - 256x256
+examples:
+  - title: Text-to-image
+    request:
+      model: krea2
+      content:
+        - type: text
+          text: an elegant editorial portrait with sculptural lighting
+      parameters:
+        size: 1024x1024

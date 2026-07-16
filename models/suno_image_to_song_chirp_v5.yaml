@@ -20,7 +20,6 @@ content:
       max: 1
       sources:
         - url
-        - base64
       description: Reference image.
 parameters:
   poll_interval:

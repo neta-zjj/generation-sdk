@@ -31,6 +31,29 @@ describe("openai.images adapter", () => {
     expect(output[0]).toEqual({ type: "image", source: { type: "url", url: "https://example.com/out.png" } });
   });
 
+  it("omits unsupported Krea quality settings", async () => {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return new Response(JSON.stringify({ data: [{ url: "https://example.com/krea.png" }] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    };
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await client.generate({
+      model: "krea2",
+      content: [{ type: "text", text: "an editorial portrait" }],
+    });
+
+    expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
+      model: "krea2",
+      prompt: "an editorial portrait",
+      size: "1024x1024",
+    });
+  });
+
   it("exposes response usage cost metadata through generateResult", async () => {
     let cloneCalls = 0;
     const fetchMock = async () =>
@@ -158,14 +181,14 @@ describe("openai.images adapter", () => {
     await client.generate({
       model: "noobxl-t2i-onediff",
       content: [{ type: "text", text: "anime key visual" }],
-      parameters: { size: "768x1024", negative_prompt: "blurry", seed: 123 },
+      parameters: { size: "896x1152", negative_prompt: "blurry", seed: 123 },
     });
 
     expect(calls[0]?.url).toBe("https://router.neta.art/v1/images/generations");
     expect(JSON.parse(String(calls[0]?.init.body))).toEqual({
       model: "noobxl-t2i-onediff",
       prompt: "anime key visual",
-      size: "768x1024",
+      size: "896x1152",
       negative_prompt: "blurry",
       seed: 123,
     });

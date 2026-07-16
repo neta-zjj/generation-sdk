@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: kling-omni-video
 title: Kling Omni Video
-description: Kling latest Omni-Video generation through Neta Router.
+description: Kling Omni-Video generation model.
 adapter:
   type: kling.videoGenerations
 content:
@@ -16,7 +16,6 @@ content:
       max: 2
       sources:
         - url
-        - base64
       description: Optional simple image input. Provider-native Omni media arrays belong in request meta.
 parameters:
   duration:

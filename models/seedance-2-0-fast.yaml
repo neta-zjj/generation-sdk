@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: seedance-2-0-fast
 title: Seedance 2.0 Fast
-description: Fast Ark video generation model for drafts, rapid iteration, text-to-video, image-to-video, and reference-guided video generation.
+description: Fast video generation model that accepts text, image, and video inputs. Faster and less expensive than seedance-2-0, making it well suited to creative validation and draft iteration.
 adapter:
   type: ark.videoGenerations
 content:

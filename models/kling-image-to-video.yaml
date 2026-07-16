@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: kling-image-to-video
 title: Kling Image To Video
-description: Kling latest image-to-video generation through Neta Router.
+description: Animates a reference image into a short video. It has the same cost as Kling text-to-video and more permissive content moderation than Seedance.
 adapter:
   type: kling.videoGenerations
 content:
@@ -17,7 +17,6 @@ content:
       max: 2
       sources:
         - url
-        - base64
       description: First frame and optional tail frame image input. Provider-native image input may be passed in meta.
 parameters:
   duration:

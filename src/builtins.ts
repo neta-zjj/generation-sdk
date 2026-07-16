@@ -923,6 +923,13 @@ const builtinModels = [
     content: {
       input: [
         {
+          type: "text",
+          required: false,
+          max: 16,
+          merge: "newline",
+          description: "Optional workflow prompt. Accepted for compatibility but ignored by the model.",
+        },
+        {
           type: "image",
           required: true,
           min: 1,

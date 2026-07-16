@@ -74,6 +74,20 @@ describe("config", () => {
     ).toThrow("Content block type is not supported by krea2: image");
   });
 
+  it("accepts an ignored BiRefNet workflow prompt", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    const image = { type: "image" as const, source: { type: "url" as const, url: "https://example.com/source.png" } };
+
+    expect(client.getModel("birefnet-general")?.content.input.map((input) => input.type)).toEqual(["text", "image"]);
+    expect(() => client.validate({ model: "birefnet-general", content: [image] })).not.toThrow();
+    expect(() =>
+      client.validate({
+        model: "birefnet-general",
+        content: [{ type: "text", text: "remove the background" }, image],
+      }),
+    ).not.toThrow();
+  });
+
   it("enforces valid krea2 image sizes", () => {
     const client = createGenerationClient({ apiKey: "test" });
     const size = client.getModel("krea2")?.parameters?.size;

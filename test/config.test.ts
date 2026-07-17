@@ -147,6 +147,14 @@ describe("config", () => {
     ).toThrow("Unknown parameter: image_size");
   });
 
+  it("uses ratio as the only Seedance aspect-ratio parameter", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    for (const model of ["seedance-2-0", "seedance-2-0-fast"]) {
+      expect(client.getModel(model)?.parameters).toHaveProperty("ratio");
+      expect(client.getModel(model)?.parameters).not.toHaveProperty("aspect_ratio");
+    }
+  });
+
   it("publishes the supported NoobXL image sizes", () => {
     const client = createGenerationClient({ apiKey: "test" });
     const expected = ["1024x1024", "896x1152", "1152x896", "1344x768", "768x1344"];

@@ -119,12 +119,6 @@ function seedanceVideoParameters(defaults: { resolution: string; maxWait: number
       enum: ["16:9", "9:16", "1:1", "4:3", "3:2", "2:3", "3:4", "21:9", "adaptive"],
       description: "Output aspect ratio. Use adaptive to let the model choose.",
     },
-    aspect_ratio: {
-      type: "string",
-      optional: true,
-      enum: ["16:9", "9:16", "1:1", "4:3", "3:2", "2:3", "3:4", "21:9", "adaptive"],
-      description: "Deprecated alias for ratio.",
-    },
     fps: { type: "integer", optional: true, default: 30, min: 1, max: 60, description: "Frames per second." },
     seed: { type: "integer", optional: true, description: "Random seed for reproducibility." },
     generate_audio: { type: "boolean", optional: true, default: true, description: "Generate synchronized audio." },

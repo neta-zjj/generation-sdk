@@ -51,13 +51,35 @@ describe("config", () => {
     }
   });
 
-  it("does not advertise base64 input sources", () => {
-    const client = createGenerationClient({ apiKey: "test" });
-    for (const model of client.listModels()) {
+  it("does not advertise base64 input sources in model YAML", async () => {
+    const models = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
+    for (const model of models) {
       for (const input of model.content.input) {
         expect(input.sources ?? [], `${model.model}: ${input.type}`).not.toContain("base64");
       }
     }
+  });
+
+  it("keeps base64 compatibility in the runtime model declarations", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    const models = client
+      .listModels()
+      .filter((model) => model.content.input.some((input) => input.sources?.includes("base64")))
+      .map((model) => model.model);
+
+    expect(models).toEqual([
+      "birefnet-general",
+      "gemini-3.1-flash-image-preview",
+      "gemini-3.1-flash-lite-image",
+      "gpt-image-2",
+      "kling-image-to-video",
+      "kling-multi-image-to-video",
+      "kling-omni-video",
+      "noobxl-i2i-ipa-onediff",
+      "suno_image_to_song_chirp_v5",
+      "suno_upload_audio",
+      "suno_video_to_song_chirp_v5",
+    ]);
   });
 
   it("keeps krea2 text-only", () => {
@@ -177,8 +199,17 @@ describe("config", () => {
   it("parses published model declaration files", async () => {
     const declarations = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
     const client = createGenerationClient({ apiKey: "test" });
+    const runtimeDeclarations = client.listModels().map((declaration) => ({
+      ...declaration,
+      content: {
+        input: declaration.content.input.map((input) => ({
+          ...input,
+          ...(input.sources ? { sources: input.sources.filter((source) => source !== "base64") } : {}),
+        })),
+      },
+    }));
 
-    expect(declarations).toEqual(client.listModels());
+    expect(declarations).toEqual(runtimeDeclarations);
 
     expect(declarations.map((declaration) => declaration.model).sort()).toEqual(
       client

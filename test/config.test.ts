@@ -177,6 +177,26 @@ describe("config", () => {
     }
   });
 
+  it("publishes model-specific Seedance resolutions", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+
+    expect(client.getModel("seedance-2-0")?.parameters?.resolution).toMatchObject({
+      default: "1080p",
+      enum: ["480p", "720p", "1080p", "2K"],
+    });
+    expect(client.getModel("seedance-2-0-fast")?.parameters?.resolution).toMatchObject({
+      default: "720p",
+      enum: ["480p", "720p"],
+    });
+    expect(() =>
+      client.validate({
+        model: "seedance-2-0-fast",
+        content: [{ type: "text", text: "a quick motion study" }],
+        parameters: { resolution: "1080p" },
+      }),
+    ).toThrow("Parameter resolution must be one of: 480p, 720p");
+  });
+
   it("publishes the supported NoobXL image sizes", () => {
     const client = createGenerationClient({ apiKey: "test" });
     const expected = ["1024x1024", "896x1152", "1152x896", "1344x768", "768x1344"];

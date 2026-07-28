@@ -95,7 +95,7 @@ const noobxlImageToImageParameters = {
   },
 } satisfies GenerationModelDeclaration["parameters"];
 
-function seedanceVideoParameters(defaults: { resolution: string; maxWait: number }) {
+function seedanceVideoParameters(defaults: { resolution: string; resolutions?: string[]; maxWait: number }) {
   return {
     duration: {
       type: "integer",
@@ -109,7 +109,7 @@ function seedanceVideoParameters(defaults: { resolution: string; maxWait: number
       type: "string",
       optional: true,
       default: defaults.resolution,
-      enum: ["480p", "720p", "1080p", "2K"],
+      enum: defaults.resolutions ?? ["480p", "720p", "1080p", "2K"],
       description: "Output video resolution.",
     },
     ratio: {
@@ -1018,7 +1018,7 @@ const builtinModels = [
         },
       ],
     },
-    parameters: seedanceVideoParameters({ resolution: "720p", maxWait: 600 }),
+    parameters: seedanceVideoParameters({ resolution: "720p", resolutions: ["480p", "720p"], maxWait: 600 }),
     examples: [
       {
         title: "Text to video",

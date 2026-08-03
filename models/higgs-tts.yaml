@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: higgs-tts
 title: Higgs TTS
-description: Reference-focused text-to-speech with stronger reference-voice fidelity than the Qwen models. Choose Higgs for its default voice, high-fidelity single-reference cloning, or blending 2-16 weighted references. It cannot create a voice from a text-only description; use a Qwen model with meta.voice_prompt for that mode. Generates exactly one HTTP(S) URL audio block.
+description: 'Modes: built-in; one-reference high-fidelity clone; weighted 2-16-reference blend. Default: delegated generic voice (natural/suitable). Blend: all references, full text, one request. Conflict: clone + redesign; ask user, do not reinterpret. Dependency: clone prior generated audio.'
 adapter:
   type: openai.audioSpeech
 content:
@@ -16,7 +16,7 @@ content:
       max: 16
       sources:
         - url
-      description: Optional HTTP(S) URL voice reference. A single reference may omit meta.weight; with 2-16 references, every audio block requires a finite positive meta.weight.
+      description: 'Reference: one may omit weight; 2-16 require positive finite weights. Dependency: use prior generated audio.'
 examples:
   - title: Default voice
     request:

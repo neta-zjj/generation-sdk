@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: qwen-audio-3.0-tts-flash
 title: Qwen Audio 3.0 TTS Flash
-description: Qwen Audio 3.0 text-to-speech for creating a voice from a text-only description or cloning one reference voice. Choose a Qwen model when no reference audio is available and the voice must be designed from text. Speech text must contain at least 15 Unicode code points. For stronger reference-voice fidelity or voice blending, choose Higgs instead. No verified quality, latency, or cost ranking among the Qwen variants is declared; select Flash only when explicitly requested or chosen by an external policy, otherwise ask the user instead of inferring a ranking. Returns exactly one HTTP(S) URL audio block.
+description: 'Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.'
 adapter:
   type: openai.audioSpeech
 content:
@@ -16,13 +16,13 @@ content:
       max: 1
       sources:
         - url
-      description: Voice-clone mode input. Provide exactly one HTTP(S) URL reference audio and omit request meta.voice_prompt; omit audio in voice-design mode.
+      description: 'Clone: one URL; no voice_prompt. Dependency: use prior generated audio.'
 meta:
   fields:
     voice_prompt:
       type: string
       optional: true
-      description: Voice-design mode input. Provide a non-empty description and no reference audio; omit this field in voice-clone mode.
+      description: 'Design: custom voice text; no reference audio.'
 examples:
   - title: Voice design
     request:

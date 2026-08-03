@@ -586,7 +586,7 @@ function qwenTtsModel(
     schema: MODEL_SCHEMA,
     model,
     title,
-    description: `${description} Returns exactly one HTTP(S) URL audio block.`,
+    description,
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
@@ -604,8 +604,7 @@ function qwenTtsModel(
           required: false,
           max: 1,
           sources: ["url"],
-          description:
-            "Voice-clone mode input. Provide exactly one HTTP(S) URL reference audio and omit request meta.voice_prompt; omit audio in voice-design mode.",
+          description: "Clone: one URL; no voice_prompt. Dependency: use prior generated audio.",
         },
       ],
     },
@@ -614,8 +613,7 @@ function qwenTtsModel(
         voice_prompt: {
           type: "string",
           optional: true,
-          description:
-            "Voice-design mode input. Provide a non-empty description and no reference audio; omit this field in voice-clone mode.",
+          description: "Design: custom voice text; no reference audio.",
         },
       },
     },
@@ -646,18 +644,18 @@ const audioSpeechModels = [
   qwenTtsModel(
     "qwen-tts",
     "Qwen TTS",
-    "Qwen text-to-speech for creating a voice from a text-only description or cloning one reference voice. Choose a Qwen model when no reference audio is available and the voice must be designed from text. This is the only Qwen variant without a 15-code-point minimum, so it accepts both shorter and longer speech text. For stronger reference-voice fidelity or voice blending, choose Higgs instead. No verified quality, latency, or cost ranking among the Qwen variants is declared; when multiple variants are compatible and neither the user nor an external policy selects one, ask the user instead of inferring a ranking.",
+    "Modes: voice_prompt design OR one-reference clone. Default: unspecified Qwen design. Text: any length. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
   ),
   qwenTtsModel(
     "qwen-audio-3.0-tts-plus",
     "Qwen Audio 3.0 TTS Plus",
-    "Qwen Audio 3.0 text-to-speech for creating a voice from a text-only description or cloning one reference voice. Choose a Qwen model when no reference audio is available and the voice must be designed from text. Speech text must contain at least 15 Unicode code points. For stronger reference-voice fidelity or voice blending, choose Higgs instead. No verified quality, latency, or cost ranking among the Qwen variants is declared; select Plus only when explicitly requested or chosen by an external policy, otherwise ask the user instead of inferring a ranking.",
+    "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
     { minimumTextCodePoints: 15 },
   ),
   qwenTtsModel(
     "qwen-audio-3.0-tts-flash",
     "Qwen Audio 3.0 TTS Flash",
-    "Qwen Audio 3.0 text-to-speech for creating a voice from a text-only description or cloning one reference voice. Choose a Qwen model when no reference audio is available and the voice must be designed from text. Speech text must contain at least 15 Unicode code points. For stronger reference-voice fidelity or voice blending, choose Higgs instead. No verified quality, latency, or cost ranking among the Qwen variants is declared; select Flash only when explicitly requested or chosen by an external policy, otherwise ask the user instead of inferring a ranking.",
+    "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
     { minimumTextCodePoints: 15 },
   ),
   {
@@ -665,7 +663,7 @@ const audioSpeechModels = [
     model: "higgs-tts",
     title: "Higgs TTS",
     description:
-      "Reference-focused text-to-speech with stronger reference-voice fidelity than the Qwen models. Choose Higgs for its default voice, high-fidelity single-reference cloning, or blending 2-16 weighted references. It cannot create a voice from a text-only description; use a Qwen model with meta.voice_prompt for that mode. Generates exactly one HTTP(S) URL audio block.",
+      "Modes: built-in; one-reference high-fidelity clone; weighted 2-16-reference blend. Default: delegated generic voice (natural/suitable). Blend: all references, full text, one request. Conflict: clone + redesign; ask user, do not reinterpret. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
@@ -682,7 +680,7 @@ const audioSpeechModels = [
           max: 16,
           sources: ["url"],
           description:
-            "Optional HTTP(S) URL voice reference. A single reference may omit meta.weight; with 2-16 references, every audio block requires a finite positive meta.weight.",
+            "Reference: one may omit weight; 2-16 require positive finite weights. Dependency: use prior generated audio.",
         },
       ],
     },

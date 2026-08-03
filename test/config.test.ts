@@ -57,53 +57,56 @@ describe("config", () => {
 
     for (const model of qwenModels) {
       const declaration = client.getModel(model);
-      expect(declaration?.description).toContain("exactly one HTTP(S) URL audio block");
+      expect(declaration?.description).toContain("Modes: voice_prompt design OR one-reference clone");
+      expect(declaration?.description).not.toMatch(/Higgs|stronger|HTTP|URL/i);
       expect(declaration?.content.input.find((input) => input.type === "text")?.description).toContain(
         "Exactly one non-empty text block",
       );
       expect(declaration?.content.input.find((input) => input.type === "audio")?.description).toContain(
-        "omit request meta.voice_prompt",
+        "no voice_prompt",
       );
-      expect(declaration?.meta?.fields?.voice_prompt?.description).toContain("omit this field in voice-clone mode");
+      expect(declaration?.content.input.find((input) => input.type === "audio")?.description).toContain(
+        "Dependency: use prior generated audio",
+      );
+      expect(declaration?.meta?.fields?.voice_prompt?.description).toContain("no reference audio");
       expect(declaration?.examples?.map((example) => example.title)).toEqual(["Voice design", "Voice clone"]);
       expect(JSON.parse(client.stringifyModelConfig(model, { format: "json" }))).toEqual(declaration);
     }
 
-    for (const model of qwenModels) {
-      const description = client.getModel(model)?.description;
-      expect(description).toContain("creating a voice from a text-only description");
-      expect(description).toContain("For stronger reference-voice fidelity or voice blending, choose Higgs instead");
-      expect(description).toContain("No verified quality, latency, or cost ranking among the Qwen variants");
-      expect(description).toContain("ask the user instead of inferring a ranking");
-      expect(description).not.toMatch(/Quality-oriented|Latency-oriented|over (?:Flash|Plus) when/);
-    }
-
     const qwen = client.getModel("qwen-tts");
-    expect(qwen?.description).toContain("only Qwen variant without a 15-code-point minimum");
-    expect(qwen?.description).toContain("accepts both shorter and longer speech text");
+    expect(qwen?.description).toBe(
+      "Modes: voice_prompt design OR one-reference clone. Default: unspecified Qwen design. Text: any length. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
+    );
     expect(qwen?.content.input.find((input) => input.type === "text")?.description).not.toContain(
       "Unicode code points",
     );
 
     const plus = client.getModel("qwen-audio-3.0-tts-plus");
-    expect(plus?.description).toContain("select Plus only when explicitly requested or chosen by an external policy");
+    expect(plus?.description).toBe(
+      "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
+    );
     expect(plus?.content.input.find((input) => input.type === "text")?.description).toContain(
       "at least 15 Unicode code points",
     );
 
     const flash = client.getModel("qwen-audio-3.0-tts-flash");
-    expect(flash?.description).toContain("select Flash only when explicitly requested or chosen by an external policy");
+    expect(flash?.description).toBe(
+      "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
+    );
     expect(flash?.content.input.find((input) => input.type === "text")?.description).toContain(
       "at least 15 Unicode code points",
     );
 
     const higgs = client.getModel("higgs-tts");
-    expect(higgs?.description).toContain("exactly one HTTP(S) URL audio block");
-    expect(higgs?.description).toContain("stronger reference-voice fidelity than the Qwen models");
-    expect(higgs?.description).toContain("blending 2-16 weighted references");
-    expect(higgs?.description).toContain("use a Qwen model with meta.voice_prompt for that mode");
+    expect(higgs?.description).toBe(
+      "Modes: built-in; one-reference high-fidelity clone; weighted 2-16-reference blend. Default: delegated generic voice (natural/suitable). Blend: all references, full text, one request. Conflict: clone + redesign; ask user, do not reinterpret. Dependency: clone prior generated audio.",
+    );
+    expect(higgs?.description).not.toMatch(/Qwen|stronger|HTTP|URL/i);
     expect(higgs?.content.input.find((input) => input.type === "audio")?.description).toContain(
-      "every audio block requires a finite positive meta.weight",
+      "2-16 require positive finite weights",
+    );
+    expect(higgs?.content.input.find((input) => input.type === "audio")?.description).toContain(
+      "Dependency: use prior generated audio",
     );
     expect(higgs?.examples?.map((example) => example.title)).toEqual([
       "Default voice",
@@ -121,9 +124,12 @@ describe("config", () => {
     expect(Object.keys(packageJson.exports ?? {})).toEqual([".", "./models"]);
     const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
     expect(readme).not.toContain("@neta-art/generation/models/");
-    expect(readme).toContain("Higgs provides stronger reference-voice fidelity than Qwen");
-    expect(readme).toContain("does not declare a verified quality, latency, or cost ranking");
-    expect(readme).toContain("if neither exists, ask the user instead of inferring a ranking");
+    expect(readme).toContain("Qwen: `voice_prompt` design OR one-reference clone");
+    expect(readme).toContain("Higgs: delegated default voice, high-fidelity one-reference clone");
+    expect(readme).toContain("Conflict: reference + redesign requires user choice before generation");
+    expect(readme).toContain("Blend: all references, full text, one request");
+    expect(readme).toContain("Dependency: clone prior generated audio");
+    expect(readme).toContain("Ranking: no declared Qwen quality, latency, or cost order");
     expect(readme).not.toMatch(/quality prioritized over latency|latency prioritized over maximum quality/);
   });
 

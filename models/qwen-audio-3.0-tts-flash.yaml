@@ -1,0 +1,44 @@
+schema: neta.generation.model.v1
+model: qwen-audio-3.0-tts-flash
+title: Qwen Audio 3.0 TTS Flash
+description: Qwen Audio 3.0 text-to-speech for creating a voice from a text-only description or cloning one reference voice. Choose a Qwen model when no reference audio is available and the voice must be designed from text. Speech text must contain at least 15 Unicode code points. For stronger reference-voice fidelity or voice blending, choose Higgs instead. No verified quality, latency, or cost ranking among the Qwen variants is declared; select Flash only when explicitly requested or chosen by an external policy, otherwise ask the user instead of inferring a ranking. Returns exactly one HTTP(S) URL audio block.
+adapter:
+  type: openai.audioSpeech
+content:
+  input:
+    - type: text
+      required: true
+      min: 1
+      max: 1
+      description: Exactly one non-empty text block to speak, with at least 15 Unicode code points.
+    - type: audio
+      required: false
+      max: 1
+      sources:
+        - url
+      description: Voice-clone mode input. Provide exactly one HTTP(S) URL reference audio and omit request meta.voice_prompt; omit audio in voice-design mode.
+meta:
+  fields:
+    voice_prompt:
+      type: string
+      optional: true
+      description: Voice-design mode input. Provide a non-empty description and no reference audio; omit this field in voice-clone mode.
+examples:
+  - title: Voice design
+    request:
+      model: qwen-audio-3.0-tts-flash
+      content:
+        - type: text
+          text: 这是一段长度足够并且表达清晰自然的语音合成测试文本。
+      meta:
+        voice_prompt: 一位沉稳干练的男性播音员声音，吐字清晰有力
+  - title: Voice clone
+    request:
+      model: qwen-audio-3.0-tts-flash
+      content:
+        - type: text
+          text: 这是一段长度足够并且表达清晰自然的语音合成测试文本。
+        - type: audio
+          source:
+            type: url
+            url: https://example.com/reference.mp3

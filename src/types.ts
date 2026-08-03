@@ -175,7 +175,9 @@ export type GenerationAdapterInput = ResolvedGenerationRequest & {
   context: GenerationAdapterContext;
 };
 
-export type GenerationAdapter = (input: GenerationAdapterInput) => Promise<GenerationContentBlock[]>;
+export type GenerationAdapter = ((input: GenerationAdapterInput) => Promise<GenerationContentBlock[]>) & {
+  validate?: (input: ResolvedGenerationRequest) => void;
+};
 
 export type CreateGenerationClientOptions = {
   apiKey?: string;
@@ -189,15 +191,23 @@ export type CreateGenerationClientOptions = {
 };
 
 export type GenerationClient = {
+  /** Validates the request and sends it to the model adapter. */
   generate(request: GenerateRequest): Promise<GenerationContentBlock[]>;
+  /** Resolves model defaults and all available validation rules without requiring an API key or making a network request. */
   validate(request: GenerateRequest): ResolvedGenerationRequest;
+  /** Returns cloned, machine-readable declarations for every available model. */
   listModels(): GenerationModelDeclaration[];
+  /** Returns a cloned model declaration, including content constraints and request examples, or null when unavailable. */
   getModel(model: string): GenerationModelDeclaration | null;
+  /** Serializes one available model declaration for agents and external tools. */
   stringifyModelConfig(model: string, options?: { format?: "yaml" | "json" }): string;
+  /** Writes one available model declaration to a YAML file. */
   exportModelConfig(model: string, filePath: string): Promise<void>;
+  /** Writes every available model declaration to a directory as YAML files. */
   exportModelConfigs(directory: string): Promise<void>;
 };
 
 export type GenerationClientWithResult = GenerationClient & {
+  /** Generates content and returns observed request metadata such as requestId and cost when available. */
   generateResult(request: GenerateRequest): Promise<GenerationResult>;
 };

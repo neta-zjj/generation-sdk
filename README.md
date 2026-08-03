@@ -362,6 +362,11 @@ parameters:
     default: 1024x1024
 ```
 
+Set `hidden: true` on a declaration to hide the model from default discovery surfaces while keeping exact-ID lookup
+and generation available. This is a discovery hint, not an authorization or runtime availability control.
+`listModels()` returns the complete model catalog, including hidden models, so each user-facing discovery surface can
+apply its own visibility policy without losing declaration data.
+
 Adapter credentials are intentionally not stored in model declarations. Use client-level or request-level `apiKey` and `baseUrl` instead.
 
 ## Content sources

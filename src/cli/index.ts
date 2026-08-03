@@ -129,7 +129,9 @@ async function main() {
 
   switch (args[1]) {
     case "list": {
-      for (const model of listBuiltinGenerationModels()) console.log(model.model);
+      for (const model of listBuiltinGenerationModels()) {
+        if (model.hidden !== true) console.log(model.model);
+      }
       return;
     }
     case "export": {

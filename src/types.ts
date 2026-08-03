@@ -94,6 +94,8 @@ export type GenerationModelDeclaration = {
   model: string;
   title?: string;
   description?: string;
+  /** Hide from default discovery while keeping exact-ID lookup and runtime use available. */
+  hidden?: boolean;
   allowUnknownParameters?: boolean;
   adapter: {
     type: string;

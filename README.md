@@ -43,7 +43,7 @@ console.log(result.content);
 console.log(result.requestId, result.cost);
 ```
 
-`requestId` maps to the response body's top-level `request_id`. `cost` maps to the official request price in `usage.cost`.
+`requestId` uses the response body's top-level `request_id`, then falls back to `x-request-id` and `x-oneapi-request-id` response headers. `cost` maps to the official request price in `usage.cost` when provided.
 
 `baseUrl` defaults to `https://router.neta.art`. Pass a different endpoint when needed:
 
@@ -52,6 +52,40 @@ const client = createGenerationClient({
   apiKey: process.env.NETA_ROUTER_API_KEY!,
   baseUrl: "https://router.neta.art",
 });
+```
+
+## Agent and tool discovery
+
+Agents and external tools should inspect a model declaration before constructing a request. Declarations expose the accepted content blocks, source types, parameters, meta fields, descriptions, and validated request examples.
+
+```ts
+import { createGenerationClient } from "@neta-art/generation";
+
+const discoveryClient = createGenerationClient();
+const declaration = discoveryClient.getModel("qwen-tts");
+if (!declaration) throw new Error("Model is unavailable");
+
+console.log(discoveryClient.stringifyModelConfig(declaration.model, { format: "json" }));
+
+const request = declaration.examples?.find((example) => example.title === "Voice design")?.request;
+if (!request) throw new Error("Voice-design example is unavailable");
+
+// Discovery and validation do not require an API key or access the network.
+discoveryClient.validate(request);
+
+const client = createGenerationClient({ apiKey: process.env.NETA_ROUTER_API_KEY! });
+const result = await client.generateResult(request);
+console.log(result.content, result.requestId);
+```
+
+Use `listModels()` to discover all models and `getModel()` for one machine-readable declaration. Treat examples as request templates, then call `validate()` after applying user input because adapter validation enforces cross-field rules that a structural declaration cannot fully express. Use `generateResult()` when the Agent needs request IDs or cost metadata.
+
+The same declarations can be exported as YAML through the existing CLI:
+
+```bash
+neta-generation models list
+neta-generation models export qwen-tts --out ./qwen-tts.yaml
+neta-generation models export-all --out ./models
 ```
 
 ## Local testing with `.env`
@@ -71,6 +105,7 @@ Node.js does not load `.env` automatically for library code. The example scripts
 ```bash
 pnpm example:basic-image
 pnpm example:image-editing
+pnpm example:text-to-speech
 pnpm example:text-to-video
 ```
 
@@ -79,6 +114,7 @@ Live provider tests are separate from `pnpm test` because they use the real SDK 
 
 ```bash
 pnpm test:live:suno
+pnpm test:live:audio-speech
 ```
 
 Seedance live smoke tests exercise text-to-video, first/last frame video, and multi-reference-image plus reference-video
@@ -116,7 +152,7 @@ const client = createGenerationClient({
 });
 ```
 
-For a custom logger or unredacted secret headers. Base64 media payloads are always redacted from debug events:
+For a custom logger or unredacted secret headers. Base64 media payloads are always redacted from debug events. Media URLs remain complete, including query strings and fragments, so treat debug output as sensitive diagnostic data:
 
 ```ts
 const client = createGenerationClient({
@@ -134,6 +170,10 @@ const client = createGenerationClient({
 - `gpt-image-2`
 - `z-image-turbo`
 - `qwen-image-edit`
+- `qwen-tts`
+- `qwen-audio-3.0-tts-plus`
+- `qwen-audio-3.0-tts-flash`
+- `higgs-tts`
 - `gemini-3.1-flash-image-preview`
 - `kling-text-to-video`
 - `kling-image-to-video`
@@ -218,6 +258,63 @@ await client.generate({
   ],
 });
 ```
+
+## Text to speech
+
+Each TTS request accepts exactly one non-empty text block and returns one URL audio block. Choose the model from the requested voice mode and priority before constructing the request:
+
+| Requirement | Model choice |
+| --- | --- |
+| Create a voice from a text-only description, without reference audio | Use an explicitly requested Qwen variant; otherwise use `qwen-tts` as the deterministic default |
+| Maximize fidelity to one reference voice | `higgs-tts` |
+| Blend 2-16 weighted reference voices | `higgs-tts` |
+| Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | `higgs-tts` |
+
+- Qwen: `voice_prompt` design OR one-reference clone; `qwen-tts` is the unspecified-design default and accepts any text length; Plus / Flash require at least 15 Unicode code points.
+- Higgs: delegated default voice, high-fidelity one-reference clone, or weighted 2-16-reference blend.
+- Conflict: reference + redesign requires user choice before generation.
+- Blend: all references, full text, one request.
+- Dependency: clone prior generated audio.
+- Ranking: no declared Qwen quality, latency, or cost order.
+
+```ts
+await client.generate({
+  model: "qwen-tts",
+  content: [{ type: "text", text: "欢迎使用语音合成功能。" }],
+  meta: {
+    voice_prompt: "一位沉稳自然的中文播音员，吐字清晰，语速适中",
+  },
+});
+
+await client.generate({
+  model: "qwen-audio-3.0-tts-flash",
+  content: [
+    { type: "text", text: "这是一段长度足够并且表达清晰自然的语音合成文本。" },
+    { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
+  ],
+});
+```
+
+```ts
+await client.generate({
+  model: "higgs-tts",
+  content: [
+    { type: "text", text: "使用多参考融合音色朗读这段文本。" },
+    {
+      type: "audio",
+      source: { type: "url", url: "https://example.com/reference-a.mp3" },
+      meta: { weight: 0.5 },
+    },
+    {
+      type: "audio",
+      source: { type: "url", url: "https://example.com/reference-b.mp3" },
+      meta: { weight: 0.5 },
+    },
+  ],
+});
+```
+
+TTS reference audio only supports HTTP(S) URLs. Qwen always uses the single text block as the speech input.
 
 ## Video generation
 
@@ -385,6 +482,7 @@ Built-in adapters:
 
 - `openai.images`
 - `openai.imageEdits`
+- `openai.audioSpeech`
 - `gemini.generateContent`
 - `ark.videoGenerations`
 - `kling.videoGenerations`
@@ -426,6 +524,7 @@ try {
     console.error("Invalid request", error.message);
   } else if (error instanceof GenerationProviderError) {
     console.error("Provider failed", error.message);
+    console.error(error.status, error.details?.requestId, error.details?.code);
   }
 }
 ```

@@ -265,16 +265,17 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 
 | Requirement | Model choice |
 | --- | --- |
-| Create a voice from a text-only description, without reference audio | A Qwen model |
-| Use a Qwen model when speech text is shorter than 15 Unicode code points | `qwen-tts`, the only Qwen variant without that minimum |
-| Choose among compatible Qwen variants without a user choice or external policy | Ask the user; do not infer a ranking from model names |
+| Create a voice from a text-only description, without reference audio | Use an explicitly requested Qwen variant; otherwise use `qwen-tts` as the deterministic default |
 | Maximize fidelity to one reference voice | `higgs-tts` |
 | Blend 2-16 weighted reference voices | `higgs-tts` |
-| Use a default voice with no custom voice input | `higgs-tts` |
+| Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | `higgs-tts` |
 
-All four models accept one reference audio, but Higgs provides stronger reference-voice fidelity than Qwen. The SDK does not declare a verified quality, latency, or cost ranking among `qwen-tts`, Plus, and Flash. `qwen-tts` accepts both shorter and longer speech text; its lack of a 15-code-point minimum is not a maximum. When multiple Qwen variants are compatible, use a variant explicitly requested by the user or selected by an external policy; if neither exists, ask the user instead of inferring a ranking from its name.
-
-Qwen requires exactly one voice source: either request-level `meta.voice_prompt` for text-only voice creation or one URL audio block for voice cloning. Qwen does not support its default voice or multiple references. Higgs does not accept `meta.voice_prompt`.
+- Qwen: `voice_prompt` design OR one-reference clone; `qwen-tts` is the unspecified-design default and accepts any text length; Plus / Flash require at least 15 Unicode code points.
+- Higgs: delegated default voice, high-fidelity one-reference clone, or weighted 2-16-reference blend.
+- Conflict: reference + redesign requires user choice before generation.
+- Blend: all references, full text, one request.
+- Dependency: clone prior generated audio.
+- Ranking: no declared Qwen quality, latency, or cost order.
 
 ```ts
 await client.generate({
@@ -293,8 +294,6 @@ await client.generate({
   ],
 });
 ```
-
-Higgs supports its default voice, one reference, or 2-16 weighted references. Every reference in a multi-reference request must have a finite positive `meta.weight`.
 
 ```ts
 await client.generate({

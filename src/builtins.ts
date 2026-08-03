@@ -573,7 +573,176 @@ function geminiImageModel(
   };
 }
 
+function qwenTtsModel(
+  model: string,
+  title: string,
+  description: string,
+  options: { minimumTextCodePoints?: number } = {},
+): GenerationModelDeclaration {
+  const text = options.minimumTextCodePoints
+    ? "这是一段长度足够并且表达清晰自然的语音合成测试文本。"
+    : "这是一次清晰自然的语音合成测试。";
+  return {
+    schema: MODEL_SCHEMA,
+    model,
+    title,
+    description: `${description} Returns exactly one HTTP(S) URL audio block.`,
+    adapter: { type: "openai.audioSpeech" },
+    content: {
+      input: [
+        {
+          type: "text",
+          required: true,
+          min: 1,
+          max: 1,
+          description: options.minimumTextCodePoints
+            ? `Exactly one non-empty text block to speak, with at least ${options.minimumTextCodePoints} Unicode code points.`
+            : "Exactly one non-empty text block to speak.",
+        },
+        {
+          type: "audio",
+          required: false,
+          max: 1,
+          sources: ["url"],
+          description:
+            "Voice-clone mode input. Provide exactly one HTTP(S) URL reference audio and omit request meta.voice_prompt; omit audio in voice-design mode.",
+        },
+      ],
+    },
+    meta: {
+      fields: {
+        voice_prompt: {
+          type: "string",
+          optional: true,
+          description:
+            "Voice-design mode input. Provide a non-empty description and no reference audio; omit this field in voice-clone mode.",
+        },
+      },
+    },
+    examples: [
+      {
+        title: "Voice design",
+        request: {
+          model,
+          content: [{ type: "text", text }],
+          meta: { voice_prompt: "一位沉稳干练的男性播音员声音，吐字清晰有力" },
+        },
+      },
+      {
+        title: "Voice clone",
+        request: {
+          model,
+          content: [
+            { type: "text", text },
+            { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
+          ],
+        },
+      },
+    ],
+  };
+}
+
+const audioSpeechModels = [
+  qwenTtsModel(
+    "qwen-tts",
+    "Qwen TTS",
+    "Qwen text-to-speech for creating a voice from a text-only description or cloning one reference voice. Choose a Qwen model when no reference audio is available and the voice must be designed from text. This is the only Qwen variant without a 15-code-point minimum, so it accepts both shorter and longer speech text. For stronger reference-voice fidelity or voice blending, choose Higgs instead. No verified quality, latency, or cost ranking among the Qwen variants is declared; when multiple variants are compatible and neither the user nor an external policy selects one, ask the user instead of inferring a ranking.",
+  ),
+  qwenTtsModel(
+    "qwen-audio-3.0-tts-plus",
+    "Qwen Audio 3.0 TTS Plus",
+    "Qwen Audio 3.0 text-to-speech for creating a voice from a text-only description or cloning one reference voice. Choose a Qwen model when no reference audio is available and the voice must be designed from text. Speech text must contain at least 15 Unicode code points. For stronger reference-voice fidelity or voice blending, choose Higgs instead. No verified quality, latency, or cost ranking among the Qwen variants is declared; select Plus only when explicitly requested or chosen by an external policy, otherwise ask the user instead of inferring a ranking.",
+    { minimumTextCodePoints: 15 },
+  ),
+  qwenTtsModel(
+    "qwen-audio-3.0-tts-flash",
+    "Qwen Audio 3.0 TTS Flash",
+    "Qwen Audio 3.0 text-to-speech for creating a voice from a text-only description or cloning one reference voice. Choose a Qwen model when no reference audio is available and the voice must be designed from text. Speech text must contain at least 15 Unicode code points. For stronger reference-voice fidelity or voice blending, choose Higgs instead. No verified quality, latency, or cost ranking among the Qwen variants is declared; select Flash only when explicitly requested or chosen by an external policy, otherwise ask the user instead of inferring a ranking.",
+    { minimumTextCodePoints: 15 },
+  ),
+  {
+    schema: MODEL_SCHEMA,
+    model: "higgs-tts",
+    title: "Higgs TTS",
+    description:
+      "Reference-focused text-to-speech with stronger reference-voice fidelity than the Qwen models. Choose Higgs for its default voice, high-fidelity single-reference cloning, or blending 2-16 weighted references. It cannot create a voice from a text-only description; use a Qwen model with meta.voice_prompt for that mode. Generates exactly one HTTP(S) URL audio block.",
+    adapter: { type: "openai.audioSpeech" },
+    content: {
+      input: [
+        {
+          type: "text",
+          required: true,
+          min: 1,
+          max: 1,
+          description: "Exactly one non-empty text block to speak.",
+        },
+        {
+          type: "audio",
+          required: false,
+          max: 16,
+          sources: ["url"],
+          description:
+            "Optional HTTP(S) URL voice reference. A single reference may omit meta.weight; with 2-16 references, every audio block requires a finite positive meta.weight.",
+        },
+      ],
+    },
+    examples: [
+      {
+        title: "Default voice",
+        request: {
+          model: "higgs-tts",
+          content: [{ type: "text", text: "使用默认音色朗读这段文本。" }],
+        },
+      },
+      {
+        title: "Single reference",
+        request: {
+          model: "higgs-tts",
+          content: [
+            { type: "text", text: "使用单条参考音频朗读这段文本。" },
+            { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
+          ],
+        },
+      },
+      {
+        title: "Weighted single reference",
+        request: {
+          model: "higgs-tts",
+          content: [
+            { type: "text", text: "使用带权重的单条参考音频朗读这段文本。" },
+            {
+              type: "audio",
+              source: { type: "url", url: "https://example.com/reference.mp3" },
+              meta: { weight: 1 },
+            },
+          ],
+        },
+      },
+      {
+        title: "Multiple references",
+        request: {
+          model: "higgs-tts",
+          content: [
+            { type: "text", text: "使用多参考融合音色朗读这段文本。" },
+            {
+              type: "audio",
+              source: { type: "url", url: "https://example.com/reference-a.mp3" },
+              meta: { weight: 0.5 },
+            },
+            {
+              type: "audio",
+              source: { type: "url", url: "https://example.com/reference-b.mp3" },
+              meta: { weight: 0.5 },
+            },
+          ],
+        },
+      },
+    ],
+  },
+] satisfies GenerationModelDeclaration[];
+
 const builtinModels = [
+  ...audioSpeechModels,
   {
     schema: MODEL_SCHEMA,
     model: "gpt-image-2",

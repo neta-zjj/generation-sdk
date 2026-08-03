@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -49,6 +49,82 @@ describe("config", () => {
     for (const model of client.listModels()) {
       expect(model.description, model.model).not.toMatch(/\b(?:router|new[ -]?api)\b/i);
     }
+  });
+
+  it("publishes agent-discoverable audio speech declarations", () => {
+    const client = createGenerationClient();
+    const qwenModels = ["qwen-tts", "qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"];
+
+    for (const model of qwenModels) {
+      const declaration = client.getModel(model);
+      expect(declaration?.description).toContain("exactly one HTTP(S) URL audio block");
+      expect(declaration?.content.input.find((input) => input.type === "text")?.description).toContain(
+        "Exactly one non-empty text block",
+      );
+      expect(declaration?.content.input.find((input) => input.type === "audio")?.description).toContain(
+        "omit request meta.voice_prompt",
+      );
+      expect(declaration?.meta?.fields?.voice_prompt?.description).toContain("omit this field in voice-clone mode");
+      expect(declaration?.examples?.map((example) => example.title)).toEqual(["Voice design", "Voice clone"]);
+      expect(JSON.parse(client.stringifyModelConfig(model, { format: "json" }))).toEqual(declaration);
+    }
+
+    for (const model of qwenModels) {
+      const description = client.getModel(model)?.description;
+      expect(description).toContain("creating a voice from a text-only description");
+      expect(description).toContain("For stronger reference-voice fidelity or voice blending, choose Higgs instead");
+      expect(description).toContain("No verified quality, latency, or cost ranking among the Qwen variants");
+      expect(description).toContain("ask the user instead of inferring a ranking");
+      expect(description).not.toMatch(/Quality-oriented|Latency-oriented|over (?:Flash|Plus) when/);
+    }
+
+    const qwen = client.getModel("qwen-tts");
+    expect(qwen?.description).toContain("only Qwen variant without a 15-code-point minimum");
+    expect(qwen?.description).toContain("accepts both shorter and longer speech text");
+    expect(qwen?.content.input.find((input) => input.type === "text")?.description).not.toContain(
+      "Unicode code points",
+    );
+
+    const plus = client.getModel("qwen-audio-3.0-tts-plus");
+    expect(plus?.description).toContain("select Plus only when explicitly requested or chosen by an external policy");
+    expect(plus?.content.input.find((input) => input.type === "text")?.description).toContain(
+      "at least 15 Unicode code points",
+    );
+
+    const flash = client.getModel("qwen-audio-3.0-tts-flash");
+    expect(flash?.description).toContain("select Flash only when explicitly requested or chosen by an external policy");
+    expect(flash?.content.input.find((input) => input.type === "text")?.description).toContain(
+      "at least 15 Unicode code points",
+    );
+
+    const higgs = client.getModel("higgs-tts");
+    expect(higgs?.description).toContain("exactly one HTTP(S) URL audio block");
+    expect(higgs?.description).toContain("stronger reference-voice fidelity than the Qwen models");
+    expect(higgs?.description).toContain("blending 2-16 weighted references");
+    expect(higgs?.description).toContain("use a Qwen model with meta.voice_prompt for that mode");
+    expect(higgs?.content.input.find((input) => input.type === "audio")?.description).toContain(
+      "every audio block requires a finite positive meta.weight",
+    );
+    expect(higgs?.examples?.map((example) => example.title)).toEqual([
+      "Default voice",
+      "Single reference",
+      "Weighted single reference",
+      "Multiple references",
+    ]);
+    expect(JSON.parse(client.stringifyModelConfig("higgs-tts", { format: "json" }))).toEqual(higgs);
+  });
+
+  it("keeps model discovery on the existing package exports", async () => {
+    const packageJson = JSON.parse(await readFile(join(process.cwd(), "package.json"), "utf8")) as {
+      exports?: Record<string, unknown>;
+    };
+    expect(Object.keys(packageJson.exports ?? {})).toEqual([".", "./models"]);
+    const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
+    expect(readme).not.toContain("@neta-art/generation/models/");
+    expect(readme).toContain("Higgs provides stronger reference-voice fidelity than Qwen");
+    expect(readme).toContain("does not declare a verified quality, latency, or cost ranking");
+    expect(readme).toContain("if neither exists, ask the user instead of inferring a ranking");
+    expect(readme).not.toMatch(/quality prioritized over latency|latency prioritized over maximum quality/);
   });
 
   it("does not advertise base64 input sources in model YAML", async () => {
@@ -205,6 +281,14 @@ describe("config", () => {
       const size = client.getModel(model)?.parameters?.size;
       expect(size, model).toMatchObject({ type: "string", default: "1024x1024", enum: expected });
     }
+  });
+
+  it("does not publish the retired Qwen preview field", async () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    for (const model of ["qwen-tts", "qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]) {
+      expect(client.stringifyModelConfig(model)).not.toContain("preview_text");
+    }
+    expect(await readFile(join(process.cwd(), "README.md"), "utf8")).not.toContain("preview_text");
   });
 
   it("validates every built-in model example", () => {

@@ -1,0 +1,223 @@
+import { describe, expect, it, vi } from "vitest";
+import {
+  createGenerationClient,
+  type GenerationContentBlock,
+  type GenerationModelDeclaration,
+} from "../../src/index.js";
+
+type FetchCall = { url: string; init: RequestInit };
+
+const h3Declaration = {
+  schema: "neta.generation.model.v1",
+  model: "minimax-h3-test",
+  adapter: { type: "minimax.h3VideoGenerations" },
+  content: {
+    input: [
+      { type: "text", required: true, min: 1, max: 16, merge: "newline" },
+      {
+        type: "image",
+        max: 12,
+        sources: ["url"],
+        roles: ["first_frame", "last_frame", "reference_image"],
+        roleRequired: true,
+      },
+      {
+        type: "video",
+        max: 3,
+        sources: ["url"],
+        roles: ["reference_video"],
+        roleRequired: true,
+      },
+      {
+        type: "audio",
+        max: 3,
+        sources: ["url"],
+        roles: ["reference_audio"],
+        roleRequired: true,
+      },
+    ],
+  },
+  parameters: {
+    duration: { type: "integer", optional: true, default: 5, min: 4, max: 15 },
+    resolution: { type: "string", optional: true, default: "768P", enum: ["768P", "2K"] },
+    ratio: {
+      type: "string",
+      optional: true,
+      default: "16:9",
+      enum: ["adaptive", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
+    },
+    aigc_watermark: { type: "boolean", optional: true, default: false },
+    poll_interval: { type: "integer", optional: true, default: 2, min: 1, max: 30 },
+    max_wait: { type: "integer", optional: true, default: 600, min: 30, max: 1800 },
+  },
+} satisfies GenerationModelDeclaration;
+
+function textBlock(text: string): GenerationContentBlock {
+  return { type: "text", text };
+}
+
+function imageBlock(url: string, role: string): GenerationContentBlock {
+  return { type: "image", source: { type: "url", url }, meta: { role } };
+}
+
+function videoBlock(url: string): GenerationContentBlock {
+  return { type: "video", source: { type: "url", url }, meta: { role: "reference_video" } };
+}
+
+function audioBlock(url: string): GenerationContentBlock {
+  return { type: "audio", source: { type: "url", url }, meta: { role: "reference_audio" } };
+}
+
+function parseCreateBody(calls: FetchCall[]): Record<string, unknown> {
+  return JSON.parse(String(calls[0]?.init.body ?? "{}")) as Record<string, unknown>;
+}
+
+async function runSuccessfulGeneration(
+  content: GenerationContentBlock[],
+  parameters: Record<string, unknown> = {},
+): Promise<{ calls: FetchCall[]; output: GenerationContentBlock[] }> {
+  vi.useFakeTimers();
+  const calls: FetchCall[] = [];
+  const fetchMock = async (url: string | URL | Request, init?: RequestInit) => {
+    calls.push({ url: String(url), init: init ?? {} });
+    if (String(url).endsWith("/v1/video/generations")) {
+      return new Response(JSON.stringify({ id: "task-1", status: "queued" }), { status: 200 });
+    }
+    return new Response(
+      JSON.stringify({
+        id: "task-1",
+        status: "completed",
+        progress: 100,
+        metadata: { url: "https://example.com/out.mp4" },
+      }),
+      { status: 200 },
+    );
+  };
+
+  try {
+    const client = createGenerationClient({
+      apiKey: "key",
+      fetch: fetchMock as typeof fetch,
+      models: [h3Declaration],
+      includeBuiltinModels: false,
+    });
+    const promise = client.generate({
+      model: h3Declaration.model,
+      content,
+      parameters: { poll_interval: 1, max_wait: 30, ...parameters },
+    });
+    await vi.advanceTimersByTimeAsync(1000);
+    return { calls, output: await promise };
+  } finally {
+    vi.useRealTimers();
+  }
+}
+
+describe("minimax.h3VideoGenerations adapter", () => {
+  it("submits official H3 fields and polls the OpenAI-compatible task", async () => {
+    const { calls, output } = await runSuccessfulGeneration([textBlock("a red cube rotating on a white table")]);
+    const body = parseCreateBody(calls);
+
+    expect(calls[0]?.url).toBe("https://router.neta.art/v1/video/generations");
+    expect(calls[1]?.url).toBe("https://router.neta.art/v1/video/generations/task-1");
+    expect(body).toEqual({
+      model: "minimax-h3-test",
+      content: [{ type: "text", text: "a red cube rotating on a white table" }],
+      resolution: "768P",
+      duration: 5,
+      ratio: "16:9",
+      aigc_watermark: false,
+    });
+    expect(output).toEqual([
+      {
+        type: "video",
+        source: { type: "url", url: "https://example.com/out.mp4" },
+        meta: { task_id: "task-1", status: "succeeded", progress: 100 },
+      },
+    ]);
+  });
+
+  it("serializes image, video, and audio references and uses adaptive ratio", async () => {
+    const { calls } = await runSuccessfulGeneration(
+      [
+        textBlock("keep the subject, motion, and soundtrack references"),
+        imageBlock("https://example.com/subject.png", "reference_image"),
+        imageBlock("https://example.com/style.png", "reference_image"),
+        videoBlock("https://example.com/motion.mp4"),
+        audioBlock("https://example.com/voice.mp3"),
+      ],
+      { resolution: "2K", ratio: "9:16", aigc_watermark: true },
+    );
+    const body = parseCreateBody(calls);
+
+    expect(body).toMatchObject({ resolution: "2K", duration: 5, ratio: "adaptive", aigc_watermark: true });
+    expect(body.content).toEqual([
+      { type: "text", text: "keep the subject, motion, and soundtrack references" },
+      { type: "image_url", image_url: { url: "https://example.com/subject.png" }, role: "reference_image" },
+      { type: "image_url", image_url: { url: "https://example.com/style.png" }, role: "reference_image" },
+      { type: "video_url", video_url: { url: "https://example.com/motion.mp4" }, role: "reference_video" },
+      { type: "audio_url", audio_url: { url: "https://example.com/voice.mp3" }, role: "reference_audio" },
+    ]);
+  });
+
+  it("normalizes compatibility ratios for frame inputs", async () => {
+    const { calls } = await runSuccessfulGeneration(
+      [textBlock("animate the transition"), imageBlock("https://example.com/first.png", "first_frame")],
+      { ratio: "9:16" },
+    );
+
+    expect(parseCreateBody(calls).ratio).toBe("adaptive");
+  });
+
+  it("rejects mixed modes and excessive media before resolving sources", async () => {
+    let resolvedSources = 0;
+    const client = createGenerationClient({
+      apiKey: "key",
+      fetch: async () => {
+        throw new Error("fetch should not be called");
+      },
+      sourceResolver: () => {
+        resolvedSources += 1;
+        return "https://example.com/resolved";
+      },
+      models: [h3Declaration],
+      includeBuiltinModels: false,
+    });
+
+    await expect(
+      client.generate({
+        model: h3Declaration.model,
+        content: [
+          textBlock("invalid mixed request"),
+          imageBlock("https://example.com/first.png", "first_frame"),
+          imageBlock("https://example.com/reference.png", "reference_image"),
+        ],
+      }),
+    ).rejects.toThrow("cannot mix frame images with reference materials");
+    expect(resolvedSources).toBe(0);
+  });
+
+  it("enforces the H3 total media limit", async () => {
+    const content: GenerationContentBlock[] = [textBlock("too many references")];
+    for (let index = 0; index < 9; index += 1) {
+      content.push(imageBlock(`https://example.com/reference-${index}.png`, "reference_image"));
+    }
+    for (let index = 0; index < 3; index += 1) {
+      content.push(videoBlock(`https://example.com/reference-${index}.mp4`));
+    }
+    content.push(audioBlock("https://example.com/reference.mp3"));
+
+    const client = createGenerationClient({
+      apiKey: "key",
+      fetch: async () => {
+        throw new Error("fetch should not be called");
+      },
+      models: [h3Declaration],
+      includeBuiltinModels: false,
+    });
+
+    await expect(client.generate({ model: h3Declaration.model, content })).rejects.toThrow(
+      "MiniMax H3 supports at most 12 media items",
+    );
+  });
+});

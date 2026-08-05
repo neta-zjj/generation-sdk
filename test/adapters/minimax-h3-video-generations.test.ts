@@ -169,6 +169,43 @@ describe("minimax.h3VideoGenerations adapter", () => {
     expect(parseCreateBody(calls).ratio).toBe("adaptive");
   });
 
+  it("preserves provider usage cost when a task fails", async () => {
+    vi.useFakeTimers();
+    const fetchMock = async (url: string | URL | Request) => {
+      if (String(url).endsWith("/v1/video/generations")) {
+        return new Response(JSON.stringify({ id: "task-1", status: "queued" }), { status: 200 });
+      }
+      return new Response(
+        JSON.stringify({
+          id: "task-1",
+          status: "failed",
+          usage: { cost: 0.12 },
+          error: { message: "provider rejected the prompt" },
+        }),
+        { status: 200 },
+      );
+    };
+
+    try {
+      const client = createGenerationClient({
+        apiKey: "key",
+        fetch: fetchMock as typeof fetch,
+        models: [h3Declaration],
+        includeBuiltinModels: false,
+      });
+      const promise = client.generate({
+        model: h3Declaration.model,
+        content: [textBlock("a failed generation")],
+        parameters: { poll_interval: 1, max_wait: 30 },
+      });
+      const rejection = expect(promise).rejects.toMatchObject({ details: { cost: 0.12 } });
+      await vi.advanceTimersByTimeAsync(1000);
+      await rejection;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("rejects mixed modes and excessive media before resolving sources", async () => {
     let resolvedSources = 0;
     const client = createGenerationClient({

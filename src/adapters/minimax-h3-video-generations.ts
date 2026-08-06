@@ -48,10 +48,6 @@ function asBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === "boolean" ? value : fallback;
 }
 
-function asFiniteNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
-}
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === "object" && !Array.isArray(value);
 }
@@ -204,7 +200,6 @@ function extractTaskStatus(response: H3TaskResponse) {
   const task = isRecord(response.task) ? response.task : undefined;
   const metadata = isRecord(response.metadata) ? response.metadata : undefined;
   const content = isRecord(task?.content) ? task.content : undefined;
-  const usage = isRecord(response.usage) ? response.usage : isRecord(task?.usage) ? task.usage : undefined;
   const status = normalizeStatus(response.status ?? task?.status);
   const videoUrl =
     asString(metadata?.url) ??
@@ -220,13 +215,7 @@ function extractTaskStatus(response: H3TaskResponse) {
     duration: response.duration ?? task?.duration,
     ratio: response.ratio ?? task?.ratio,
   });
-  return {
-    status: error && status === "unknown" ? "failed" : status,
-    videoUrl,
-    message,
-    cost: asFiniteNumber(usage?.cost),
-    metadata: outputMetadata,
-  };
+  return { status: error && status === "unknown" ? "failed" : status, videoUrl, message, metadata: outputMetadata };
 }
 
 async function requestJson(input: GenerationAdapterInput, path: string, init: RequestInit): Promise<unknown> {
@@ -290,7 +279,6 @@ export async function minimaxH3VideoGenerationsAdapter(
   })) as H3CreateResponse;
   const taskId = extractTaskId(task);
   const startedAt = Date.now();
-  let observedCost: number | undefined;
 
   while (Date.now() - startedAt <= maxWaitSec * 1000) {
     await sleep(pollIntervalSec * 1000);
@@ -298,7 +286,6 @@ export async function minimaxH3VideoGenerationsAdapter(
       method: "GET",
     })) as H3TaskResponse;
     const status = extractTaskStatus(rawStatus);
-    if (status.cost !== undefined) observedCost = status.cost;
 
     if (status.status === "succeeded") {
       if (!status.videoUrl) {
@@ -316,13 +303,10 @@ export async function minimaxH3VideoGenerationsAdapter(
     }
     if (status.status === "failed") {
       throw new GenerationProviderError(`MiniMax H3 generation failed${status.message ? `: ${status.message}` : ""}`, {
-        details: compactObject({ taskId, rawStatus, cost: status.cost }),
+        details: compactObject({ taskId, rawStatus }),
       });
     }
   }
 
-  throw new GenerationTimeoutError("Timed out waiting for MiniMax H3 video generation", {
-    taskId,
-    ...(observedCost !== undefined ? { cost: observedCost } : {}),
-  });
+  throw new GenerationTimeoutError("Timed out waiting for MiniMax H3 video generation", { taskId });
 }

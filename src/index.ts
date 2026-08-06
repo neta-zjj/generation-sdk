@@ -5,6 +5,7 @@ export {
   geminiGenerateContentAdapter,
   getGenerationAdapter,
   klingVideoGenerationsAdapter,
+  minimaxH3VideoGenerationsAdapter,
   openAiImageEditsAdapter,
   openAiImagesAdapter,
   sunoTasksAdapter,

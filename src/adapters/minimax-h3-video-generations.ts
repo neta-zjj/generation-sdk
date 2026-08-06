@@ -202,16 +202,9 @@ function extractTaskId(response: H3CreateResponse): string {
 
 function extractTaskStatus(response: H3TaskResponse) {
   const task = isRecord(response.task) ? response.task : undefined;
-  const data = isRecord(response.data) ? response.data : undefined;
   const metadata = isRecord(response.metadata) ? response.metadata : undefined;
   const content = isRecord(task?.content) ? task.content : undefined;
-  const usage = isRecord(response.usage)
-    ? response.usage
-    : isRecord(task?.usage)
-      ? task.usage
-      : isRecord(data?.usage)
-        ? data.usage
-        : undefined;
+  const usage = isRecord(response.usage) ? response.usage : isRecord(task?.usage) ? task.usage : undefined;
   const status = normalizeStatus(response.status ?? task?.status);
   const videoUrl =
     asString(metadata?.url) ??
@@ -231,7 +224,7 @@ function extractTaskStatus(response: H3TaskResponse) {
     status: error && status === "unknown" ? "failed" : status,
     videoUrl,
     message,
-    cost: asFiniteNumber(response.cost) ?? asFiniteNumber(usage?.cost),
+    cost: asFiniteNumber(usage?.cost),
     metadata: outputMetadata,
   };
 }

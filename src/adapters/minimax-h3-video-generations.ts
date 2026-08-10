@@ -13,6 +13,8 @@ const MAX_MEDIA_COUNT = 12;
 const MAX_REFERENCE_IMAGES = 9;
 const MAX_REFERENCE_VIDEOS = 3;
 const MAX_REFERENCE_AUDIO = 3;
+const DEFAULT_RATIO = "16:9";
+const ADAPTIVE_RATIO = "adaptive";
 const H3_RATIOS = ["adaptive", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"] as const;
 
 type H3Mode = "text" | "frame" | "reference";
@@ -120,16 +122,15 @@ function classifyMedia(media: H3InputMedia[]): H3Mode {
     throw new GenerationValidationError(`MiniMax H3 supports at most ${MAX_REFERENCE_AUDIO} reference audio files`);
   }
   if (media.length > MAX_MEDIA_COUNT) {
-    throw new GenerationValidationError(`MiniMax H3 supports at most ${MAX_MEDIA_COUNT} media items`);
+    throw new GenerationValidationError(
+      `MiniMax H3 supports at most ${MAX_MEDIA_COUNT} media items; received ${referenceImages} reference images, ${referenceVideos} reference videos, ${referenceAudio} reference audio inputs, and ${firstFrames + lastFrames} frame images`,
+    );
   }
 
   const hasFrames = firstFrames + lastFrames > 0;
   const hasReferences = referenceImages + referenceVideos + referenceAudio > 0;
   if (hasFrames && hasReferences) {
     throw new GenerationValidationError("MiniMax H3 cannot mix frame images with reference materials");
-  }
-  if (referenceAudio > 0 && referenceImages + referenceVideos === 0) {
-    throw new GenerationValidationError("MiniMax H3 reference audio requires a reference image or video");
   }
   if (hasFrames) return "frame";
   if (hasReferences) return "reference";
@@ -174,17 +175,14 @@ function resolveDuration(value: unknown): number {
 }
 
 function resolveRatio(value: unknown, mode: H3Mode): string {
-  const requested = asString(value) ?? "16:9";
+  const requested = asString(value) ?? DEFAULT_RATIO;
   if (!(H3_RATIOS as readonly string[]).includes(requested)) {
     throw new GenerationValidationError(`MiniMax H3 ratio must be one of: ${H3_RATIOS.join(", ")}`);
   }
   if (mode === "text") {
-    if (requested === "adaptive") {
-      throw new GenerationValidationError("MiniMax H3 text-to-video ratio cannot be adaptive");
-    }
-    return requested;
+    return requested === ADAPTIVE_RATIO ? DEFAULT_RATIO : requested;
   }
-  return "adaptive";
+  return ADAPTIVE_RATIO;
 }
 
 function extractTaskId(response: H3CreateResponse): string {

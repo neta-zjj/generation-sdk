@@ -169,6 +169,33 @@ describe("minimax.h3VideoGenerations adapter", () => {
     expect(parseCreateBody(calls).ratio).toBe("adaptive");
   });
 
+  it("normalizes adaptive ratio for text-only input", async () => {
+    const { calls } = await runSuccessfulGeneration([textBlock("a wide establishing shot")], {
+      ratio: "adaptive",
+    });
+
+    expect(parseCreateBody(calls).ratio).toBe("16:9");
+  });
+
+  it("accepts audio-only reference input", async () => {
+    const { calls } = await runSuccessfulGeneration(
+      [textBlock("use the rhythm and mood from this soundtrack"), audioBlock("https://example.com/music.mp3")],
+      { ratio: "9:16" },
+    );
+
+    expect(parseCreateBody(calls)).toMatchObject({
+      ratio: "adaptive",
+      content: [
+        { type: "text", text: "use the rhythm and mood from this soundtrack" },
+        {
+          type: "audio_url",
+          audio_url: { url: "https://example.com/music.mp3" },
+          role: "reference_audio",
+        },
+      ],
+    });
+  });
+
   it("rejects mixed modes and excessive media before resolving sources", async () => {
     let resolvedSources = 0;
     const client = createGenerationClient({
@@ -217,7 +244,22 @@ describe("minimax.h3VideoGenerations adapter", () => {
     });
 
     await expect(client.generate({ model: h3Declaration.model, content })).rejects.toThrow(
-      "MiniMax H3 supports at most 12 media items",
+      "MiniMax H3 supports at most 12 media items; received 9 reference images, 3 reference videos, 1 reference audio inputs, and 0 frame images",
     );
+  });
+
+  it("accepts exactly 12 reference media items", async () => {
+    const content: GenerationContentBlock[] = [textBlock("use all references")];
+    for (let index = 0; index < 9; index += 1) {
+      content.push(imageBlock(`https://example.com/reference-${index}.png`, "reference_image"));
+    }
+    for (let index = 0; index < 3; index += 1) {
+      content.push(videoBlock(`https://example.com/reference-${index}.mp4`));
+    }
+
+    const { calls } = await runSuccessfulGeneration(content);
+
+    expect(parseCreateBody(calls)).toMatchObject({ ratio: "adaptive" });
+    expect(parseCreateBody(calls).content).toHaveLength(13);
   });
 });

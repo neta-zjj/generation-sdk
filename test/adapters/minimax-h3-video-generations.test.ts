@@ -75,6 +75,15 @@ function parseCreateBody(calls: FetchCall[]): Record<string, unknown> {
 async function runSuccessfulGeneration(
   content: GenerationContentBlock[],
   parameters: Record<string, unknown> = {},
+  taskResponse: Record<string, unknown> = {
+    code: "success",
+    data: {
+      task_id: "task-1",
+      status: "SUCCESS",
+      progress: "100%",
+      result_url: "https://example.com/out.mp4",
+    },
+  },
 ): Promise<{ calls: FetchCall[]; output: GenerationContentBlock[] }> {
   vi.useFakeTimers();
   const calls: FetchCall[] = [];
@@ -83,15 +92,7 @@ async function runSuccessfulGeneration(
     if (String(url).endsWith("/v1/video/generations")) {
       return new Response(JSON.stringify({ id: "task-1", status: "queued" }), { status: 200 });
     }
-    return new Response(
-      JSON.stringify({
-        id: "task-1",
-        status: "completed",
-        progress: 100,
-        metadata: { url: "https://example.com/out.mp4" },
-      }),
-      { status: 200 },
-    );
+    return new Response(JSON.stringify(taskResponse), { status: 200 });
   };
 
   try {
@@ -114,7 +115,7 @@ async function runSuccessfulGeneration(
 }
 
 describe("minimax.h3VideoGenerations adapter", () => {
-  it("submits official H3 fields and polls the OpenAI-compatible task", async () => {
+  it("submits official H3 fields and polls the NewAPI task envelope", async () => {
     const { calls, output } = await runSuccessfulGeneration([textBlock("a red cube rotating on a white table")]);
     const body = parseCreateBody(calls);
 
@@ -128,6 +129,27 @@ describe("minimax.h3VideoGenerations adapter", () => {
       ratio: "16:9",
       aigc_watermark: false,
     });
+    expect(output).toEqual([
+      {
+        type: "video",
+        source: { type: "url", url: "https://example.com/out.mp4" },
+        meta: { task_id: "task-1", status: "succeeded", progress: "100%" },
+      },
+    ]);
+  });
+
+  it("keeps flat task response compatibility", async () => {
+    const { output } = await runSuccessfulGeneration(
+      [textBlock("a red cube rotating on a white table")],
+      {},
+      {
+        id: "task-1",
+        status: "completed",
+        progress: 100,
+        metadata: { url: "https://example.com/out.mp4" },
+      },
+    );
+
     expect(output).toEqual([
       {
         type: "video",

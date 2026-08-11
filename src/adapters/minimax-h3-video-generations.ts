@@ -194,24 +194,46 @@ function extractTaskId(response: H3CreateResponse): string {
   return taskId;
 }
 
+function isTaskPayload(value: Record<string, unknown>): boolean {
+  return ["status", "task", "result_url", "video_url", "url", "error", "progress", "fail_reason"].some(
+    (key) => key in value,
+  );
+}
+
+function unwrapTaskPayload(response: H3TaskResponse): Record<string, unknown> {
+  const data = isRecord(response.data) ? response.data : undefined;
+  return data && !isTaskPayload(response) ? data : response;
+}
+
 function extractTaskStatus(response: H3TaskResponse) {
-  const task = isRecord(response.task) ? response.task : undefined;
-  const metadata = isRecord(response.metadata) ? response.metadata : undefined;
-  const content = isRecord(task?.content) ? task.content : undefined;
-  const status = normalizeStatus(response.status ?? task?.status);
+  const payload = unwrapTaskPayload(response);
+  const task = isRecord(payload.task) ? payload.task : payload;
+  const metadata = isRecord(payload.metadata) ? payload.metadata : isRecord(task.metadata) ? task.metadata : undefined;
+  const content = isRecord(task.content) ? task.content : undefined;
+  const status = normalizeStatus(payload.status ?? task.status);
   const videoUrl =
     asString(metadata?.url) ??
-    asString(response.result_url) ??
-    asString(response.video_url) ??
-    asString(response.url) ??
+    asString(payload.result_url) ??
+    asString(payload.video_url) ??
+    asString(payload.url) ??
+    asString(task.result_url) ??
+    asString(task.video_url) ??
+    asString(task.url) ??
+    asString(content?.video_url) ??
     asString(content?.url);
-  const error = isRecord(response.error) ? response.error : isRecord(task?.error) ? task.error : undefined;
-  const message = asString(error?.message) ?? asString(response.message) ?? asString(task?.message);
+  const error = isRecord(payload.error) ? payload.error : isRecord(task.error) ? task.error : undefined;
+  const message =
+    asString(error?.message) ??
+    asString(payload.fail_reason) ??
+    asString(payload.message) ??
+    asString(task.fail_reason) ??
+    asString(task.message) ??
+    asString(response.message);
   const outputMetadata = compactObject({
-    progress: response.progress ?? task?.progress,
-    resolution: response.resolution ?? task?.resolution,
-    duration: response.duration ?? task?.duration,
-    ratio: response.ratio ?? task?.ratio,
+    progress: payload.progress ?? task.progress,
+    resolution: payload.resolution ?? task.resolution,
+    duration: payload.duration ?? task.duration,
+    ratio: payload.ratio ?? task.ratio,
   });
   return { status: error && status === "unknown" ? "failed" : status, videoUrl, message, metadata: outputMetadata };
 }

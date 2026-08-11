@@ -75,6 +75,15 @@ function parseCreateBody(calls: FetchCall[]): Record<string, unknown> {
 async function runSuccessfulGeneration(
   content: GenerationContentBlock[],
   parameters: Record<string, unknown> = {},
+  taskResponse: Record<string, unknown> = {
+    code: "success",
+    data: {
+      task_id: "task-1",
+      status: "SUCCESS",
+      progress: "100%",
+      result_url: "https://example.com/out.mp4",
+    },
+  },
 ): Promise<{ calls: FetchCall[]; output: GenerationContentBlock[] }> {
   vi.useFakeTimers();
   const calls: FetchCall[] = [];
@@ -83,15 +92,7 @@ async function runSuccessfulGeneration(
     if (String(url).endsWith("/v1/video/generations")) {
       return new Response(JSON.stringify({ id: "task-1", status: "queued" }), { status: 200 });
     }
-    return new Response(
-      JSON.stringify({
-        id: "task-1",
-        status: "completed",
-        progress: 100,
-        metadata: { url: "https://example.com/out.mp4" },
-      }),
-      { status: 200 },
-    );
+    return new Response(JSON.stringify(taskResponse), { status: 200 });
   };
 
   try {
@@ -114,7 +115,7 @@ async function runSuccessfulGeneration(
 }
 
 describe("minimax.h3VideoGenerations adapter", () => {
-  it("submits official H3 fields and polls the OpenAI-compatible task", async () => {
+  it("submits official H3 fields and polls the NewAPI task envelope", async () => {
     const { calls, output } = await runSuccessfulGeneration([textBlock("a red cube rotating on a white table")]);
     const body = parseCreateBody(calls);
 
@@ -128,6 +129,27 @@ describe("minimax.h3VideoGenerations adapter", () => {
       ratio: "16:9",
       aigc_watermark: false,
     });
+    expect(output).toEqual([
+      {
+        type: "video",
+        source: { type: "url", url: "https://example.com/out.mp4" },
+        meta: { task_id: "task-1", status: "succeeded", progress: "100%" },
+      },
+    ]);
+  });
+
+  it("keeps flat task response compatibility", async () => {
+    const { output } = await runSuccessfulGeneration(
+      [textBlock("a red cube rotating on a white table")],
+      {},
+      {
+        id: "task-1",
+        status: "completed",
+        progress: 100,
+        metadata: { url: "https://example.com/out.mp4" },
+      },
+    );
+
     expect(output).toEqual([
       {
         type: "video",
@@ -167,6 +189,33 @@ describe("minimax.h3VideoGenerations adapter", () => {
     );
 
     expect(parseCreateBody(calls).ratio).toBe("adaptive");
+  });
+
+  it("normalizes adaptive ratio for text-only input", async () => {
+    const { calls } = await runSuccessfulGeneration([textBlock("a wide establishing shot")], {
+      ratio: "adaptive",
+    });
+
+    expect(parseCreateBody(calls).ratio).toBe("16:9");
+  });
+
+  it("accepts audio-only reference input", async () => {
+    const { calls } = await runSuccessfulGeneration(
+      [textBlock("use the rhythm and mood from this soundtrack"), audioBlock("https://example.com/music.mp3")],
+      { ratio: "9:16" },
+    );
+
+    expect(parseCreateBody(calls)).toMatchObject({
+      ratio: "adaptive",
+      content: [
+        { type: "text", text: "use the rhythm and mood from this soundtrack" },
+        {
+          type: "audio_url",
+          audio_url: { url: "https://example.com/music.mp3" },
+          role: "reference_audio",
+        },
+      ],
+    });
   });
 
   it("rejects mixed modes and excessive media before resolving sources", async () => {
@@ -217,7 +266,22 @@ describe("minimax.h3VideoGenerations adapter", () => {
     });
 
     await expect(client.generate({ model: h3Declaration.model, content })).rejects.toThrow(
-      "MiniMax H3 supports at most 12 media items",
+      "MiniMax H3 supports at most 12 media items; received 9 reference images, 3 reference videos, 1 reference audio inputs, and 0 frame images",
     );
+  });
+
+  it("accepts exactly 12 reference media items", async () => {
+    const content: GenerationContentBlock[] = [textBlock("use all references")];
+    for (let index = 0; index < 9; index += 1) {
+      content.push(imageBlock(`https://example.com/reference-${index}.png`, "reference_image"));
+    }
+    for (let index = 0; index < 3; index += 1) {
+      content.push(videoBlock(`https://example.com/reference-${index}.mp4`));
+    }
+
+    const { calls } = await runSuccessfulGeneration(content);
+
+    expect(parseCreateBody(calls)).toMatchObject({ ratio: "adaptive" });
+    expect(parseCreateBody(calls).content).toHaveLength(13);
   });
 });

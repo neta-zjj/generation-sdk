@@ -13,6 +13,8 @@ const MAX_MEDIA_COUNT = 12;
 const MAX_REFERENCE_IMAGES = 9;
 const MAX_REFERENCE_VIDEOS = 3;
 const MAX_REFERENCE_AUDIO = 3;
+const DEFAULT_RATIO = "16:9";
+const ADAPTIVE_RATIO = "adaptive";
 const H3_RATIOS = ["adaptive", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"] as const;
 
 type H3Mode = "text" | "frame" | "reference";
@@ -120,16 +122,15 @@ function classifyMedia(media: H3InputMedia[]): H3Mode {
     throw new GenerationValidationError(`MiniMax H3 supports at most ${MAX_REFERENCE_AUDIO} reference audio files`);
   }
   if (media.length > MAX_MEDIA_COUNT) {
-    throw new GenerationValidationError(`MiniMax H3 supports at most ${MAX_MEDIA_COUNT} media items`);
+    throw new GenerationValidationError(
+      `MiniMax H3 supports at most ${MAX_MEDIA_COUNT} media items; received ${referenceImages} reference images, ${referenceVideos} reference videos, ${referenceAudio} reference audio inputs, and ${firstFrames + lastFrames} frame images`,
+    );
   }
 
   const hasFrames = firstFrames + lastFrames > 0;
   const hasReferences = referenceImages + referenceVideos + referenceAudio > 0;
   if (hasFrames && hasReferences) {
     throw new GenerationValidationError("MiniMax H3 cannot mix frame images with reference materials");
-  }
-  if (referenceAudio > 0 && referenceImages + referenceVideos === 0) {
-    throw new GenerationValidationError("MiniMax H3 reference audio requires a reference image or video");
   }
   if (hasFrames) return "frame";
   if (hasReferences) return "reference";
@@ -174,17 +175,14 @@ function resolveDuration(value: unknown): number {
 }
 
 function resolveRatio(value: unknown, mode: H3Mode): string {
-  const requested = asString(value) ?? "16:9";
+  const requested = asString(value) ?? DEFAULT_RATIO;
   if (!(H3_RATIOS as readonly string[]).includes(requested)) {
     throw new GenerationValidationError(`MiniMax H3 ratio must be one of: ${H3_RATIOS.join(", ")}`);
   }
   if (mode === "text") {
-    if (requested === "adaptive") {
-      throw new GenerationValidationError("MiniMax H3 text-to-video ratio cannot be adaptive");
-    }
-    return requested;
+    return requested === ADAPTIVE_RATIO ? DEFAULT_RATIO : requested;
   }
-  return "adaptive";
+  return ADAPTIVE_RATIO;
 }
 
 function extractTaskId(response: H3CreateResponse): string {
@@ -196,24 +194,46 @@ function extractTaskId(response: H3CreateResponse): string {
   return taskId;
 }
 
+function isTaskPayload(value: Record<string, unknown>): boolean {
+  return ["status", "task", "result_url", "video_url", "url", "error", "progress", "fail_reason"].some(
+    (key) => key in value,
+  );
+}
+
+function unwrapTaskPayload(response: H3TaskResponse): Record<string, unknown> {
+  const data = isRecord(response.data) ? response.data : undefined;
+  return data && !isTaskPayload(response) ? data : response;
+}
+
 function extractTaskStatus(response: H3TaskResponse) {
-  const task = isRecord(response.task) ? response.task : undefined;
-  const metadata = isRecord(response.metadata) ? response.metadata : undefined;
-  const content = isRecord(task?.content) ? task.content : undefined;
-  const status = normalizeStatus(response.status ?? task?.status);
+  const payload = unwrapTaskPayload(response);
+  const task = isRecord(payload.task) ? payload.task : payload;
+  const metadata = isRecord(payload.metadata) ? payload.metadata : isRecord(task.metadata) ? task.metadata : undefined;
+  const content = isRecord(task.content) ? task.content : undefined;
+  const status = normalizeStatus(payload.status ?? task.status);
   const videoUrl =
     asString(metadata?.url) ??
-    asString(response.result_url) ??
-    asString(response.video_url) ??
-    asString(response.url) ??
+    asString(payload.result_url) ??
+    asString(payload.video_url) ??
+    asString(payload.url) ??
+    asString(task.result_url) ??
+    asString(task.video_url) ??
+    asString(task.url) ??
+    asString(content?.video_url) ??
     asString(content?.url);
-  const error = isRecord(response.error) ? response.error : isRecord(task?.error) ? task.error : undefined;
-  const message = asString(error?.message) ?? asString(response.message) ?? asString(task?.message);
+  const error = isRecord(payload.error) ? payload.error : isRecord(task.error) ? task.error : undefined;
+  const message =
+    asString(error?.message) ??
+    asString(payload.fail_reason) ??
+    asString(payload.message) ??
+    asString(task.fail_reason) ??
+    asString(task.message) ??
+    asString(response.message);
   const outputMetadata = compactObject({
-    progress: response.progress ?? task?.progress,
-    resolution: response.resolution ?? task?.resolution,
-    duration: response.duration ?? task?.duration,
-    ratio: response.ratio ?? task?.ratio,
+    progress: payload.progress ?? task.progress,
+    resolution: payload.resolution ?? task.resolution,
+    duration: payload.duration ?? task.duration,
+    ratio: payload.ratio ?? task.ratio,
   });
   return { status: error && status === "unknown" ? "failed" : status, videoUrl, message, metadata: outputMetadata };
 }

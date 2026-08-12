@@ -1,5 +1,5 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
-import { fetchWithTimeout, joinUrl, providerResponseDetails, tryParseResponseJson } from "../http.js";
+import { fetchWithTimeout, joinUrl } from "../http.js";
 import type { GenerationAdapterInput, GenerationContentBlock, GenerationSource } from "../types.js";
 import { compactObject, getBlockMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
@@ -304,7 +304,6 @@ function extractStatus(response: TaskStatusResponse) {
 }
 
 async function requestJson(input: GenerationAdapterInput, path: string, init: RequestInit): Promise<unknown> {
-  const stage = init.method === "POST" ? "submit" : "poll";
   const response = await fetchWithTimeout(
     input.context.fetch,
     joinUrl(input.context.baseUrl, path),
@@ -317,22 +316,21 @@ async function requestJson(input: GenerationAdapterInput, path: string, init: Re
       },
     },
     REQUEST_TIMEOUT_MS,
-    { stage },
   );
   const body = await response.text();
-  const parsed = tryParseResponseJson(body);
+  let parsed: unknown = {};
+  try {
+    parsed = body ? JSON.parse(body) : {};
+  } catch {
+    throw new GenerationProviderError("Kling video provider returned invalid JSON", { status: response.status, body });
+  }
   if (!response.ok) {
+    const details = isRecord(parsed) ? { details: parsed } : {};
     throw new GenerationProviderError("Kling video provider request failed", {
       status: response.status,
       body,
-      details: {
-        ...(isRecord(parsed) ? parsed : {}),
-        ...providerResponseDetails(response),
-      },
+      ...details,
     });
-  }
-  if (parsed === undefined) {
-    throw new GenerationProviderError("Kling video provider returned invalid JSON", { status: response.status, body });
   }
   return parsed;
 }

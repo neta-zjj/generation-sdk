@@ -1,5 +1,5 @@
 import { GenerationProviderError, GenerationValidationError } from "../errors.js";
-import { fetchWithTimeout, joinUrl, providerResponseDetails } from "../http.js";
+import { fetchWithTimeout, joinUrl } from "../http.js";
 import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
 import { compactArray, compactObject } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
@@ -66,7 +66,6 @@ export async function openAiImageEditsAdapter(input: GenerationAdapterInput): Pr
       body,
     },
     REQUEST_TIMEOUT_MS,
-    { stage: "submit" },
   );
 
   if (!response.ok) {
@@ -74,7 +73,6 @@ export async function openAiImageEditsAdapter(input: GenerationAdapterInput): Pr
     throw new GenerationProviderError("Image edit provider request failed", {
       status: response.status,
       body: bodyText,
-      details: providerResponseDetails(response),
     });
   }
 

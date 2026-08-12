@@ -1,5 +1,5 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
-import { fetchWithTimeout, joinUrl, providerResponseDetails } from "../http.js";
+import { fetchWithTimeout, joinUrl } from "../http.js";
 import type { GenerationAdapterInput, GenerationContentBlock, GenerationSource } from "../types.js";
 import { compactObject, getBlockMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
@@ -198,7 +198,6 @@ function normalizeTaskStatus(response: ArkTaskStatusResponse) {
 }
 
 async function requestJson(input: GenerationAdapterInput, path: string, init: RequestInit): Promise<unknown> {
-  const stage = init.method === "POST" ? "submit" : "poll";
   const response = await fetchWithTimeout(
     input.context.fetch,
     joinUrl(input.context.baseUrl, path),
@@ -211,16 +210,11 @@ async function requestJson(input: GenerationAdapterInput, path: string, init: Re
       },
     },
     REQUEST_TIMEOUT_MS,
-    { stage },
   );
 
   if (!response.ok) {
     const body = await response.text().catch(() => response.statusText);
-    throw new GenerationProviderError("Video generation provider request failed", {
-      status: response.status,
-      body,
-      details: providerResponseDetails(response),
-    });
+    throw new GenerationProviderError("Video generation provider request failed", { status: response.status, body });
   }
   return response.json();
 }

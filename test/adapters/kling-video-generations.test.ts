@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createGenerationClient, type GenerationContentBlock, type GenerationProviderError } from "../../src/index.js";
+import { createGenerationClient, type GenerationContentBlock } from "../../src/index.js";
 
 type CapturedRequest = {
   url: string;
@@ -97,37 +97,6 @@ describe("kling.videoGenerations adapter", () => {
       "kling-omni-video",
       "kling-text-to-video",
     ]);
-  });
-
-  it("preserves router metadata on non-JSON HTTP errors", async () => {
-    const fetchMock = async () =>
-      new Response("<html>bad gateway</html>", {
-        status: 502,
-        headers: {
-          "content-type": "text/html",
-          "x-request-id": "router-request-1",
-          "x-error-category": "upstream_error",
-          "cf-ray": "edge-ray-1",
-        },
-      });
-    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-
-    await expect(
-      client.generate({
-        model: "kling-text-to-video",
-        content: [textBlock("paper boat on calm water")],
-      }),
-    ).rejects.toMatchObject({
-      name: "GenerationProviderError",
-      message: "Kling video provider request failed",
-      status: 502,
-      body: "<html>bad gateway</html>",
-      details: {
-        requestId: "router-request-1",
-        errorCategory: "upstream_error",
-        trace: { "cf-ray": "edge-ray-1", "x-request-id": "router-request-1" },
-      },
-    } satisfies Partial<GenerationProviderError>);
   });
 
   it("posts latest Kling text-to-video payload", async () => {

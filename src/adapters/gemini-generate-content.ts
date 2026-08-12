@@ -1,5 +1,5 @@
 import { GenerationProviderError, GenerationValidationError } from "../errors.js";
-import { fetchWithTimeout, joinUrl, providerResponseDetails } from "../http.js";
+import { fetchWithTimeout, joinUrl } from "../http.js";
 import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
 import { compactArray, compactObject } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
@@ -168,16 +168,11 @@ export async function geminiGenerateContentAdapter(input: GenerationAdapterInput
       body: JSON.stringify(payload),
     },
     REQUEST_TIMEOUT_MS,
-    { stage: "submit" },
   );
 
   if (!response.ok) {
     const body = await response.text().catch(() => response.statusText);
-    throw new GenerationProviderError("Gemini generation provider request failed", {
-      status: response.status,
-      body,
-      details: providerResponseDetails(response),
-    });
+    throw new GenerationProviderError("Gemini generation provider request failed", { status: response.status, body });
   }
 
   const raw = (await response.json()) as GeminiGenerateContentResponse;

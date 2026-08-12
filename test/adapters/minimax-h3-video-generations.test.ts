@@ -3,7 +3,6 @@ import {
   createGenerationClient,
   type GenerationContentBlock,
   type GenerationModelDeclaration,
-  type GenerationProviderError,
 } from "../../src/index.js";
 
 type FetchCall = { url: string; init: RequestInit };
@@ -116,39 +115,6 @@ async function runSuccessfulGeneration(
 }
 
 describe("minimax.h3VideoGenerations adapter", () => {
-  it("preserves router metadata on non-JSON HTTP errors", async () => {
-    const fetchMock = async () =>
-      new Response("upstream unavailable", {
-        status: 503,
-        headers: {
-          "content-type": "text/plain",
-          "x-request-id": "router-request-2",
-          "x-error-category": "upstream_error",
-          traceparent: "00-trace-parent",
-        },
-      });
-    const client = createGenerationClient({
-      apiKey: "key",
-      fetch: fetchMock as typeof fetch,
-      models: [h3Declaration],
-      includeBuiltinModels: false,
-    });
-
-    await expect(
-      client.generate({ model: h3Declaration.model, content: [textBlock("a red cube rotating")] }),
-    ).rejects.toMatchObject({
-      name: "GenerationProviderError",
-      message: "MiniMax H3 provider request failed",
-      status: 503,
-      body: "upstream unavailable",
-      details: {
-        requestId: "router-request-2",
-        errorCategory: "upstream_error",
-        trace: { traceparent: "00-trace-parent", "x-request-id": "router-request-2" },
-      },
-    } satisfies Partial<GenerationProviderError>);
-  });
-
   it("submits official H3 fields and polls the NewAPI task envelope", async () => {
     const { calls, output } = await runSuccessfulGeneration([textBlock("a red cube rotating on a white table")]);
     const body = parseCreateBody(calls);

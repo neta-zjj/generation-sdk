@@ -43,15 +43,11 @@ export class GenerationProviderError extends GenerationError {
   }
 }
 
-export type GenerationTransportStage = "submit" | "poll" | "request";
-
 export type GenerationTransportErrorDetails = {
-  stage: GenerationTransportStage;
   method: string;
   host?: string;
   path: string;
   elapsedMs: number;
-  responseReceived: false;
   causeName?: string;
   causeCode?: string;
   causeMessage?: string;
@@ -61,6 +57,8 @@ export type GenerationTransportErrorDetails = {
 };
 
 export class GenerationTransportError extends GenerationProviderError {
+  declare readonly details: GenerationTransportErrorDetails;
+
   constructor(details: GenerationTransportErrorDetails, cause: unknown) {
     super(transportErrorMessage(details), { details });
     this.name = "GenerationTransportError";
@@ -80,12 +78,10 @@ export class GenerationTimeoutError extends GenerationProviderError {
 function transportErrorMessage(details: GenerationTransportErrorDetails): string {
   return [
     "Generation transport failed",
-    `stage=${details.stage}`,
     `method=${details.method}`,
     details.host ? `host=${details.host}` : undefined,
     `path=${details.path}`,
     `elapsed_ms=${details.elapsedMs}`,
-    `response_received=${details.responseReceived}`,
     details.causeCode ? `cause_code=${details.causeCode}` : undefined,
     details.causeName ? `cause_name=${details.causeName}` : undefined,
     details.causeMessage ? `cause_message=${JSON.stringify(details.causeMessage)}` : undefined,

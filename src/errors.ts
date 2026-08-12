@@ -50,7 +50,6 @@ export type GenerationTransportErrorDetails = {
   elapsedMs: number;
   causeName?: string;
   causeCode?: string;
-  causeMessage?: string;
   causeSyscall?: string;
   causeAddress?: string;
   causePort?: string | number;
@@ -84,7 +83,6 @@ function transportErrorMessage(details: GenerationTransportErrorDetails): string
     `elapsed_ms=${details.elapsedMs}`,
     details.causeCode ? `cause_code=${details.causeCode}` : undefined,
     details.causeName ? `cause_name=${details.causeName}` : undefined,
-    details.causeMessage ? `cause_message=${JSON.stringify(details.causeMessage)}` : undefined,
     details.causeSyscall ? `cause_syscall=${details.causeSyscall}` : undefined,
     details.causeAddress ? `cause_address=${details.causeAddress}` : undefined,
     details.causePort !== undefined ? `cause_port=${details.causePort}` : undefined,

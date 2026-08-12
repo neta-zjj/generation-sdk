@@ -39,14 +39,28 @@ function pickTraceHeaders(headers: Record<string, string>): Record<string, strin
   return output;
 }
 
+class DebugObserverError extends Error {
+  declare cause: unknown;
+
+  constructor(cause: unknown) {
+    super("Generation debug observer failed");
+    this.name = "DebugObserverError";
+    this.cause = cause;
+  }
+}
+
 function emitDebugRequest(debug: GenerationDebugConfig, url: string, init: RequestInit): number {
-  debug.logger({
-    type: "request",
-    url,
-    method: init.method ?? "GET",
-    headers: headersToRecord(init.headers),
-    body: parseDebugBody(init.body),
-  });
+  try {
+    debug.logger({
+      type: "request",
+      url,
+      method: init.method ?? "GET",
+      headers: headersToRecord(init.headers),
+      body: parseDebugBody(init.body),
+    });
+  } catch (cause) {
+    throw new DebugObserverError(cause);
+  }
   return Date.now();
 }
 
@@ -65,17 +79,21 @@ async function emitDebugResponse(
   response: Response,
   startedAt: number,
 ): Promise<void> {
-  const headers = headersToRecord(response.headers);
-  debug.logger({
-    type: "response",
-    url,
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-    trace: pickTraceHeaders(headers),
-    elapsedMs: Date.now() - startedAt,
-    ...(debug.includeResponseBody ? { body: await readDebugResponseBody(response) } : {}),
-  });
+  try {
+    const headers = headersToRecord(response.headers);
+    debug.logger({
+      type: "response",
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+      trace: pickTraceHeaders(headers),
+      elapsedMs: Date.now() - startedAt,
+      ...(debug.includeResponseBody ? { body: await readDebugResponseBody(response) } : {}),
+    });
+  } catch (cause) {
+    throw new DebugObserverError(cause);
+  }
 }
 
 export function createDebugFetch(fetchFn: typeof fetch, debug: GenerationDebugConfig): typeof fetch {
@@ -101,6 +119,7 @@ export async function fetchWithTimeout(
   try {
     return await fetchFn(url, { ...init, signal: controller.signal });
   } catch (error) {
+    if (error instanceof DebugObserverError) throw error.cause;
     if (error instanceof Error && error.name === "AbortError") throw new GenerationTimeoutError();
     throw new GenerationTransportError(transportErrorDetails(url, init, startedAt, error), error);
   } finally {
@@ -125,7 +144,6 @@ function transportErrorDetails(
     elapsedMs: Date.now() - startedAt,
     causeName: summary.causeName ?? summary.name,
     causeCode: summary.causeCode,
-    causeMessage: summary.causeMessage ?? summary.message,
     causeSyscall: summary.causeSyscall,
     causeAddress: summary.causeAddress,
     causePort: summary.causePort,
@@ -147,10 +165,8 @@ function transportErrorSummary(error: unknown) {
   const cause = isRecord(outer.cause) ? outer.cause : undefined;
   return compactObject({
     name: outer.name,
-    message: outer.message,
     causeName: stringProperty(cause, "name"),
     causeCode: stringProperty(cause, "code"),
-    causeMessage: stringProperty(cause, "message"),
     causeSyscall: stringProperty(cause, "syscall"),
     causeAddress: stringProperty(cause, "address"),
     causePort: stringOrNumberProperty(cause, "port"),

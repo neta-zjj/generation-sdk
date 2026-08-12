@@ -31,7 +31,6 @@ describe("generation HTTP transport errors", () => {
         path: "/v1/video/generations",
         causeName: "ConnectTimeoutError",
         causeCode: "UND_ERR_CONNECT_TIMEOUT",
-        causeMessage: "Connect Timeout Error",
         causeAddress: "47.77.179.20",
         causePort: 443,
       },
@@ -39,7 +38,6 @@ describe("generation HTTP transport errors", () => {
     });
     expect((error as Error).message).toContain("Generation transport failed method=POST");
     expect((error as Error).message).toContain("cause_code=UND_ERR_CONNECT_TIMEOUT");
-    expect((error as Error).message).toContain('cause_message="Connect Timeout Error"');
   });
 
   it("keeps SDK-owned aborts classified as timeouts", async () => {
@@ -93,7 +91,10 @@ describe("generation HTTP transport errors", () => {
   });
 
   it("removes query credentials from absolute transport error targets", async () => {
-    const cause = Object.assign(new Error("socket hang up"), { code: "ECONNRESET" });
+    const cause = Object.assign(
+      new Error("socket hang up https://router.neta.art/v1/video/generations?token=secret&signature=private"),
+      { code: "ECONNRESET" },
+    );
     const fetchMock = async () => {
       throw new TypeError("fetch failed", { cause });
     };
@@ -112,5 +113,31 @@ describe("generation HTTP transport errors", () => {
     });
     expect((error as Error).message).not.toContain("secret");
     expect((error as Error).message).not.toContain("private");
+    expect((error as GenerationTransportError).details).not.toHaveProperty("causeMessage");
+  });
+
+  it("keeps response debug failures out of transport error classification", async () => {
+    const loggerError = new Error("logger failed");
+    const fetchMock = async () => new Response("upstream unavailable", { status: 502 });
+    const client = createGenerationClient({
+      apiKey: "key",
+      debug: {
+        enabled: true,
+        logger: (event) => {
+          if (event.type === "response") throw loggerError;
+        },
+      },
+      fetch: fetchMock as typeof fetch,
+    });
+
+    const error = await client
+      .generate({
+        model: "seedance-2-0-fast",
+        content: [{ type: "text", text: "hello" }],
+      })
+      .catch((value: unknown) => value);
+
+    expect(error).toBe(loggerError);
+    expect(error).not.toBeInstanceOf(GenerationTransportError);
   });
 });

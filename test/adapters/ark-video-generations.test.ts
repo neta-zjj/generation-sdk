@@ -222,6 +222,38 @@ describe("ark.videoGenerations adapter", () => {
     } satisfies Partial<GenerationProviderError>);
   });
 
+  it("returns router request and failure diagnostics for HTTP errors", async () => {
+    const fetchMock = async () =>
+      new Response(JSON.stringify({ detail: "upstream unavailable" }), {
+        status: 502,
+        headers: {
+          "content-type": "application/json",
+          "x-request-id": "router-request-1",
+          "x-error-category": "router_error",
+          "cf-ray": "edge-ray-1",
+        },
+      });
+
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+    await expect(
+      client.generate({
+        model: "seedance-2-0-fast",
+        content: [{ type: "text", text: "hello" }],
+      }),
+    ).rejects.toMatchObject({
+      name: "GenerationProviderError",
+      status: 502,
+      details: {
+        requestId: "router-request-1",
+        errorCategory: "router_error",
+        trace: {
+          "cf-ray": "edge-ray-1",
+          "x-request-id": "router-request-1",
+        },
+      },
+    } satisfies Partial<GenerationProviderError>);
+  });
+
   it("preserves the router-generated first frame role", async () => {
     vi.useFakeTimers();
     const fetchMock = async (url: string | URL | Request) => {

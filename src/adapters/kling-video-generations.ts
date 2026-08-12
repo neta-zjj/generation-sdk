@@ -1,5 +1,5 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
-import { fetchWithTimeout, joinUrl } from "../http.js";
+import { fetchWithTimeout, joinUrl, providerResponseDetails } from "../http.js";
 import type { GenerationAdapterInput, GenerationContentBlock, GenerationSource } from "../types.js";
 import { compactObject, getBlockMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
@@ -327,11 +327,13 @@ async function requestJson(input: GenerationAdapterInput, path: string, init: Re
     throw new GenerationProviderError("Kling video provider returned invalid JSON", { status: response.status, body });
   }
   if (!response.ok) {
-    const details = isRecord(parsed) ? { details: parsed } : {};
     throw new GenerationProviderError("Kling video provider request failed", {
       status: response.status,
       body,
-      ...details,
+      details: {
+        ...(isRecord(parsed) ? parsed : {}),
+        ...providerResponseDetails(response),
+      },
     });
   }
   return parsed;

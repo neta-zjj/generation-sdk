@@ -136,6 +136,15 @@ export function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
 }
 
+export function providerResponseDetails(response: Response): Record<string, unknown> {
+  const headers = headersToRecord(response.headers);
+  return dropUndefined({
+    requestId: response.headers.get("x-request-id")?.trim() || undefined,
+    errorCategory: response.headers.get("x-error-category")?.trim() || undefined,
+    trace: nonEmptyRecord(pickTraceHeaders(headers)),
+  });
+}
+
 function transportErrorDetails(
   rawUrl: string,
   init: RequestInit,
@@ -196,4 +205,8 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function dropUndefined<T extends Record<string, unknown>>(value: T): T {
   return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as T;
+}
+
+function nonEmptyRecord(value: Record<string, string>): Record<string, string> | undefined {
+  return Object.keys(value).length > 0 ? value : undefined;
 }

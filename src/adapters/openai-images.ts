@@ -1,5 +1,5 @@
 import { GenerationProviderError, GenerationValidationError } from "../errors.js";
-import { fetchWithTimeout, joinUrl } from "../http.js";
+import { fetchWithTimeout, joinUrl, providerResponseDetails } from "../http.js";
 import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
 import { compactArray, compactObject } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
@@ -81,7 +81,11 @@ export async function openAiImagesAdapter(input: GenerationAdapterInput): Promis
 
   if (!response.ok) {
     const body = await response.text().catch(() => response.statusText);
-    throw new GenerationProviderError("Image generation provider request failed", { status: response.status, body });
+    throw new GenerationProviderError("Image generation provider request failed", {
+      status: response.status,
+      body,
+      details: providerResponseDetails(response),
+    });
   }
 
   const raw = (await response.json()) as OpenAiImagesResponse;

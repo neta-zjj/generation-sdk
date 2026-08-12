@@ -531,7 +531,7 @@ try {
     console.error(error.details?.stage, error.details?.causeCode);
   } else if (error instanceof GenerationProviderError) {
     console.error("Provider failed", error.message);
-    console.error(error.status, error.details?.requestId, error.details?.code);
+    console.error(error.status, error.details?.requestId, error.details?.errorCategory, error.details?.code);
   }
 }
 ```

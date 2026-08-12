@@ -1,5 +1,5 @@
 import { GenerationProviderError, GenerationValidationError } from "../errors.js";
-import { fetchWithTimeout, joinUrl } from "../http.js";
+import { fetchWithTimeout, joinUrl, providerResponseDetails } from "../http.js";
 import type {
   GenerationAdapter,
   GenerationAdapterInput,
@@ -200,6 +200,7 @@ function providerError(response: Response, rawBody: string): GenerationProviderE
     status: response.status,
     body: rawBody,
     details: {
+      ...providerResponseDetails(response),
       requestId,
       code,
       ...(parsedRecord ? { error: parsedRecord } : {}),

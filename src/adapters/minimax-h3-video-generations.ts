@@ -239,6 +239,7 @@ function extractTaskStatus(response: H3TaskResponse) {
 }
 
 async function requestJson(input: GenerationAdapterInput, path: string, init: RequestInit): Promise<unknown> {
+  const stage = init.method === "POST" ? "submit" : "poll";
   const response = await fetchWithTimeout(
     input.context.fetch,
     joinUrl(input.context.baseUrl, path),
@@ -251,6 +252,7 @@ async function requestJson(input: GenerationAdapterInput, path: string, init: Re
       },
     },
     REQUEST_TIMEOUT_MS,
+    { stage },
   );
   const body = await response.text();
   let parsed: unknown = {};

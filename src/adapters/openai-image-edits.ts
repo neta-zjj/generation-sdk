@@ -66,6 +66,7 @@ export async function openAiImageEditsAdapter(input: GenerationAdapterInput): Pr
       body,
     },
     REQUEST_TIMEOUT_MS,
+    { stage: "submit" },
   );
 
   if (!response.ok) {

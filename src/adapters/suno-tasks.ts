@@ -264,6 +264,7 @@ function validateSunoPayload(operation: string, payload: Record<string, unknown>
 }
 
 async function requestJson(input: GenerationAdapterInput, path: string, init: RequestInit): Promise<TaskResponse> {
+  const stage = path.startsWith("/suno/fetch") ? "poll" : "submit";
   const response = await fetchWithTimeout(
     input.context.fetch,
     joinUrl(input.context.baseUrl, path),
@@ -276,6 +277,7 @@ async function requestJson(input: GenerationAdapterInput, path: string, init: Re
       },
     },
     REQUEST_TIMEOUT_MS,
+    { stage },
   );
   const body = await response.text();
   let parsed: TaskResponse;

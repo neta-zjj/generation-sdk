@@ -1,5 +1,10 @@
-import { GenerationTimeoutError } from "./errors.js";
-import type { GenerationDebugConfig } from "./types.js";
+import {
+  GenerationTimeoutError,
+  GenerationTransportError,
+  type GenerationTransportErrorDetails,
+  type GenerationTransportStage,
+} from "./errors.js";
+import type { GenerationDebugConfig, GenerationDebugEvent } from "./types.js";
 
 function headersToRecord(headers: HeadersInit | undefined): Record<string, string> {
   if (!headers) return {};
@@ -82,25 +87,46 @@ export function createDebugFetch(fetchFn: typeof fetch, debug: GenerationDebugCo
     const url = String(input instanceof Request ? input.url : input);
     const requestInit = init ?? (input instanceof Request ? input : {});
     const startedAt = emitDebugRequest(debug, url, requestInit);
-    const response = await fetchFn(input, init);
-    await emitDebugResponse(debug, url, response, startedAt);
-    return response;
+    try {
+      const response = await fetchFn(input, init);
+      await emitDebugResponse(debug, url, response, startedAt);
+      return response;
+    } catch (error) {
+      const transportError = error instanceof GenerationTransportError ? error.cause : error;
+      debug.logger({
+        type: "transport_error",
+        url,
+        method: requestInit.method ?? "GET",
+        elapsedMs: Date.now() - startedAt,
+        error: transportErrorSummary(transportError) as GenerationDebugTransportError,
+      });
+      throw error;
+    }
   }) as typeof fetch;
 }
+
+export type FetchWithTimeoutOptions = {
+  stage?: GenerationTransportStage;
+};
 
 export async function fetchWithTimeout(
   fetchFn: typeof fetch,
   url: string,
   init: RequestInit,
   timeoutMs: number,
+  options: FetchWithTimeoutOptions = {},
 ): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = Date.now();
   try {
     return await fetchFn(url, { ...init, signal: controller.signal });
   } catch (error) {
     if (error instanceof Error && error.name === "AbortError") throw new GenerationTimeoutError();
-    throw error;
+    throw new GenerationTransportError(
+      transportErrorDetails(url, init, options.stage ?? "request", startedAt, error),
+      error,
+    );
   } finally {
     clearTimeout(timeout);
   }
@@ -108,4 +134,66 @@ export async function fetchWithTimeout(
 
 export function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+}
+
+function transportErrorDetails(
+  rawUrl: string,
+  init: RequestInit,
+  stage: GenerationTransportStage,
+  startedAt: number,
+  error: unknown,
+): GenerationTransportErrorDetails {
+  const url = new URL(rawUrl);
+  const summary = transportErrorSummary(error);
+  return dropUndefined({
+    stage,
+    method: (init.method ?? "GET").toUpperCase(),
+    host: url.host,
+    path: `${url.pathname}${url.search}`,
+    elapsedMs: Date.now() - startedAt,
+    responseReceived: false,
+    causeName: summary.causeName ?? summary.name,
+    causeCode: summary.causeCode,
+    causeMessage: summary.causeMessage ?? summary.message,
+    causeSyscall: summary.causeSyscall,
+    causeAddress: summary.causeAddress,
+    causePort: summary.causePort,
+  }) as GenerationTransportErrorDetails;
+}
+
+function transportErrorSummary(error: unknown) {
+  const outer = error instanceof Error ? error : new Error(String(error));
+  const cause = outer.cause instanceof Error || isRecord(outer.cause) ? outer.cause : undefined;
+  return dropUndefined({
+    name: outer.name,
+    message: outer.message,
+    causeName: stringProperty(cause, "name"),
+    causeCode: stringProperty(cause, "code"),
+    causeMessage: stringProperty(cause, "message"),
+    causeSyscall: stringProperty(cause, "syscall"),
+    causeAddress: stringProperty(cause, "address"),
+    causePort: stringOrNumberProperty(cause, "port"),
+  });
+}
+
+type GenerationDebugTransportError = Extract<GenerationDebugEvent, { type: "transport_error" }>["error"];
+
+function stringProperty(value: unknown, key: string): string | undefined {
+  if (!isRecord(value)) return undefined;
+  const item = value[key];
+  return typeof item === "string" && item.trim() ? item.trim() : undefined;
+}
+
+function stringOrNumberProperty(value: unknown, key: string): string | number | undefined {
+  if (!isRecord(value)) return undefined;
+  const item = value[key];
+  return typeof item === "string" || typeof item === "number" ? item : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function dropUndefined<T extends Record<string, unknown>>(value: T): T {
+  return Object.fromEntries(Object.entries(value).filter(([, item]) => item !== undefined)) as T;
 }

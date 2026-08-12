@@ -143,7 +143,7 @@ Use `--image-url` for reference images, `--out` to write base64 outputs to files
 
 ## Debug provider requests
 
-Pass `debug: true` to print the final provider request and response metadata to stderr. Sensitive fields such as `Authorization` and base64 image data are redacted by default.
+Pass `debug: true` to print the final provider request, response metadata, and transport failures to stderr. Transport failure events include bounded network diagnostics such as the nested error code and syscall. Sensitive fields such as `Authorization` and base64 image data are redacted by default.
 
 ```ts
 const client = createGenerationClient({
@@ -515,13 +515,20 @@ console.log(resolved.parameters);
 ## Error handling
 
 ```ts
-import { GenerationValidationError, GenerationProviderError } from "@neta-art/generation";
+import {
+  GenerationProviderError,
+  GenerationTransportError,
+  GenerationValidationError,
+} from "@neta-art/generation";
 
 try {
   await client.generate(request);
 } catch (error) {
   if (error instanceof GenerationValidationError) {
     console.error("Invalid request", error.message);
+  } else if (error instanceof GenerationTransportError) {
+    console.error("Provider transport failed", error.message);
+    console.error(error.details?.stage, error.details?.causeCode);
   } else if (error instanceof GenerationProviderError) {
     console.error("Provider failed", error.message);
     console.error(error.status, error.details?.requestId, error.details?.code);

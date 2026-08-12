@@ -76,6 +76,7 @@ export async function openAiImagesAdapter(input: GenerationAdapterInput): Promis
       body: JSON.stringify(payload),
     },
     REQUEST_TIMEOUT_MS,
+    { stage: "submit" },
   );
 
   if (!response.ok) {

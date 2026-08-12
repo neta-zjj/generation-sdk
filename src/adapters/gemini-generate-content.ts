@@ -168,6 +168,7 @@ export async function geminiGenerateContentAdapter(input: GenerationAdapterInput
       body: JSON.stringify(payload),
     },
     REQUEST_TIMEOUT_MS,
+    { stage: "submit" },
   );
 
   if (!response.ok) {

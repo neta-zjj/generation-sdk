@@ -148,6 +148,22 @@ export type GenerationDebugEvent =
       trace: Record<string, string>;
       elapsedMs: number;
       body?: unknown;
+    }
+  | {
+      type: "transport_error";
+      url: string;
+      method: string;
+      elapsedMs: number;
+      error: {
+        name: string;
+        message: string;
+        causeName?: string;
+        causeCode?: string;
+        causeMessage?: string;
+        causeSyscall?: string;
+        causeAddress?: string;
+        causePort?: string | number;
+      };
     };
 
 export type GenerationDebugLogger = (event: GenerationDebugEvent) => void;

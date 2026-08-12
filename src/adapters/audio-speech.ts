@@ -274,6 +274,7 @@ async function generateAudioSpeech(input: GenerationAdapterInput): Promise<Gener
       body: JSON.stringify(buildPayload(input)),
     },
     REQUEST_TIMEOUT_MS,
+    { stage: "submit" },
   );
   const rawBody = await response.text().catch(() => "");
   if (!response.ok) throw providerError(response, rawBody);

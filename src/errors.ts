@@ -48,7 +48,7 @@ export type GenerationTransportStage = "submit" | "poll" | "request";
 export type GenerationTransportErrorDetails = {
   stage: GenerationTransportStage;
   method: string;
-  host: string;
+  host?: string;
   path: string;
   elapsedMs: number;
   responseReceived: false;
@@ -82,7 +82,7 @@ function transportErrorMessage(details: GenerationTransportErrorDetails): string
     "Generation transport failed",
     `stage=${details.stage}`,
     `method=${details.method}`,
-    `host=${details.host}`,
+    details.host ? `host=${details.host}` : undefined,
     `path=${details.path}`,
     `elapsed_ms=${details.elapsedMs}`,
     `response_received=${details.responseReceived}`,

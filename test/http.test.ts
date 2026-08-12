@@ -113,6 +113,94 @@ describe("generation HTTP transport errors", () => {
     }
   });
 
+  it("preserves relative request targets when transport diagnostics are built", async () => {
+    const cause = Object.assign(new Error("socket hang up"), { code: "ECONNRESET" });
+    const fetchMock = async () => {
+      throw new TypeError("fetch failed", { cause });
+    };
+    const error = await fetchWithTimeout(
+      fetchMock as typeof fetch,
+      "/router/v1/video/generations",
+      { method: "POST" },
+      1_000,
+      { stage: "submit" },
+    ).catch((value: unknown) => value);
+
+    expect(error).toMatchObject({
+      name: "GenerationTransportError",
+      details: {
+        stage: "submit",
+        method: "POST",
+        path: "/router/v1/video/generations",
+        causeCode: "ECONNRESET",
+      },
+      cause: expect.any(TypeError),
+    });
+    expect((error as GenerationTransportError).details).not.toHaveProperty("host");
+  });
+
+  it("does not classify response debug failures as transport failures", async () => {
+    const events: GenerationDebugEvent["type"][] = [];
+    const fetchMock = async () => new Response("upstream unavailable", { status: 502 });
+    const client = createGenerationClient({
+      apiKey: "key",
+      debug: {
+        enabled: true,
+        logger: (event) => {
+          events.push(event.type);
+          if (event.type === "response") throw new Error("logger failed");
+        },
+      },
+      fetch: fetchMock as typeof fetch,
+    });
+
+    const error = await client
+      .generate({
+        model: "seedance-2-0-fast",
+        content: [{ type: "text", text: "hello" }],
+      })
+      .catch((value: unknown) => value);
+
+    expect(error).toMatchObject({
+      name: "GenerationProviderError",
+      status: 502,
+      body: "upstream unavailable",
+    });
+    expect(error).not.toBeInstanceOf(GenerationTransportError);
+    expect(events).toEqual(["request", "response"]);
+  });
+
+  it("does not replace a transport failure when its debug event fails", async () => {
+    const cause = Object.assign(new Error("socket hang up"), { code: "ECONNRESET" });
+    const fetchError = new TypeError("fetch failed", { cause });
+    const fetchMock = async () => {
+      throw fetchError;
+    };
+    const client = createGenerationClient({
+      apiKey: "key",
+      debug: {
+        enabled: true,
+        logger: (event) => {
+          if (event.type === "transport_error") throw new Error("logger failed");
+        },
+      },
+      fetch: fetchMock as typeof fetch,
+    });
+
+    const error = await client
+      .generate({
+        model: "seedance-2-0-fast",
+        content: [{ type: "text", text: "hello" }],
+      })
+      .catch((value: unknown) => value);
+
+    expect(error).toMatchObject({
+      name: "GenerationTransportError",
+      details: { causeCode: "ECONNRESET", causeMessage: "socket hang up" },
+      cause: fetchError,
+    });
+  });
+
   it("emits a redacted transport_error debug event", async () => {
     const events: GenerationDebugEvent[] = [];
     const cause = Object.assign(new Error("getaddrinfo EAI_AGAIN router.neta.art"), {

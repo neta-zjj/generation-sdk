@@ -43,15 +43,18 @@ function pickTraceHeaders(headers: Record<string, string>): Record<string, strin
   return output;
 }
 
-function emitDebugRequest(debug: GenerationDebugConfig, url: string, init: RequestInit): number {
-  debug.logger({
-    type: "request",
-    url,
-    method: init.method ?? "GET",
-    headers: headersToRecord(init.headers),
-    body: parseDebugBody(init.body),
-  });
-  return Date.now();
+function emitDebugRequest(debug: GenerationDebugConfig, url: string, init: RequestInit): void {
+  try {
+    debug.logger({
+      type: "request",
+      url,
+      method: init.method ?? "GET",
+      headers: headersToRecord(init.headers),
+      body: parseDebugBody(init.body),
+    });
+  } catch {
+    // Debug observers must not change request behavior.
+  }
 }
 
 async function readDebugResponseBody(response: Response): Promise<unknown> {
@@ -69,39 +72,59 @@ async function emitDebugResponse(
   response: Response,
   startedAt: number,
 ): Promise<void> {
-  const headers = headersToRecord(response.headers);
-  debug.logger({
-    type: "response",
-    url,
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-    trace: pickTraceHeaders(headers),
-    elapsedMs: Date.now() - startedAt,
-    ...(debug.includeResponseBody ? { body: await readDebugResponseBody(response) } : {}),
-  });
+  try {
+    const headers = headersToRecord(response.headers);
+    debug.logger({
+      type: "response",
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+      trace: pickTraceHeaders(headers),
+      elapsedMs: Date.now() - startedAt,
+      ...(debug.includeResponseBody ? { body: await readDebugResponseBody(response) } : {}),
+    });
+  } catch {
+    // Debug observers must not change response handling.
+  }
+}
+
+function emitDebugTransportError(
+  debug: GenerationDebugConfig,
+  url: string,
+  init: RequestInit,
+  startedAt: number,
+  error: unknown,
+): void {
+  try {
+    const transportError = error instanceof GenerationTransportError ? error.cause : error;
+    debug.logger({
+      type: "transport_error",
+      url,
+      method: init.method ?? "GET",
+      elapsedMs: Date.now() - startedAt,
+      error: transportErrorSummary(transportError) as GenerationDebugTransportError,
+    });
+  } catch {
+    // Preserve the original transport failure when debug logging fails.
+  }
 }
 
 export function createDebugFetch(fetchFn: typeof fetch, debug: GenerationDebugConfig): typeof fetch {
   return (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input instanceof Request ? input.url : input);
     const requestInit = init ?? (input instanceof Request ? input : {});
-    const startedAt = emitDebugRequest(debug, url, requestInit);
+    const startedAt = Date.now();
+    emitDebugRequest(debug, url, requestInit);
+    let response: Response;
     try {
-      const response = await fetchFn(input, init);
-      await emitDebugResponse(debug, url, response, startedAt);
-      return response;
+      response = await fetchFn(input, init);
     } catch (error) {
-      const transportError = error instanceof GenerationTransportError ? error.cause : error;
-      debug.logger({
-        type: "transport_error",
-        url,
-        method: requestInit.method ?? "GET",
-        elapsedMs: Date.now() - startedAt,
-        error: transportErrorSummary(transportError) as GenerationDebugTransportError,
-      });
+      emitDebugTransportError(debug, url, requestInit, startedAt, error);
       throw error;
     }
+    await emitDebugResponse(debug, url, response, startedAt);
+    return response;
   }) as typeof fetch;
 }
 
@@ -152,13 +175,11 @@ function transportErrorDetails(
   startedAt: number,
   error: unknown,
 ): GenerationTransportErrorDetails {
-  const url = new URL(rawUrl);
   const summary = transportErrorSummary(error);
   return dropUndefined({
     stage,
     method: (init.method ?? "GET").toUpperCase(),
-    host: url.host,
-    path: `${url.pathname}${url.search}`,
+    ...transportErrorTarget(rawUrl),
     elapsedMs: Date.now() - startedAt,
     responseReceived: false,
     causeName: summary.causeName ?? summary.name,
@@ -168,6 +189,15 @@ function transportErrorDetails(
     causeAddress: summary.causeAddress,
     causePort: summary.causePort,
   }) as GenerationTransportErrorDetails;
+}
+
+function transportErrorTarget(rawUrl: string): { host?: string; path: string } {
+  try {
+    const url = new URL(rawUrl);
+    return { host: url.host, path: `${url.pathname}${url.search}` };
+  } catch {
+    return { path: rawUrl };
+  }
 }
 
 function transportErrorSummary(error: unknown) {

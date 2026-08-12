@@ -1,5 +1,5 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
-import { fetchWithTimeout, joinUrl, providerResponseDetails } from "../http.js";
+import { fetchWithTimeout, joinUrl, providerResponseDetails, tryParseResponseJson } from "../http.js";
 import type {
   GenerationAdapterInput,
   GenerationContentBlock,
@@ -280,18 +280,16 @@ async function requestJson(input: GenerationAdapterInput, path: string, init: Re
     { stage },
   );
   const body = await response.text();
-  let parsed: TaskResponse;
-  try {
-    parsed = body ? (JSON.parse(body) as TaskResponse) : {};
-  } catch {
-    throw new GenerationProviderError("Suno provider returned invalid JSON", { status: response.status, body });
-  }
+  const parsed = tryParseResponseJson(body) as TaskResponse | undefined;
   if (!response.ok) {
     throw new GenerationProviderError("Suno provider request failed", {
       status: response.status,
-      details: { body: parsed, ...providerResponseDetails(response) },
+      body,
+      details: { body: parsed ?? body, ...providerResponseDetails(response) },
     });
   }
+  if (parsed === undefined)
+    throw new GenerationProviderError("Suno provider returned invalid JSON", { status: response.status, body });
   return parsed;
 }
 

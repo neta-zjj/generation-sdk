@@ -1,5 +1,5 @@
 import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
-import { fetchWithTimeout, joinUrl, providerResponseDetails } from "../http.js";
+import { fetchWithTimeout, joinUrl, providerResponseDetails, tryParseResponseJson } from "../http.js";
 import type { GenerationAdapterInput, GenerationContentBlock, GenerationSource } from "../types.js";
 import { compactObject, getBlockMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
@@ -255,12 +255,7 @@ async function requestJson(input: GenerationAdapterInput, path: string, init: Re
     { stage },
   );
   const body = await response.text();
-  let parsed: unknown = {};
-  try {
-    parsed = body ? JSON.parse(body) : {};
-  } catch {
-    throw new GenerationProviderError("MiniMax H3 provider returned invalid JSON", { status: response.status, body });
-  }
+  const parsed = tryParseResponseJson(body);
   if (!response.ok) {
     throw new GenerationProviderError("MiniMax H3 provider request failed", {
       status: response.status,
@@ -270,6 +265,9 @@ async function requestJson(input: GenerationAdapterInput, path: string, init: Re
         ...providerResponseDetails(response),
       },
     });
+  }
+  if (parsed === undefined) {
+    throw new GenerationProviderError("MiniMax H3 provider returned invalid JSON", { status: response.status, body });
   }
   return parsed;
 }

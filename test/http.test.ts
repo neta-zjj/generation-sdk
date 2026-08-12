@@ -120,7 +120,7 @@ describe("generation HTTP transport errors", () => {
     };
     const error = await fetchWithTimeout(
       fetchMock as typeof fetch,
-      "/router/v1/video/generations",
+      "/router/v1/video/generations?token=secret#diagnostic",
       { method: "POST" },
       1_000,
       { stage: "submit" },
@@ -137,6 +137,30 @@ describe("generation HTTP transport errors", () => {
       cause: expect.any(TypeError),
     });
     expect((error as GenerationTransportError).details).not.toHaveProperty("host");
+    expect((error as Error).message).not.toContain("secret");
+  });
+
+  it("removes query credentials from absolute transport error targets", async () => {
+    const cause = Object.assign(new Error("socket hang up"), { code: "ECONNRESET" });
+    const fetchMock = async () => {
+      throw new TypeError("fetch failed", { cause });
+    };
+    const error = await fetchWithTimeout(
+      fetchMock as typeof fetch,
+      "https://router.neta.art/v1/video/generations?token=secret&signature=private#diagnostic",
+      { method: "POST" },
+      1_000,
+      { stage: "submit" },
+    ).catch((value: unknown) => value);
+
+    expect(error).toMatchObject({
+      details: {
+        host: "router.neta.art",
+        path: "/v1/video/generations",
+      },
+    });
+    expect((error as Error).message).not.toContain("secret");
+    expect((error as Error).message).not.toContain("private");
   });
 
   it("does not classify response debug failures as transport failures", async () => {

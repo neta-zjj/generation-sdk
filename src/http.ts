@@ -27,6 +27,14 @@ function parseJsonBody(body: string): unknown {
   }
 }
 
+export function tryParseResponseJson(body: string): unknown | undefined {
+  try {
+    return body ? JSON.parse(body) : {};
+  } catch {
+    return undefined;
+  }
+}
+
 function parseDebugBody(body: BodyInit | null | undefined): unknown {
   if (typeof body !== "string") return body ? "[non-string body]" : undefined;
   return parseJsonBody(body);
@@ -194,9 +202,10 @@ function transportErrorDetails(
 function transportErrorTarget(rawUrl: string): { host?: string; path: string } {
   try {
     const url = new URL(rawUrl);
-    return { host: url.host, path: `${url.pathname}${url.search}` };
+    return { host: url.host, path: url.pathname };
   } catch {
-    return { path: rawUrl };
+    const suffixIndex = rawUrl.search(/[?#]/);
+    return { path: suffixIndex === -1 ? rawUrl : rawUrl.slice(0, suffixIndex) };
   }
 }
 

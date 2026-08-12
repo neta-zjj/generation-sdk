@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createGenerationClient } from "../../src/index.js";
+import { createGenerationClient, type GenerationProviderError } from "../../src/index.js";
 
 const sunoTaskModelCases = [
   {
@@ -47,6 +47,38 @@ const sunoTaskModelCases = [
 ] as const;
 
 describe("suno.tasks adapter", () => {
+  it("preserves router metadata on non-JSON HTTP errors", async () => {
+    const fetchMock = async () =>
+      new Response("gateway timeout", {
+        status: 504,
+        headers: {
+          "content-type": "text/plain",
+          "x-request-id": "router-request-3",
+          "x-error-category": "upstream_timeout",
+          "server-timing": "upstream;dur=30000",
+        },
+      });
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+
+    await expect(
+      client.generate({
+        model: "suno_music_chirp_fenix",
+        content: [{ type: "text", text: "warm piano" }],
+      }),
+    ).rejects.toMatchObject({
+      name: "GenerationProviderError",
+      message: "Suno provider request failed",
+      status: 504,
+      body: "gateway timeout",
+      details: {
+        body: "gateway timeout",
+        requestId: "router-request-3",
+        errorCategory: "upstream_timeout",
+        trace: { "server-timing": "upstream;dur=30000", "x-request-id": "router-request-3" },
+      },
+    } satisfies Partial<GenerationProviderError>);
+  });
+
   it("submits music tasks and polls successful song outputs", async () => {
     vi.useFakeTimers();
     const calls: Array<{ url: string; init: RequestInit }> = [];

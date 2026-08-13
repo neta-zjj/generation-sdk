@@ -40,6 +40,37 @@ describe("generation HTTP transport errors", () => {
     expect((error as Error).message).toContain("cause_code=UND_ERR_CONNECT_TIMEOUT");
   });
 
+  it("preserves diagnostics exposed directly by custom fetch errors", async () => {
+    const fetchError = Object.assign(new Error("socket hang up"), {
+      code: "ECONNRESET",
+      syscall: "read",
+      address: "47.77.179.20",
+      port: 443,
+    });
+    const fetchMock = async () => {
+      throw fetchError;
+    };
+
+    const error = await fetchWithTimeout(
+      fetchMock as typeof fetch,
+      "https://router.neta.art/v1/video/generations",
+      { method: "POST" },
+      1_000,
+    ).catch((value: unknown) => value);
+
+    expect(error).toMatchObject({
+      name: "GenerationTransportError",
+      details: {
+        causeName: "Error",
+        causeCode: "ECONNRESET",
+        causeSyscall: "read",
+        causeAddress: "47.77.179.20",
+        causePort: 443,
+      },
+      cause: fetchError,
+    });
+  });
+
   it("keeps SDK-owned aborts classified as timeouts", async () => {
     vi.useFakeTimers();
     const fetchMock = (_input: string | URL | Request, init?: RequestInit) =>

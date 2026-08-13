@@ -166,10 +166,10 @@ function transportErrorSummary(error: unknown) {
   return compactObject({
     name: outer.name,
     causeName: stringProperty(cause, "name"),
-    causeCode: stringProperty(cause, "code"),
-    causeSyscall: stringProperty(cause, "syscall"),
-    causeAddress: stringProperty(cause, "address"),
-    causePort: stringOrNumberProperty(cause, "port"),
+    causeCode: stringProperty(cause, "code") ?? stringProperty(outer, "code"),
+    causeSyscall: stringProperty(cause, "syscall") ?? stringProperty(outer, "syscall"),
+    causeAddress: stringProperty(cause, "address") ?? stringProperty(outer, "address"),
+    causePort: stringOrNumberProperty(cause, "port") ?? stringOrNumberProperty(outer, "port"),
   });
 }
 

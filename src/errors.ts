@@ -43,9 +43,50 @@ export class GenerationProviderError extends GenerationError {
   }
 }
 
+export type GenerationTransportErrorDetails = {
+  method: string;
+  host?: string;
+  path: string;
+  elapsedMs: number;
+  causeName?: string;
+  causeCode?: string;
+  causeSyscall?: string;
+  causeAddress?: string;
+  causePort?: string | number;
+};
+
+export class GenerationTransportError extends GenerationProviderError {
+  declare readonly details: GenerationTransportErrorDetails;
+
+  constructor(details: GenerationTransportErrorDetails, cause: unknown) {
+    super(transportErrorMessage(details), { details });
+    this.name = "GenerationTransportError";
+    this.cause = cause;
+  }
+
+  declare cause: unknown;
+}
+
 export class GenerationTimeoutError extends GenerationProviderError {
   constructor(message = "Generation request timed out", details?: Record<string, unknown>) {
     super(message, details ? { details } : undefined);
     this.name = "GenerationTimeoutError";
   }
+}
+
+function transportErrorMessage(details: GenerationTransportErrorDetails): string {
+  return [
+    "Generation transport failed",
+    `method=${details.method}`,
+    details.host ? `host=${details.host}` : undefined,
+    `path=${details.path}`,
+    `elapsed_ms=${details.elapsedMs}`,
+    details.causeCode ? `cause_code=${details.causeCode}` : undefined,
+    details.causeName ? `cause_name=${details.causeName}` : undefined,
+    details.causeSyscall ? `cause_syscall=${details.causeSyscall}` : undefined,
+    details.causeAddress ? `cause_address=${details.causeAddress}` : undefined,
+    details.causePort !== undefined ? `cause_port=${details.causePort}` : undefined,
+  ]
+    .filter((part): part is string => part !== undefined)
+    .join(" ");
 }

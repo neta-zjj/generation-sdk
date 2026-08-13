@@ -1,5 +1,6 @@
-import { GenerationTimeoutError } from "./errors.js";
+import { GenerationTimeoutError, GenerationTransportError, type GenerationTransportErrorDetails } from "./errors.js";
 import type { GenerationDebugConfig } from "./types.js";
+import { compactObject } from "./utils.js";
 
 function headersToRecord(headers: HeadersInit | undefined): Record<string, string> {
   if (!headers) return {};
@@ -38,14 +39,28 @@ function pickTraceHeaders(headers: Record<string, string>): Record<string, strin
   return output;
 }
 
+class DebugObserverError extends Error {
+  declare cause: unknown;
+
+  constructor(cause: unknown) {
+    super("Generation debug observer failed");
+    this.name = "DebugObserverError";
+    this.cause = cause;
+  }
+}
+
 function emitDebugRequest(debug: GenerationDebugConfig, url: string, init: RequestInit): number {
-  debug.logger({
-    type: "request",
-    url,
-    method: init.method ?? "GET",
-    headers: headersToRecord(init.headers),
-    body: parseDebugBody(init.body),
-  });
+  try {
+    debug.logger({
+      type: "request",
+      url,
+      method: init.method ?? "GET",
+      headers: headersToRecord(init.headers),
+      body: parseDebugBody(init.body),
+    });
+  } catch (cause) {
+    throw new DebugObserverError(cause);
+  }
   return Date.now();
 }
 
@@ -64,17 +79,21 @@ async function emitDebugResponse(
   response: Response,
   startedAt: number,
 ): Promise<void> {
-  const headers = headersToRecord(response.headers);
-  debug.logger({
-    type: "response",
-    url,
-    status: response.status,
-    statusText: response.statusText,
-    headers,
-    trace: pickTraceHeaders(headers),
-    elapsedMs: Date.now() - startedAt,
-    ...(debug.includeResponseBody ? { body: await readDebugResponseBody(response) } : {}),
-  });
+  try {
+    const headers = headersToRecord(response.headers);
+    debug.logger({
+      type: "response",
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+      trace: pickTraceHeaders(headers),
+      elapsedMs: Date.now() - startedAt,
+      ...(debug.includeResponseBody ? { body: await readDebugResponseBody(response) } : {}),
+    });
+  } catch (cause) {
+    throw new DebugObserverError(cause);
+  }
 }
 
 export function createDebugFetch(fetchFn: typeof fetch, debug: GenerationDebugConfig): typeof fetch {
@@ -96,11 +115,13 @@ export async function fetchWithTimeout(
 ): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = Date.now();
   try {
     return await fetchFn(url, { ...init, signal: controller.signal });
   } catch (error) {
+    if (error instanceof DebugObserverError) throw error.cause;
     if (error instanceof Error && error.name === "AbortError") throw new GenerationTimeoutError();
-    throw error;
+    throw new GenerationTransportError(transportErrorDetails(url, init, startedAt, error), error);
   } finally {
     clearTimeout(timeout);
   }
@@ -108,4 +129,62 @@ export async function fetchWithTimeout(
 
 export function joinUrl(baseUrl: string, path: string): string {
   return `${baseUrl.replace(/\/+$/, "")}/${path.replace(/^\/+/, "")}`;
+}
+
+function transportErrorDetails(
+  rawUrl: string,
+  init: RequestInit,
+  startedAt: number,
+  error: unknown,
+): GenerationTransportErrorDetails {
+  const summary = transportErrorSummary(error);
+  return compactObject({
+    method: (init.method ?? "GET").toUpperCase(),
+    ...transportErrorTarget(rawUrl),
+    elapsedMs: Date.now() - startedAt,
+    causeName: summary.causeName ?? summary.name,
+    causeCode: summary.causeCode,
+    causeSyscall: summary.causeSyscall,
+    causeAddress: summary.causeAddress,
+    causePort: summary.causePort,
+  }) as GenerationTransportErrorDetails;
+}
+
+function transportErrorTarget(rawUrl: string): { host?: string; path: string } {
+  try {
+    const url = new URL(rawUrl);
+    return { host: url.host, path: url.pathname };
+  } catch {
+    const suffixIndex = rawUrl.search(/[?#]/);
+    return { path: suffixIndex === -1 ? rawUrl : rawUrl.slice(0, suffixIndex) };
+  }
+}
+
+function transportErrorSummary(error: unknown) {
+  const outer = error instanceof Error ? error : new Error(String(error));
+  const cause = isRecord(outer.cause) ? outer.cause : undefined;
+  return compactObject({
+    name: outer.name,
+    causeName: stringProperty(cause, "name"),
+    causeCode: stringProperty(cause, "code") ?? stringProperty(outer, "code"),
+    causeSyscall: stringProperty(cause, "syscall") ?? stringProperty(outer, "syscall"),
+    causeAddress: stringProperty(cause, "address") ?? stringProperty(outer, "address"),
+    causePort: stringOrNumberProperty(cause, "port") ?? stringOrNumberProperty(outer, "port"),
+  });
+}
+
+function stringProperty(value: unknown, key: string): string | undefined {
+  if (!isRecord(value)) return undefined;
+  const item = value[key];
+  return typeof item === "string" && item.trim() ? item.trim() : undefined;
+}
+
+function stringOrNumberProperty(value: unknown, key: string): string | number | undefined {
+  if (!isRecord(value)) return undefined;
+  const item = value[key];
+  return typeof item === "string" || typeof item === "number" ? item : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }

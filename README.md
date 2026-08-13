@@ -515,13 +515,20 @@ console.log(resolved.parameters);
 ## Error handling
 
 ```ts
-import { GenerationValidationError, GenerationProviderError } from "@neta-art/generation";
+import {
+  GenerationProviderError,
+  GenerationTransportError,
+  GenerationValidationError,
+} from "@neta-art/generation";
 
 try {
   await client.generate(request);
 } catch (error) {
   if (error instanceof GenerationValidationError) {
     console.error("Invalid request", error.message);
+  } else if (error instanceof GenerationTransportError) {
+    console.error("Provider transport failed", error.message);
+    console.error(error.details?.causeCode, error.details?.causeSyscall);
   } else if (error instanceof GenerationProviderError) {
     console.error("Provider failed", error.message);
     console.error(error.status, error.details?.requestId, error.details?.code);

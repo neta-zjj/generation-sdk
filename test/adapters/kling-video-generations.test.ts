@@ -64,13 +64,20 @@ function createClient() {
 function createDebugClient() {
   const events: unknown[] = [];
   const fetchMock = async () => {
-    throw new Error("stop after debug request");
+    throw new Error("fetch should not be called");
   };
   return {
     client: createGenerationClient({
       apiKey: "sk-test",
       baseUrl: "https://router.example",
-      debug: { enabled: true, includeSensitive: true, logger: (event) => events.push(event) },
+      debug: {
+        enabled: true,
+        includeSensitive: true,
+        logger: (event) => {
+          events.push(event);
+          throw new Error("stop after debug request");
+        },
+      },
       fetch: fetchMock as typeof fetch,
     }),
     events,

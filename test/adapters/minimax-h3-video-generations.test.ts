@@ -159,7 +159,7 @@ describe("minimax.h3VideoGenerations adapter", () => {
     ]);
   });
 
-  it("serializes image, video, and audio references and uses adaptive ratio", async () => {
+  it("serializes image, video, and audio references and preserves the requested ratio", async () => {
     const { calls } = await runSuccessfulGeneration(
       [
         textBlock("keep the subject, motion, and soundtrack references"),
@@ -172,7 +172,7 @@ describe("minimax.h3VideoGenerations adapter", () => {
     );
     const body = parseCreateBody(calls);
 
-    expect(body).toMatchObject({ resolution: "2K", duration: 5, ratio: "adaptive", aigc_watermark: true });
+    expect(body).toMatchObject({ resolution: "2K", duration: 5, ratio: "9:16", aigc_watermark: true });
     expect(body.content).toEqual([
       { type: "text", text: "keep the subject, motion, and soundtrack references" },
       { type: "image_url", image_url: { url: "https://example.com/subject.png" }, role: "reference_image" },
@@ -182,10 +182,19 @@ describe("minimax.h3VideoGenerations adapter", () => {
     ]);
   });
 
-  it("normalizes compatibility ratios for frame inputs", async () => {
+  it("preserves fixed ratios for frame inputs", async () => {
     const { calls } = await runSuccessfulGeneration(
       [textBlock("animate the transition"), imageBlock("https://example.com/first.png", "first_frame")],
       { ratio: "9:16" },
+    );
+
+    expect(parseCreateBody(calls).ratio).toBe("9:16");
+  });
+
+  it("preserves adaptive ratio for media inputs", async () => {
+    const { calls } = await runSuccessfulGeneration(
+      [textBlock("animate the transition"), imageBlock("https://example.com/first.png", "first_frame")],
+      { ratio: "adaptive" },
     );
 
     expect(parseCreateBody(calls).ratio).toBe("adaptive");
@@ -206,7 +215,7 @@ describe("minimax.h3VideoGenerations adapter", () => {
     );
 
     expect(parseCreateBody(calls)).toMatchObject({
-      ratio: "adaptive",
+      ratio: "9:16",
       content: [
         { type: "text", text: "use the rhythm and mood from this soundtrack" },
         {
@@ -281,7 +290,7 @@ describe("minimax.h3VideoGenerations adapter", () => {
 
     const { calls } = await runSuccessfulGeneration(content);
 
-    expect(parseCreateBody(calls)).toMatchObject({ ratio: "adaptive" });
+    expect(parseCreateBody(calls)).toMatchObject({ ratio: "16:9" });
     expect(parseCreateBody(calls).content).toHaveLength(13);
   });
 });

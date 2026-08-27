@@ -179,10 +179,7 @@ function resolveRatio(value: unknown, mode: H3Mode): string {
   if (!(H3_RATIOS as readonly string[]).includes(requested)) {
     throw new GenerationValidationError(`MiniMax H3 ratio must be one of: ${H3_RATIOS.join(", ")}`);
   }
-  if (mode === "text") {
-    return requested === ADAPTIVE_RATIO ? DEFAULT_RATIO : requested;
-  }
-  return ADAPTIVE_RATIO;
+  return mode === "text" && requested === ADAPTIVE_RATIO ? DEFAULT_RATIO : requested;
 }
 
 function extractTaskId(response: H3CreateResponse): string {

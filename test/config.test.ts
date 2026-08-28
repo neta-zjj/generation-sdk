@@ -259,6 +259,15 @@ describe("config", () => {
     }
   });
 
+  it("keeps provider-managed Seedance parameters internal", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    for (const model of ["seedance-2-0", "seedance-2-0-fast"]) {
+      for (const parameter of ["fps", "generate_audio", "return_last_frame", "watermark"]) {
+        expect(client.getModel(model)?.parameters).not.toHaveProperty(parameter);
+      }
+    }
+  });
+
   it("publishes model-specific Seedance resolutions", () => {
     const client = createGenerationClient({ apiKey: "test" });
 

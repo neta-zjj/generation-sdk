@@ -118,6 +118,10 @@ describe("ark.videoGenerations adapter", () => {
     expect(metadata.content).toBeUndefined();
     expect(metadata.resolution).toBe("720p");
     expect(metadata.ratio).toBe("9:16");
+    expect(metadata.fps).toBe(24);
+    expect(metadata.generate_audio).toBe(true);
+    expect(metadata.return_last_frame).toBe(true);
+    expect(metadata.watermark).toBeUndefined();
   });
 
   it("rejects the removed aspect_ratio alias", async () => {

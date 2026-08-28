@@ -238,7 +238,7 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
   const resolution = asString(input.parameters.resolution) ?? "720p";
   const ratio = asString(input.request.parameters?.ratio) ?? asString(input.parameters.ratio) ?? "16:9";
   const duration = getIntegerParameter(input.parameters, "duration", 5);
-  const fps = getIntegerParameter(input.parameters, "fps", 30);
+  const fps = getIntegerParameter(input.parameters, "fps", 24);
   const pollIntervalSec = getIntegerParameter(input.parameters, "poll_interval", DEFAULT_POLL_INTERVAL_SEC);
   const maxWaitSec = getIntegerParameter(input.parameters, "max_wait", DEFAULT_MAX_WAIT_SEC);
   const generateAudio = asBoolean(input.parameters.generate_audio) ?? true;

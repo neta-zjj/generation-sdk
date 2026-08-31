@@ -21,10 +21,6 @@ function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
-function asInteger(value: unknown, fallback: number): number {
-  return typeof value === "number" && Number.isInteger(value) ? value : fallback;
-}
-
 function normalizeStatus(value: unknown): string {
   const status = String(value ?? "")
     .trim()
@@ -139,8 +135,8 @@ export async function videoUpscaleNativeAdapter(input: GenerationAdapterInput): 
   }
   const videoUrl = await input.context.resolveSource(video.source);
   validateResolvedUrl(videoUrl);
-  const pollIntervalSec = Math.max(1, asInteger(input.parameters.poll_interval, DEFAULT_POLL_INTERVAL_SEC));
-  const maxWaitSec = Math.max(30, asInteger(input.parameters.max_wait, DEFAULT_MAX_WAIT_SEC));
+  const pollIntervalSec = DEFAULT_POLL_INTERVAL_SEC;
+  const maxWaitSec = DEFAULT_MAX_WAIT_SEC;
 
   const task = (await requestJson(input, "/v1/video/generations", {
     method: "POST",

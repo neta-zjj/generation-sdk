@@ -1,7 +1,7 @@
 schema: neta.generation.model.v1
 model: video-upscale-native
-title: Native Video Upscale
-description: Upscales a video through Nieta's native video processing pipeline. Accepts one public HTTP(S) video URL.
+title: Video Upscale
+description: "Upscales a video. Recommended input: long edge under 1080 pixels."
 adapter:
   type: video.upscaleNative
 content:
@@ -13,21 +13,6 @@ content:
       sources:
         - url
       description: Public video URL to upscale.
-parameters:
-  poll_interval:
-    type: integer
-    optional: true
-    default: 2
-    min: 1
-    max: 30
-    description: Seconds between task status checks.
-  max_wait:
-    type: integer
-    optional: true
-    default: 600
-    min: 30
-    max: 1800
-    description: Maximum seconds to wait for task completion.
 examples:
   - title: Upscale video
     request:

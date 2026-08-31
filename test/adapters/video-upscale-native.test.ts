@@ -12,10 +12,6 @@ const declaration = {
   model: "video-upscale-native-test",
   adapter: { type: "video.upscaleNative" },
   content: { input: [{ type: "video", required: true, min: 1, max: 1, sources: ["url"] }] },
-  parameters: {
-    poll_interval: { type: "integer", optional: true, default: 2, min: 1, max: 30 },
-    max_wait: { type: "integer", optional: true, default: 600, min: 30, max: 1800 },
-  },
 } satisfies GenerationModelDeclaration;
 
 function videoBlock(url: string): GenerationContentBlock {
@@ -47,9 +43,8 @@ describe("video.upscaleNative adapter", () => {
       const promise = client.generate({
         model: declaration.model,
         content: [videoBlock("https://example.com/input.mp4")],
-        parameters: { poll_interval: 1, max_wait: 30 },
       });
-      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(2000);
       await expect(promise).resolves.toEqual([
         {
           type: "video",

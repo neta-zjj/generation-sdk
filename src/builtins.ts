@@ -856,6 +856,53 @@ const builtinModels = [
   ),
   {
     schema: MODEL_SCHEMA,
+    model: "video-upscale-native",
+    title: "Native Video Upscale",
+    description:
+      "Upscales a video through Nieta's native video processing pipeline. Accepts one public HTTP(S) video URL.",
+    adapter: { type: "video.upscaleNative" },
+    content: {
+      input: [
+        {
+          type: "video",
+          required: true,
+          min: 1,
+          max: 1,
+          sources: ["url"],
+          description: "Public video URL to upscale.",
+        },
+      ],
+    },
+    parameters: {
+      poll_interval: {
+        type: "integer",
+        optional: true,
+        default: 2,
+        min: 1,
+        max: 30,
+        description: "Seconds between task status checks.",
+      },
+      max_wait: {
+        type: "integer",
+        optional: true,
+        default: 600,
+        min: 30,
+        max: 1800,
+        description: "Maximum seconds to wait for task completion.",
+      },
+    },
+    examples: [
+      {
+        title: "Upscale video",
+        request: {
+          model: "video-upscale-native",
+          content: [{ type: "video", source: { type: "url", url: "https://example.com/input.mp4" } }],
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
     model: "kling-text-to-video",
     title: "Kling Text To Video",
     description:

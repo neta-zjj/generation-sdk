@@ -9,6 +9,7 @@ export {
   openAiImageEditsAdapter,
   openAiImagesAdapter,
   sunoTasksAdapter,
+  videoUpscaleNativeAdapter,
 } from "./adapters/index.js";
 export * from "./builtins.js";
 export * from "./client.js";

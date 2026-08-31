@@ -856,6 +856,34 @@ const builtinModels = [
   ),
   {
     schema: MODEL_SCHEMA,
+    model: "video-upscale-native",
+    title: "Video Upscale",
+    description: "Upscales a video. Recommended input: long edge under 1080 pixels.",
+    adapter: { type: "video.upscaleNative" },
+    content: {
+      input: [
+        {
+          type: "video",
+          required: true,
+          min: 1,
+          max: 1,
+          sources: ["url"],
+          description: "Public video URL to upscale.",
+        },
+      ],
+    },
+    examples: [
+      {
+        title: "Upscale video",
+        request: {
+          model: "video-upscale-native",
+          content: [{ type: "video", source: { type: "url", url: "https://example.com/input.mp4" } }],
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
     model: "kling-text-to-video",
     title: "Kling Text To Video",
     description:

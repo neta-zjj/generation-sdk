@@ -8,6 +8,7 @@ import { minimaxH3VideoGenerationsAdapter } from "./minimax-h3-video-generations
 import { openAiImageEditsAdapter } from "./openai-image-edits.js";
 import { openAiImagesAdapter } from "./openai-images.js";
 import { sunoTasksAdapter } from "./suno-tasks.js";
+import { videoUpscaleNativeAdapter } from "./video-upscale-native.js";
 
 export const builtinGenerationAdapters: Record<string, GenerationAdapter> = {
   "ark.videoGenerations": arkVideoGenerationsAdapter,
@@ -18,6 +19,7 @@ export const builtinGenerationAdapters: Record<string, GenerationAdapter> = {
   "openai.imageEdits": openAiImageEditsAdapter,
   "openai.images": openAiImagesAdapter,
   "suno.tasks": sunoTasksAdapter,
+  "video.upscaleNative": videoUpscaleNativeAdapter,
 };
 
 export function tryGetGenerationAdapter(
@@ -44,3 +46,4 @@ export * from "./minimax-h3-video-generations.js";
 export * from "./openai-image-edits.js";
 export * from "./openai-images.js";
 export * from "./suno-tasks.js";
+export * from "./video-upscale-native.js";

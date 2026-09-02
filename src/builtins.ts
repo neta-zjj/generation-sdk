@@ -349,6 +349,7 @@ function sunoVersionModel(version: (typeof sunoVersions)[number]): GenerationMod
     schema: MODEL_SCHEMA,
     model: version.model,
     title: version.title,
+    category: "audio",
     description:
       "High-quality music generation model for soundtracks and background music. Produces two MP3 tracks and two JPG cover images per request.",
     adapter: { type: "suno.tasks", operation: "music", payload: { mv: version.mv } },
@@ -377,6 +378,7 @@ function sunoTaskModel(options: {
     schema: MODEL_SCHEMA,
     model: options.model,
     title: options.title,
+    category: "audio",
     description: options.description,
     adapter: {
       type: "suno.tasks",
@@ -405,6 +407,7 @@ const sunoModels = [
     schema: MODEL_SCHEMA,
     model: "suno_style_tags",
     title: "Suno Style Tags",
+    category: "audio",
     description: "Suno style tag upsampling model.",
     adapter: { type: "suno.tasks", operation: "upsample_tags" },
     content: {
@@ -415,6 +418,7 @@ const sunoModels = [
     schema: MODEL_SCHEMA,
     model: "suno_upload_audio",
     title: "Suno Upload Audio",
+    category: "audio",
     description: "Suno reference-audio upload model.",
     adapter: { type: "suno.tasks", operation: "upload_audio", defaults: { name: "reference-audio", timeout: 120 } },
     content: {
@@ -531,6 +535,7 @@ function geminiImageModel(
     schema: MODEL_SCHEMA,
     model,
     title,
+    category: "image",
     description,
     adapter: { type: "gemini.generateContent" },
     content: {
@@ -577,6 +582,7 @@ function qwenTtsModel(
     schema: MODEL_SCHEMA,
     model,
     title,
+    category: "audio",
     description,
     adapter: { type: "openai.audioSpeech" },
     content: {
@@ -653,6 +659,7 @@ const audioSpeechModels = [
     schema: MODEL_SCHEMA,
     model: "higgs-tts",
     title: "Higgs TTS",
+    category: "audio",
     description:
       "Modes: built-in; one-reference high-fidelity clone; weighted 2-16-reference blend. Default: delegated generic voice (natural/suitable). Blend: all references, full text, one request. Conflict: clone + redesign; ask user, do not reinterpret. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
@@ -736,6 +743,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "gpt-image-2",
     title: "GPT Image 2",
+    category: "image",
     description:
       "Excels at photorealism, fine detail, text rendering, and sophisticated layouts. It accepts uploaded images as base or reference images and is particularly well suited to realistic imagery, mock website screenshots, infographics, and highly stylized, visually striking illustrations. Strong natural-language understanding and broad world knowledge help it follow complex prompts. Non-photorealistic styles may develop fine-grained texture and lighting artifacts, which can be corrected through prompt refinement or reference images. Low cost, but relatively slow.",
     adapter: { type: "openai.images" },
@@ -767,6 +775,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "krea2",
     title: "Krea 2",
+    category: "image",
     description:
       "Designed for visually refined image generation with broad aesthetic diversity. Strong natural-language understanding helps it follow detailed prompts. Text-only input; reference images are not supported. Relatively fast and low cost.",
     adapter: { type: "openai.images" },
@@ -789,6 +798,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "z-image-turbo",
     title: "Z-Image Turbo",
+    category: "image",
     description:
       "Fast text-to-image model. Z-Image Turbo accepts prompt text only and does not support reference images.",
     adapter: { type: "openai.images" },
@@ -813,6 +823,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "qwen-image-edit",
     title: "Qwen Image Edit",
+    category: "image",
     description: "Neta Qwen image editing with one source image URL and an edit instruction.",
     adapter: { type: "openai.imageEdits" },
     content: {
@@ -858,6 +869,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "video-upscale-native",
     title: "Video Upscale",
+    category: "video",
     description: "Upscales a video. Recommended input: long edge under 1080 pixels.",
     adapter: { type: "video.upscaleNative" },
     content: {
@@ -886,6 +898,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "kling-text-to-video",
     title: "Kling Text To Video",
+    category: "video",
     description:
       "One of the more affordable text-to-video models, well suited to short-form social media content and rapid creative validation.",
     adapter: { type: "kling.videoGenerations" },
@@ -908,6 +921,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "kling-image-to-video",
     title: "Kling Image To Video",
+    category: "video",
     description:
       "Animates a reference image into a short video. It has the same cost as Kling text-to-video and more permissive content moderation than Seedance.",
     adapter: { type: "kling.videoGenerations" },
@@ -943,6 +957,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "kling-omni-video",
     title: "Kling Omni Video",
+    category: "video",
     description: "Kling Omni-Video generation model.",
     adapter: { type: "kling.videoGenerations" },
     content: {
@@ -1004,6 +1019,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "kling-multi-image-to-video",
     title: "Kling Multi-Image Reference To Video",
+    category: "video",
     description: "Kling multi-image reference video generation model.",
     adapter: { type: "kling.videoGenerations" },
     content: {
@@ -1038,6 +1054,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "noobxl-t2i-onediff",
     title: "NoobXL T2I OneDiff",
+    category: "image",
     description:
       "Anime-specialized NoobXL text-to-image model for anime-style illustrations. It works best with English Danbooru tags, which can invoke specific anime characters and illustrator styles. Natural-language understanding is limited. Fast and extremely low cost.",
     allowUnknownParameters: true,
@@ -1061,6 +1078,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "noobxl-i2i-ipa-onediff",
     title: "NoobXL I2I IPA OneDiff",
+    category: "image",
     description:
       "Anime-specialized NoobXL image-to-image model that redraws a single uploaded image using it as a style or character reference. It works best with English Danbooru tags, which can invoke specific anime characters and illustrator styles. Natural-language understanding is limited. Fast and extremely low cost.",
     allowUnknownParameters: true,
@@ -1097,6 +1115,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "birefnet-general",
     title: "BiRefNet General",
+    category: "image",
     description:
       "Single-image background removal model that produces images with transparent backgrounds. Well suited to image post-processing and creating web assets. Fast and extremely low cost.",
     adapter: { type: "openai.images" },
@@ -1133,6 +1152,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "seedance-2-0",
     title: "Seedance 2.0",
+    category: "video",
     description:
       "High-quality video generation model that accepts text, image, and video inputs. Supports resolutions from 480p to 2K and is well suited to final deliverables.",
     adapter: { type: "ark.videoGenerations" },
@@ -1179,6 +1199,7 @@ const builtinModels = [
     schema: MODEL_SCHEMA,
     model: "seedance-2-0-fast",
     title: "Seedance 2.0 Fast",
+    category: "video",
     description:
       "Fast video generation model that accepts text, image, and video inputs. Faster and less expensive than seedance-2-0, making it well suited to creative validation and draft iteration.",
     adapter: { type: "ark.videoGenerations" },

@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: qwen-image-edit
 title: Qwen Image Edit
+category: image
 description: Neta Qwen image editing with one source image URL and an edit instruction.
 adapter:
   type: openai.imageEdits

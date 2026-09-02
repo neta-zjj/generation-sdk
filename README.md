@@ -437,6 +437,7 @@ neta-generation models export-all --out ./models
 schema: neta.generation.model.v1
 model: gpt-image-2
 title: GPT Image 2
+category: image
 adapter:
   type: openai.images
 content:
@@ -458,6 +459,8 @@ parameters:
     optional: true
     default: 1024x1024
 ```
+
+`category` is required catalog metadata (`image`, `video`, or `audio`). It is not a claim that the model emits only that media type.
 
 Set `hidden: true` on a declaration to hide the model from default discovery surfaces while keeping exact-ID lookup
 and generation available. This is a discovery hint, not an authorization or runtime availability control.

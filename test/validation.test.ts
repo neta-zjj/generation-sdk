@@ -199,6 +199,7 @@ function customModel(model: string): GenerationModelDeclaration {
   return {
     schema: MODEL_SCHEMA,
     model,
+    category: "image",
     adapter: { type: "custom.adapter" },
     content: {
       input: [{ type: "text", required: true, min: 1, max: 1 }],

@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: kling-omni-video
 title: Kling Omni Video
+category: video
 description: Kling Omni-Video generation model.
 adapter:
   type: kling.videoGenerations

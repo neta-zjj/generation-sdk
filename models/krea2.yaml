@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: krea2
 title: Krea 2
+category: image
 description: Designed for visually refined image generation with broad aesthetic diversity. Strong natural-language understanding helps it follow detailed prompts. Text-only input; reference images are not supported. Relatively fast and low cost.
 adapter:
   type: openai.images

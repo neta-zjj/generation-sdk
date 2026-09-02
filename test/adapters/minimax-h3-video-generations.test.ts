@@ -10,6 +10,7 @@ type FetchCall = { url: string; init: RequestInit };
 const h3Declaration = {
   schema: "neta.generation.model.v1",
   model: "minimax-h3-test",
+  category: "video",
   adapter: { type: "minimax.h3VideoGenerations" },
   content: {
     input: [

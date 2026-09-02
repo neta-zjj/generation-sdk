@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: suno_image_to_song_chirp_v5
 title: Suno Image to Song Chirp v5.0
+category: audio
 description: Suno image-to-song task with a fixed chirp-v5 engine.
 adapter:
   type: suno.tasks

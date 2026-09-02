@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: kling-image-to-video
 title: Kling Image To Video
+category: video
 description: Animates a reference image into a short video. It has the same cost as Kling text-to-video and more permissive content moderation than Seedance.
 adapter:
   type: kling.videoGenerations

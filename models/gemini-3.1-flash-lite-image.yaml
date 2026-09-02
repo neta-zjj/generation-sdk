@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: gemini-3.1-flash-lite-image
 title: Gemini 3.1 Flash Lite Image
+category: image
 description: Excels at text rendering, UI components and icons, commercial visuals, and image editing. It supports both photorealistic and non-photorealistic styles, producing clean, consistent results while preserving key features from references. Strong natural-language understanding and broad world knowledge help it follow complex prompts. This Lite variant produces fixed 1K output and is optimized for fast generation at a moderate price.
 adapter:
   type: gemini.generateContent

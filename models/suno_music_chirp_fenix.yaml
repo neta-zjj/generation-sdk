@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: suno_music_chirp_fenix
 title: Suno Music Chirp Fenix v5.5
+category: audio
 description: High-quality music generation model for soundtracks and background music. Produces two MP3 tracks and two JPG cover images per request.
 adapter:
   type: suno.tasks

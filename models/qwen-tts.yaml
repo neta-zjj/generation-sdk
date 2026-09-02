@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: qwen-tts
 title: Qwen TTS
+category: audio
 description: 'Modes: voice_prompt design OR one-reference clone. Default: unspecified Qwen design. Text: any length. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.'
 adapter:
   type: openai.audioSpeech

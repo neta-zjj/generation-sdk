@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: seedance-2-0
 title: Seedance 2.0
+category: video
 description: High-quality video generation model that accepts text, image, and video inputs. Supports resolutions from 480p to 2K and is well suited to final deliverables.
 adapter:
   type: ark.videoGenerations

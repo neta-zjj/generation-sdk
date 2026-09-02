@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: gemini-3.1-flash-image-preview
 title: Gemini 3.1 Flash Image Preview
+category: image
 description: Excels at text rendering, UI components and icons, commercial visuals, and image editing. It handles both photorealistic and non-photorealistic styles reliably, producing clean, consistent images while preserving key features from references. Strong natural-language understanding and broad world knowledge help it follow complex prompts. Its images are generally less expressive than those from gpt-image-2, and its style-transfer capabilities are weaker. Moderate speed, but relatively expensive.
 adapter:
   type: gemini.generateContent

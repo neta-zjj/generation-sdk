@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: video-upscale-native
 title: Video Upscale
+category: video
 description: "Upscales a video. Recommended input: long edge under 1080 pixels."
 adapter:
   type: video.upscaleNative

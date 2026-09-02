@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: suno_style_tags
 title: Suno Style Tags
+category: audio
 description: Suno style tag upsampling model.
 adapter:
   type: suno.tasks

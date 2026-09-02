@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: z-image-turbo
 title: Z-Image Turbo
+category: image
 description: Fast text-to-image model. Z-Image Turbo accepts prompt text only and does not support reference images.
 adapter:
   type: openai.images

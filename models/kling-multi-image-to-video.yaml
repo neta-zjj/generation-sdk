@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: kling-multi-image-to-video
 title: Kling Multi-Image Reference To Video
+category: video
 description: Kling multi-image reference video generation model.
 adapter:
   type: kling.videoGenerations

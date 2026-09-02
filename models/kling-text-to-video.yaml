@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: kling-text-to-video
 title: Kling Text To Video
+category: video
 description: One of the more affordable text-to-video models, well suited to short-form social media content and rapid creative validation.
 adapter:
   type: kling.videoGenerations

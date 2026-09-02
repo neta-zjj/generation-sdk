@@ -16,6 +16,110 @@ describe("config", () => {
     const declaration = parseGenerationModelDeclaration(raw, "gpt-image-2.yaml");
     expect(declaration.schema).toBe("neta.generation.model.v1");
     expect(declaration.model).toBe("gpt-image-2");
+    expect(declaration.category).toBe("image");
+  });
+
+  it("assigns catalog categories for published product models", async () => {
+    const client = createGenerationClient({ apiKey: "test" });
+    const expected = {
+      image: [
+        "birefnet-general",
+        "gemini-3.1-flash-image-preview",
+        "gemini-3.1-flash-lite-image",
+        "gpt-image-2",
+        "krea2",
+        "noobxl-i2i-ipa-onediff",
+        "noobxl-t2i-onediff",
+        "qwen-image-edit",
+        "z-image-turbo",
+      ],
+      video: [
+        "kling-image-to-video",
+        "kling-multi-image-to-video",
+        "kling-omni-video",
+        "kling-text-to-video",
+        "seedance-2-0",
+        "seedance-2-0-fast",
+        "video-upscale-native",
+      ],
+      audio: ["suno_music_chirp_fenix"],
+    } as const;
+
+    const byCategory = {
+      image: client
+        .listModels()
+        .filter((model) => model.category === "image")
+        .map((model) => model.model),
+      video: client
+        .listModels()
+        .filter((model) => model.category === "video")
+        .map((model) => model.model),
+      audio: client
+        .listModels()
+        .filter((model) => model.category === "audio")
+        .map((model) => model.model),
+    };
+
+    expect(byCategory.image.sort()).toEqual([...expected.image]);
+    expect(byCategory.video.sort()).toEqual([...expected.video]);
+    expect(byCategory.audio.sort()).toEqual([...expected.audio]);
+    for (const model of [
+      "higgs-tts",
+      "qwen-tts",
+      "qwen-audio-3.0-tts-plus",
+      "qwen-audio-3.0-tts-flash",
+      "suno_cover_chirp_v5",
+      "suno_image_to_song_chirp_v5",
+      "suno_infill_chirp_v5",
+      "suno_sound_chirp_v5",
+      "suno_style_tags",
+      "suno_upload_audio",
+      "suno_video_to_song_chirp_v5",
+      "suno_vox_chirp_v5",
+    ]) {
+      expect(client.getModel(model)?.category, model).toBeUndefined();
+    }
+    expect(byCategory.image.length + byCategory.video.length + byCategory.audio.length).toBe(
+      client.listModels().filter((model) => model.category !== undefined).length,
+    );
+
+    const files = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
+    expect(files.map((model) => [model.model, model.category]).sort()).toEqual(
+      client
+        .listModels()
+        .map((model) => [model.model, model.category])
+        .sort(),
+    );
+  });
+
+  it("accepts older v1 declarations that omit category", () => {
+    const valid = stringifyBuiltinModelConfig("gpt-image-2", { format: "json" });
+    const parsed = JSON.parse(valid) as Record<string, unknown>;
+    const withoutCategory = { ...parsed };
+    delete withoutCategory.category;
+
+    const declaration = parseGenerationModelDeclaration(JSON.stringify(withoutCategory), "gpt-image-2.json");
+    expect(declaration.model).toBe("gpt-image-2");
+    expect(declaration.category).toBeUndefined();
+  });
+
+  it("rejects model declarations with an invalid category", () => {
+    const valid = stringifyBuiltinModelConfig("gpt-image-2", { format: "json" });
+    const parsed = JSON.parse(valid) as Record<string, unknown>;
+
+    expect(() =>
+      parseGenerationModelDeclaration(JSON.stringify({ ...parsed, category: "music" }), "gpt-image-2.json"),
+    ).toThrow("Invalid model declaration: gpt-image-2.json");
+    expect(() =>
+      parseGenerationModelDeclaration(JSON.stringify({ ...parsed, category: "outputType" }), "gpt-image-2.json"),
+    ).toThrow("Invalid model declaration: gpt-image-2.json");
+    expect(() =>
+      parseGenerationModelDeclaration(JSON.stringify({ ...parsed, category: null }), "gpt-image-2.json"),
+    ).toThrow("Invalid model declaration: gpt-image-2.json");
+
+    expect(
+      parseGenerationModelDeclaration(JSON.stringify({ ...parsed, category: "audio" }), "gpt-image-2.json").category,
+    ).toBe("audio");
   });
 
   it("roundtrips built-in model meta declarations", () => {

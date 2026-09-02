@@ -2,7 +2,12 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { extname, join } from "node:path";
 import { parse as parseYaml, stringify as stringifyYaml } from "yaml";
 import { GenerationConfigError } from "./errors.js";
-import { type GenerationModelDeclaration, MODEL_SCHEMA } from "./types.js";
+import {
+  GENERATION_MODEL_CATEGORIES,
+  type GenerationModelCategory,
+  type GenerationModelDeclaration,
+  MODEL_SCHEMA,
+} from "./types.js";
 import { cloneJson, slugifyFileName } from "./utils.js";
 
 const DECLARATION_EXTENSIONS = new Set([".yaml", ".yml", ".json"]);
@@ -47,6 +52,10 @@ function isMetaTaskVariantSpec(value: unknown): boolean {
   );
 }
 
+function isGenerationModelCategory(value: unknown): value is GenerationModelCategory {
+  return typeof value === "string" && (GENERATION_MODEL_CATEGORIES as readonly string[]).includes(value);
+}
+
 function isMetaSpec(value: unknown): boolean {
   if (!isRecord(value)) return false;
   return (
@@ -70,6 +79,7 @@ export function isGenerationModelDeclaration(value: unknown): value is Generatio
     value.schema === MODEL_SCHEMA &&
     typeof value.model === "string" &&
     value.model.trim().length > 0 &&
+    (value.category === undefined || isGenerationModelCategory(value.category)) &&
     (value.hidden === undefined || typeof value.hidden === "boolean") &&
     (value.allowUnknownParameters === undefined || typeof value.allowUnknownParameters === "boolean") &&
     isRecord(adapter) &&

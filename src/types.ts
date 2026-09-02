@@ -1,5 +1,9 @@
 export const MODEL_SCHEMA = "neta.generation.model.v1" as const;
 
+export const GENERATION_MODEL_CATEGORIES = ["image", "video", "audio"] as const;
+
+export type GenerationModelCategory = (typeof GENERATION_MODEL_CATEGORIES)[number];
+
 export type GenerationSource = { type: "url"; url: string } | { type: "base64"; mediaType: string; data: string };
 
 export type GenerationContentBlockMeta = Record<string, unknown>;
@@ -93,6 +97,8 @@ export type GenerationModelDeclaration = {
   schema: typeof MODEL_SCHEMA;
   model: string;
   title?: string;
+  /** Product catalog class. */
+  category?: GenerationModelCategory;
   description?: string;
   /** Hide from default discovery while keeping exact-ID lookup and runtime use available. */
   hidden?: boolean;

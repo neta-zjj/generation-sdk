@@ -437,6 +437,7 @@ neta-generation models export-all --out ./models
 schema: neta.generation.model.v1
 model: gpt-image-2
 title: GPT Image 2
+category: image
 adapter:
   type: openai.images
 content:

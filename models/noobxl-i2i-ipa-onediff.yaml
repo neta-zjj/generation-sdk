@@ -1,6 +1,7 @@
 schema: neta.generation.model.v1
 model: noobxl-i2i-ipa-onediff
 title: NoobXL I2I IPA OneDiff
+category: image
 description: Anime-specialized NoobXL image-to-image model that redraws a single uploaded image using it as a style or character reference. It works best with English Danbooru tags, which can invoke specific anime characters and illustrator styles. Natural-language understanding is limited. Fast and extremely low cost.
 allowUnknownParameters: true
 adapter:

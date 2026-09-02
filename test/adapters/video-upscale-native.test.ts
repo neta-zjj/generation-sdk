@@ -10,6 +10,7 @@ type FetchCall = { url: string; init: RequestInit };
 const declaration = {
   schema: "neta.generation.model.v1",
   model: "video-upscale-native-test",
+  category: "video",
   adapter: { type: "video.upscaleNative" },
   content: { input: [{ type: "video", required: true, min: 1, max: 1, sources: ["url"] }] },
 } satisfies GenerationModelDeclaration;

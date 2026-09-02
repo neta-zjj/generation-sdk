@@ -378,7 +378,6 @@ function sunoTaskModel(options: {
     schema: MODEL_SCHEMA,
     model: options.model,
     title: options.title,
-    category: "audio",
     description: options.description,
     adapter: {
       type: "suno.tasks",
@@ -407,7 +406,6 @@ const sunoModels = [
     schema: MODEL_SCHEMA,
     model: "suno_style_tags",
     title: "Suno Style Tags",
-    category: "audio",
     description: "Suno style tag upsampling model.",
     adapter: { type: "suno.tasks", operation: "upsample_tags" },
     content: {
@@ -418,7 +416,6 @@ const sunoModels = [
     schema: MODEL_SCHEMA,
     model: "suno_upload_audio",
     title: "Suno Upload Audio",
-    category: "audio",
     description: "Suno reference-audio upload model.",
     adapter: { type: "suno.tasks", operation: "upload_audio", defaults: { name: "reference-audio", timeout: 120 } },
     content: {
@@ -582,7 +579,6 @@ function qwenTtsModel(
     schema: MODEL_SCHEMA,
     model,
     title,
-    category: "audio",
     description,
     adapter: { type: "openai.audioSpeech" },
     content: {
@@ -659,7 +655,6 @@ const audioSpeechModels = [
     schema: MODEL_SCHEMA,
     model: "higgs-tts",
     title: "Higgs TTS",
-    category: "audio",
     description:
       "Modes: built-in; one-reference high-fidelity clone; weighted 2-16-reference blend. Default: delegated generic voice (natural/suitable). Blend: all references, full text, one request. Conflict: clone + redesign; ask user, do not reinterpret. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },

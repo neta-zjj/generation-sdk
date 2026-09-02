@@ -460,8 +460,6 @@ parameters:
     default: 1024x1024
 ```
 
-`category` is catalog metadata (`image`, `video`, or `audio`). It is not a claim that the model emits only that media type. First-party models always set it. Older v1 files may omit it; parsers still accept those declarations.
-
 Set `hidden: true` on a declaration to hide the model from default discovery surfaces while keeping exact-ID lookup
 and generation available. This is a discovery hint, not an authorization or runtime availability control.
 `listModels()` returns the complete model catalog, including hidden models, so each user-facing discovery surface can

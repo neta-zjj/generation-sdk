@@ -1,7 +1,6 @@
 schema: neta.generation.model.v1
 model: suno_upload_audio
 title: Suno Upload Audio
-category: audio
 description: Suno reference-audio upload model.
 adapter:
   type: suno.tasks

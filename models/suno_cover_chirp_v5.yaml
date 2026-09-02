@@ -1,7 +1,6 @@
 schema: neta.generation.model.v1
 model: suno_cover_chirp_v5
 title: Suno Cover Chirp v5.0
-category: audio
 description: Suno cover task with a fixed chirp-v5 engine.
 adapter:
   type: suno.tasks

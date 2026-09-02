@@ -1,7 +1,6 @@
 schema: neta.generation.model.v1
 model: suno_vox_chirp_v5
 title: Suno Vox Chirp v5.0
-category: audio
 description: Suno hum-to-song task with a fixed chirp-v5 engine.
 adapter:
   type: suno.tasks

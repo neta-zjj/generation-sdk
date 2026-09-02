@@ -19,7 +19,7 @@ describe("config", () => {
     expect(declaration.category).toBe("image");
   });
 
-  it("requires a catalog category on every built-in and published model", async () => {
+  it("assigns catalog categories for published product models", async () => {
     const client = createGenerationClient({ apiKey: "test" });
     const expected = {
       image: [
@@ -42,21 +42,7 @@ describe("config", () => {
         "seedance-2-0-fast",
         "video-upscale-native",
       ],
-      audio: [
-        "higgs-tts",
-        "qwen-audio-3.0-tts-flash",
-        "qwen-audio-3.0-tts-plus",
-        "qwen-tts",
-        "suno_cover_chirp_v5",
-        "suno_image_to_song_chirp_v5",
-        "suno_infill_chirp_v5",
-        "suno_music_chirp_fenix",
-        "suno_sound_chirp_v5",
-        "suno_style_tags",
-        "suno_upload_audio",
-        "suno_video_to_song_chirp_v5",
-        "suno_vox_chirp_v5",
-      ],
+      audio: ["suno_music_chirp_fenix"],
     } as const;
 
     const byCategory = {
@@ -77,8 +63,24 @@ describe("config", () => {
     expect(byCategory.image.sort()).toEqual([...expected.image]);
     expect(byCategory.video.sort()).toEqual([...expected.video]);
     expect(byCategory.audio.sort()).toEqual([...expected.audio]);
+    for (const model of [
+      "higgs-tts",
+      "qwen-tts",
+      "qwen-audio-3.0-tts-plus",
+      "qwen-audio-3.0-tts-flash",
+      "suno_cover_chirp_v5",
+      "suno_image_to_song_chirp_v5",
+      "suno_infill_chirp_v5",
+      "suno_sound_chirp_v5",
+      "suno_style_tags",
+      "suno_upload_audio",
+      "suno_video_to_song_chirp_v5",
+      "suno_vox_chirp_v5",
+    ]) {
+      expect(client.getModel(model)?.category, model).toBeUndefined();
+    }
     expect(byCategory.image.length + byCategory.video.length + byCategory.audio.length).toBe(
-      client.listModels().length,
+      client.listModels().filter((model) => model.category !== undefined).length,
     );
 
     const files = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));

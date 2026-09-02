@@ -90,20 +90,29 @@ describe("config", () => {
     );
   });
 
-  it("rejects model declarations with a missing or invalid category", () => {
+  it("accepts older v1 declarations that omit category", () => {
     const valid = stringifyBuiltinModelConfig("gpt-image-2", { format: "json" });
     const parsed = JSON.parse(valid) as Record<string, unknown>;
     const withoutCategory = { ...parsed };
     delete withoutCategory.category;
 
-    expect(() => parseGenerationModelDeclaration(JSON.stringify(withoutCategory), "gpt-image-2.json")).toThrow(
-      "Invalid model declaration: gpt-image-2.json",
-    );
+    const declaration = parseGenerationModelDeclaration(JSON.stringify(withoutCategory), "gpt-image-2.json");
+    expect(declaration.model).toBe("gpt-image-2");
+    expect(declaration.category).toBeUndefined();
+  });
+
+  it("rejects model declarations with an invalid category", () => {
+    const valid = stringifyBuiltinModelConfig("gpt-image-2", { format: "json" });
+    const parsed = JSON.parse(valid) as Record<string, unknown>;
+
     expect(() =>
       parseGenerationModelDeclaration(JSON.stringify({ ...parsed, category: "music" }), "gpt-image-2.json"),
     ).toThrow("Invalid model declaration: gpt-image-2.json");
     expect(() =>
       parseGenerationModelDeclaration(JSON.stringify({ ...parsed, category: "outputType" }), "gpt-image-2.json"),
+    ).toThrow("Invalid model declaration: gpt-image-2.json");
+    expect(() =>
+      parseGenerationModelDeclaration(JSON.stringify({ ...parsed, category: null }), "gpt-image-2.json"),
     ).toThrow("Invalid model declaration: gpt-image-2.json");
 
     expect(

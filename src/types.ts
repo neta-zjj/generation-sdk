@@ -97,8 +97,11 @@ export type GenerationModelDeclaration = {
   schema: typeof MODEL_SCHEMA;
   model: string;
   title?: string;
-  /** Product catalog class. Not a claim that the model emits only this media type. */
-  category: GenerationModelCategory;
+  /**
+   * Product catalog class. Not a claim that the model emits only this media type.
+   * Omitted on older v1 files; first-party models always set it.
+   */
+  category?: GenerationModelCategory;
   description?: string;
   /** Hide from default discovery while keeping exact-ID lookup and runtime use available. */
   hidden?: boolean;

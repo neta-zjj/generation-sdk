@@ -38,8 +38,6 @@ describe("config", () => {
         "kling-multi-image-to-video",
         "kling-omni-video",
         "kling-text-to-video",
-        "minimax-h3",
-        "minimax-h3-unrestricted",
         "seedance-2-0",
         "seedance-2-0-fast",
         "video-upscale-native",
@@ -362,31 +360,6 @@ describe("config", () => {
     for (const model of ["seedance-2-0", "seedance-2-0-fast"]) {
       expect(client.getModel(model)?.parameters).toHaveProperty("ratio");
       expect(client.getModel(model)?.parameters).not.toHaveProperty("aspect_ratio");
-    }
-  });
-
-  it("publishes separate MiniMax H3 model capabilities without local size limits", () => {
-    const client = createGenerationClient({ apiKey: "test" });
-    const standard = client.getModel("minimax-h3");
-    const unrestricted = client.getModel("minimax-h3-unrestricted");
-
-    expect(standard?.parameters?.resolution).toMatchObject({
-      type: "string",
-      default: "768P",
-    });
-    expect(unrestricted?.parameters?.resolution).toMatchObject({
-      type: "string",
-      default: "768P",
-    });
-    expect(standard?.parameters?.resolution).not.toHaveProperty("enum");
-    expect(unrestricted?.parameters?.resolution).not.toHaveProperty("enum");
-    for (const model of ["minimax-h3", "minimax-h3-unrestricted"]) {
-      const resolved = client.validate({
-        model,
-        content: [{ type: "text", text: "a simple motion study" }],
-        parameters: { duration: 42, resolution: "4K" },
-      });
-      expect(resolved.parameters).toMatchObject({ duration: 42, resolution: "4K" });
     }
   });
 

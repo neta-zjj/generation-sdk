@@ -179,8 +179,6 @@ const client = createGenerationClient({
 - `kling-image-to-video`
 - `kling-omni-video`
 - `kling-multi-image-to-video`
-- `minimax-h3`
-- `minimax-h3-unrestricted`
 - `seedance-2-0`
 - `seedance-2-0-fast`
 - `suno_music_chirp_fenix`

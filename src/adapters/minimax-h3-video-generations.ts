@@ -156,10 +156,6 @@ function buildContent(prompt: string, media: H3ResolvedMedia[]): H3ContentItem[]
   ];
 }
 
-function resolveUpstreamModel(input: GenerationAdapterInput): string {
-  return asString(input.declaration.adapter.upstream_model) ?? input.declaration.model;
-}
-
 function resolveResolution(value: unknown): string {
   return asString(value) ?? "768P";
 }
@@ -276,7 +272,7 @@ export async function minimaxH3VideoGenerationsAdapter(
   const maxWaitSec = Math.max(30, asInteger(input.parameters.max_wait, DEFAULT_MAX_WAIT_SEC));
   const aigcWatermark = asBoolean(input.parameters.aigc_watermark, false);
   const payload = {
-    model: resolveUpstreamModel(input),
+    model: input.declaration.model,
     content: buildContent(prompt, media),
     resolution,
     duration,

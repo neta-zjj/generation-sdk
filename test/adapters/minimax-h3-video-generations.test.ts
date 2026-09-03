@@ -9,7 +9,7 @@ type FetchCall = { url: string; init: RequestInit };
 
 const h3Declaration = {
   schema: "neta.generation.model.v1",
-  model: "minimax-h3-test",
+  model: "minimax-h3",
   category: "video",
   adapter: { type: "minimax.h3VideoGenerations" },
   content: {
@@ -124,7 +124,7 @@ describe("minimax.h3VideoGenerations adapter", () => {
     expect(calls[0]?.url).toBe("https://router.neta.art/v1/video/generations");
     expect(calls[1]?.url).toBe("https://router.neta.art/v1/video/generations/task-1");
     expect(body).toEqual({
-      model: "minimax-h3-test",
+      model: "minimax-h3",
       content: [{ type: "text", text: "a red cube rotating on a white table" }],
       resolution: "768P",
       duration: 5,
@@ -192,11 +192,10 @@ describe("minimax.h3VideoGenerations adapter", () => {
     expect(parseCreateBody(calls)).toMatchObject({ duration: 42, resolution: "4K" });
   });
 
-  it("uses the configured upstream model for a public alias", async () => {
+  it("uses the declaration model for the unrestricted alias", async () => {
     const declaration = {
       ...h3Declaration,
-      model: "minimax-h3-unrestricted-test",
-      adapter: { ...h3Declaration.adapter, upstream_model: "MiniMax-H3-unrestricted" },
+      model: "minimax-h3-unrestricted",
     } satisfies GenerationModelDeclaration;
     const { calls } = await runSuccessfulGeneration(
       [textBlock("a custom-size shot")],
@@ -206,7 +205,7 @@ describe("minimax.h3VideoGenerations adapter", () => {
     );
 
     expect(parseCreateBody(calls)).toMatchObject({
-      model: "MiniMax-H3-unrestricted",
+      model: "minimax-h3-unrestricted",
       duration: 15,
       resolution: "4K",
     });

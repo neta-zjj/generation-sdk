@@ -39,8 +39,8 @@ const h3Declaration = {
     ],
   },
   parameters: {
-    duration: { type: "integer", optional: true, default: 5, min: 4, max: 15 },
-    resolution: { type: "string", optional: true, default: "768P", enum: ["768P", "2K"] },
+    duration: { type: "integer", optional: true, default: 5 },
+    resolution: { type: "string", optional: true, default: "768P" },
     ratio: {
       type: "string",
       optional: true,
@@ -181,6 +181,14 @@ describe("minimax.h3VideoGenerations adapter", () => {
       { type: "video_url", video_url: { url: "https://example.com/motion.mp4" }, role: "reference_video" },
       { type: "audio_url", audio_url: { url: "https://example.com/voice.mp3" }, role: "reference_audio" },
     ]);
+  });
+
+  it("passes duration and resolution through for NewAPI to validate", async () => {
+    const { calls } = await runSuccessfulGeneration(
+      [textBlock("a long high-resolution shot")],
+      { duration: 42, resolution: "4K" },
+    );
+    expect(parseCreateBody(calls)).toMatchObject({ duration: 42, resolution: "4K" });
   });
 
   it("preserves fixed ratios for frame inputs", async () => {

@@ -6,9 +6,7 @@ import { mergeTextBlocks } from "../validation.js";
 
 const REQUEST_TIMEOUT_MS = 1_860_000;
 const DEFAULT_POLL_INTERVAL_SEC = 2;
-const DEFAULT_MAX_WAIT_SEC = 600;
-const MIN_DURATION_SEC = 4;
-const MAX_DURATION_SEC = 15;
+const DEFAULT_MAX_WAIT_SEC = 1800;
 const MAX_MEDIA_COUNT = 12;
 const MAX_REFERENCE_IMAGES = 9;
 const MAX_REFERENCE_VIDEOS = 3;
@@ -159,19 +157,11 @@ function buildContent(prompt: string, media: H3ResolvedMedia[]): H3ContentItem[]
 }
 
 function resolveResolution(value: unknown): string {
-  const resolution = (asString(value) ?? "768P").toUpperCase();
-  if (resolution !== "768P" && resolution !== "2K") {
-    throw new GenerationValidationError("MiniMax H3 resolution must be 768P or 2K");
-  }
-  return resolution;
+  return asString(value) ?? "768P";
 }
 
 function resolveDuration(value: unknown): number {
-  const duration = asInteger(value, 5);
-  if (duration < MIN_DURATION_SEC || duration > MAX_DURATION_SEC) {
-    throw new GenerationValidationError("MiniMax H3 duration must be an integer between 4 and 15");
-  }
-  return duration;
+  return asInteger(value, 5);
 }
 
 function resolveRatio(value: unknown, mode: H3Mode): string {

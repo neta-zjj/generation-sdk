@@ -145,6 +145,87 @@ function seedanceVideoParameters(defaults: { resolution: string; resolutions?: s
   } satisfies GenerationModelDeclaration["parameters"];
 }
 
+const minimaxH3ContentInput = [
+  { type: "text", required: true, min: 1, max: 16, merge: "newline", description: "Video prompt." },
+  {
+    type: "image",
+    required: false,
+    max: 12,
+    sources: ["url"],
+    roles: ["first_frame", "last_frame", "reference_image"],
+    roleRequired: true,
+    description: "Optional image inputs. Use meta.role to select a frame or reference image.",
+  },
+  {
+    type: "video",
+    required: false,
+    max: 3,
+    sources: ["url"],
+    roles: ["reference_video"],
+    roleRequired: true,
+    description: "Optional reference video inputs. Use meta.role reference_video.",
+  },
+  {
+    type: "audio",
+    required: false,
+    max: 3,
+    sources: ["url"],
+    roles: ["reference_audio"],
+    roleRequired: true,
+    description: "Optional reference audio inputs. Use meta.role reference_audio.",
+  },
+] satisfies GenerationModelDeclaration["content"]["input"];
+
+const minimaxH3VideoCommonParameters = {
+  duration: {
+    type: "integer",
+    optional: true,
+    default: 5,
+    description: "Video duration in seconds.",
+  },
+  ratio: {
+    type: "string",
+    optional: true,
+    default: "16:9",
+    enum: ["adaptive", "21:9", "16:9", "4:3", "1:1", "3:4", "9:16"],
+    description: "Output aspect ratio. Use adaptive when media inputs determine the ratio.",
+  },
+  aigc_watermark: {
+    type: "boolean",
+    optional: true,
+    default: false,
+    description: "Enable the generated-video watermark.",
+  },
+  poll_interval: {
+    type: "integer",
+    optional: true,
+    default: 2,
+    min: 1,
+    max: 30,
+    description: "Seconds between task status checks.",
+  },
+  max_wait: {
+    type: "integer",
+    optional: true,
+    default: 1800,
+    min: 30,
+    max: 1800,
+    description: "Maximum seconds to wait for task completion.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
+function minimaxH3VideoParameters() {
+  return {
+    ...minimaxH3VideoCommonParameters,
+    resolution: {
+      type: "string" as const,
+      optional: true,
+      default: "768P",
+      description: "Output video resolution or an explicit WIDTHxHEIGHT canvas.",
+    },
+  } satisfies GenerationModelDeclaration["parameters"];
+}
+
 function klingVideoParameters(options: {
   maxDuration: number;
   negativePrompt?: boolean;
@@ -1139,6 +1220,46 @@ const builtinModels = [
         request: {
           model: "birefnet-general",
           content: [{ type: "image", source: { type: "url", url: "https://example.com/portrait.png" } }],
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "minimax-h3",
+    title: "MiniMax H3",
+    category: "video",
+    description: "MiniMax H3 video generation with 768P output.",
+    adapter: { type: "minimax.h3VideoGenerations" },
+    content: { input: minimaxH3ContentInput },
+    parameters: minimaxH3VideoParameters(),
+    examples: [
+      {
+        title: "Text to video",
+        request: {
+          model: "minimax-h3",
+          content: [{ type: "text", text: "a red cube rotating on a white table" }],
+          parameters: { duration: 5, resolution: "768P", ratio: "16:9" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "minimax-h3-unrestricted",
+    title: "MiniMax H3 Unrestricted",
+    category: "video",
+    description: "MiniMax H3 video generation with caller-selected output dimensions.",
+    adapter: { type: "minimax.h3VideoGenerations" },
+    content: { input: minimaxH3ContentInput },
+    parameters: minimaxH3VideoParameters(),
+    examples: [
+      {
+        title: "Custom resolution",
+        request: {
+          model: "minimax-h3-unrestricted",
+          content: [{ type: "text", text: "a red cube rotating on a white table" }],
+          parameters: { duration: 15, resolution: "1920x1080", ratio: "16:9" },
         },
       },
     ],

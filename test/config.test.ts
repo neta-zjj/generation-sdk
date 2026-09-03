@@ -38,6 +38,8 @@ describe("config", () => {
         "kling-multi-image-to-video",
         "kling-omni-video",
         "kling-text-to-video",
+        "minimax-h3",
+        "minimax-h3-unrestricted",
         "seedance-2-0",
         "seedance-2-0-fast",
         "video-upscale-native",
@@ -369,6 +371,31 @@ describe("config", () => {
       for (const parameter of ["fps", "generate_audio", "return_last_frame", "watermark"]) {
         expect(client.getModel(model)?.parameters).not.toHaveProperty(parameter);
       }
+    }
+  });
+
+  it("publishes both MiniMax H3 model declarations without local size limits", () => {
+    const client = createGenerationClient({ apiKey: "test" });
+
+    for (const model of ["minimax-h3", "minimax-h3-unrestricted"]) {
+      const declaration = client.getModel(model);
+      expect(declaration?.category, model).toBe("video");
+      expect(declaration?.adapter).toEqual({ type: "minimax.h3VideoGenerations" });
+      expect(declaration?.parameters?.resolution).toMatchObject({
+        type: "string",
+        default: "768P",
+      });
+      expect(declaration?.parameters?.resolution).not.toHaveProperty("enum");
+
+      const resolved = client.validate({
+        model,
+        content: [{ type: "text", text: "a simple motion study" }],
+        parameters: { duration: 42, resolution: model === "minimax-h3-unrestricted" ? "1920x1080" : "4K" },
+      });
+      expect(resolved.parameters).toMatchObject({
+        duration: 42,
+        resolution: model === "minimax-h3-unrestricted" ? "1920x1080" : "4K",
+      });
     }
   });
 

@@ -199,7 +199,7 @@ describe("minimax.h3VideoGenerations adapter", () => {
     } satisfies GenerationModelDeclaration;
     const { calls } = await runSuccessfulGeneration(
       [textBlock("a custom-size shot")],
-      { duration: 15, resolution: "4K" },
+      { duration: 15, resolution: "1920x1080" },
       undefined,
       declaration,
     );
@@ -207,7 +207,7 @@ describe("minimax.h3VideoGenerations adapter", () => {
     expect(parseCreateBody(calls)).toMatchObject({
       model: "minimax-h3-unrestricted",
       duration: 15,
-      resolution: "4K",
+      resolution: "1920x1080",
     });
   });
 

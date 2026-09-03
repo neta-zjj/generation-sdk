@@ -85,6 +85,7 @@ async function runSuccessfulGeneration(
       result_url: "https://example.com/out.mp4",
     },
   },
+  declaration: GenerationModelDeclaration = h3Declaration,
 ): Promise<{ calls: FetchCall[]; output: GenerationContentBlock[] }> {
   vi.useFakeTimers();
   const calls: FetchCall[] = [];
@@ -100,11 +101,11 @@ async function runSuccessfulGeneration(
     const client = createGenerationClient({
       apiKey: "key",
       fetch: fetchMock as typeof fetch,
-      models: [h3Declaration],
+      models: [declaration],
       includeBuiltinModels: false,
     });
     const promise = client.generate({
-      model: h3Declaration.model,
+      model: declaration.model,
       content,
       parameters: { poll_interval: 1, max_wait: 30, ...parameters },
     });
@@ -184,11 +185,31 @@ describe("minimax.h3VideoGenerations adapter", () => {
   });
 
   it("passes duration and resolution through for NewAPI to validate", async () => {
-    const { calls } = await runSuccessfulGeneration(
-      [textBlock("a long high-resolution shot")],
-      { duration: 42, resolution: "4K" },
-    );
+    const { calls } = await runSuccessfulGeneration([textBlock("a long high-resolution shot")], {
+      duration: 42,
+      resolution: "4K",
+    });
     expect(parseCreateBody(calls)).toMatchObject({ duration: 42, resolution: "4K" });
+  });
+
+  it("uses the configured upstream model for a public alias", async () => {
+    const declaration = {
+      ...h3Declaration,
+      model: "minimax-h3-unrestricted-test",
+      adapter: { ...h3Declaration.adapter, upstream_model: "MiniMax-H3-unrestricted" },
+    } satisfies GenerationModelDeclaration;
+    const { calls } = await runSuccessfulGeneration(
+      [textBlock("a custom-size shot")],
+      { duration: 15, resolution: "4K" },
+      undefined,
+      declaration,
+    );
+
+    expect(parseCreateBody(calls)).toMatchObject({
+      model: "MiniMax-H3-unrestricted",
+      duration: 15,
+      resolution: "4K",
+    });
   });
 
   it("preserves fixed ratios for frame inputs", async () => {

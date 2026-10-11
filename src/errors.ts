@@ -26,10 +26,23 @@ export class GenerationUnsupportedAdapterError extends GenerationError {
   }
 }
 
+/**
+ * Request ids of a generation response.
+ * `requestId` is the router canonical id (`new_api.request_id` / `X-Request-Id`);
+ * `upstreamRequestIds` are the new-api request ids behind it.
+ */
+export type GenerationRequestIds = {
+  requestId?: string;
+  upstreamRequestIds: string[];
+};
+
 export class GenerationProviderError extends GenerationError {
   readonly status: number | undefined;
   readonly body: string | undefined;
   readonly details: Record<string, unknown> | undefined;
+  /** Set by the client from the latest response that carried request ids. */
+  requestId: string | undefined;
+  upstreamRequestIds: string[];
 
   constructor(
     message = "Generation provider request failed",
@@ -40,6 +53,8 @@ export class GenerationProviderError extends GenerationError {
     this.status = options?.status;
     this.body = options?.body;
     this.details = options?.details;
+    this.requestId = undefined;
+    this.upstreamRequestIds = [];
   }
 }
 

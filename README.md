@@ -582,7 +582,9 @@ try {
     console.error(error.details?.causeCode, error.details?.causeSyscall);
   } else if (error instanceof GenerationProviderError) {
     console.error("Provider failed", error.message);
-    console.error(error.status, error.details?.requestId, error.details?.code);
+    console.error(error.status, error.requestId, error.upstreamRequestIds, error.details?.code);
   }
 }
 ```
+
+`GenerationProviderError.requestId` is the router request id of the latest response that carried one (`new_api.request_id`, then the `x-request-id` header). `upstreamRequestIds` lists the new-api request ids from `new_api.upstream_request_id` / `new_api.upstream_request_ids`, or from `x-oneapi-request-id` when the client calls new-api directly. Transport errors and timeouts keep the ids of the last response received before the failure. Both fields are read from the full response, so they survive any truncation of `error.body` by the caller.

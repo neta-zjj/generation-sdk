@@ -1,3 +1,4 @@
+import type { GenerationRequestIds } from "./errors.js";
 import type { GenerationResult } from "./types.js";
 
 export type GenerationResultFields = Omit<GenerationResult, "content">;
@@ -36,4 +37,26 @@ export function extractGenerationResultFields(raw: unknown): GenerationResultFie
   if (requestId !== undefined) fields.requestId = requestId;
   if (cost !== undefined) fields.cost = cost;
   return Object.keys(fields).length > 0 ? fields : undefined;
+}
+
+function stringValues(value: unknown): string[] {
+  return Array.isArray(value) ? value.flatMap((item) => stringValue(item) ?? []) : [];
+}
+
+/**
+ * Router id from `new_api.request_id` / `X-Request-Id`; new-api ids from `new_api.upstream_request_id(s)`,
+ * or from `X-Oneapi-Request-Id` when the client talks to new-api directly.
+ */
+export function extractGenerationRequestIds(headers: Headers, raw: unknown): GenerationRequestIds | undefined {
+  const newApi = isRecord(raw) && isRecord(raw.new_api) ? raw.new_api : undefined;
+  const requestId = stringValue(newApi?.request_id) ?? (headers.get("x-request-id")?.trim() || undefined);
+  const upstreamRequestIds = [
+    ...new Set([
+      ...stringValues([newApi?.upstream_request_id]),
+      ...stringValues(newApi?.upstream_request_ids),
+      ...stringValues([headers.get("x-oneapi-request-id")?.trim()]),
+    ]),
+  ];
+  if (!requestId && upstreamRequestIds.length === 0) return undefined;
+  return { ...(requestId ? { requestId } : {}), upstreamRequestIds };
 }

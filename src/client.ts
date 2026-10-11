@@ -7,13 +7,13 @@ import {
   writeGenerationModelDeclaration,
   writeGenerationModelDeclarations,
 } from "./config.js";
-import { GenerationConfigError } from "./errors.js";
+import { GenerationConfigError, GenerationProviderError, type GenerationRequestIds } from "./errors.js";
 import { createDebugFetch } from "./http.js";
 import {
+  extractGenerationRequestIds,
   extractGenerationResultFields,
   extractGenerationResultHeaderFields,
   type GenerationResultFields,
-  type GenerationResultHeaderFields,
 } from "./response-fields.js";
 import { defaultGenerationSourceResolver } from "./source.js";
 import type {
@@ -121,26 +121,23 @@ function resolveModels(options: CreateGenerationClientOptions): GenerationModelD
   return [...byModel.values()].sort((a, b) => a.model.localeCompare(b.model));
 }
 
-function createResultFieldCaptureFetch(
-  fetchFn: typeof fetch,
-  onFields: (
-    fields: GenerationResultFields | undefined,
-    headerFields: GenerationResultHeaderFields | undefined,
-  ) => void,
-): typeof fetch {
+type ResponseObserver = (headers: Headers, body: unknown) => void;
+
+async function readJsonBody(response: Response): Promise<unknown> {
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json") && !contentType.includes("+json")) return undefined;
+  try {
+    return await response.clone().json();
+  } catch {
+    // Malformed JSON is reported by the adapter that consumes the body.
+    return undefined;
+  }
+}
+
+function createObservedFetch(fetchFn: typeof fetch, observe: ResponseObserver, readSuccessBody: boolean): typeof fetch {
   return (async (input: string | URL | Request, init?: RequestInit) => {
     const response = await fetchFn(input, init);
-    const headerFields = extractGenerationResultHeaderFields(response.headers);
-    const contentType = response.headers.get("content-type") ?? "";
-    let fields: GenerationResultFields | undefined;
-    if (contentType.includes("application/json") || contentType.includes("+json")) {
-      try {
-        fields = extractGenerationResultFields(await response.clone().json());
-      } catch {
-        // No JSON body, no result fields.
-      }
-    }
-    if (fields || headerFields) onFields(fields, headerFields);
+    observe(response.headers, readSuccessBody || !response.ok ? await readJsonBody(response) : undefined);
     return response;
   }) as typeof fetch;
 }
@@ -173,20 +170,39 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
     return { ...resolved, request: cloneJson(request) };
   }
 
-  async function runAdapter(request: GenerateRequest, fetch: typeof globalThis.fetch) {
+  async function runAdapter(request: GenerateRequest, observe?: ResponseObserver) {
     const resolved = validateRequest(request);
     const apiKey = request.apiKey ?? options.apiKey;
     if (!apiKey) throw new GenerationConfigError("apiKey is required");
     const adapter = getGenerationAdapter(resolved.declaration.adapter.type, options.adapters);
-    return adapter({
-      ...resolved,
-      context: {
-        apiKey,
-        baseUrl: request.baseUrl ?? options.baseUrl ?? DEFAULT_BASE_URL,
-        fetch,
-        resolveSource: options.sourceResolver ?? defaultGenerationSourceResolver,
+    // Attach ids of the latest response that carried any, so callers never parse them out of a body.
+    // Success bodies are only read when the caller asked for result fields.
+    let requestIds: GenerationRequestIds | undefined;
+    const fetch = createObservedFetch(
+      adapterFetch,
+      (headers, body) => {
+        requestIds = extractGenerationRequestIds(headers, body) ?? requestIds;
+        observe?.(headers, body);
       },
-    });
+      observe !== undefined,
+    );
+    try {
+      return await adapter({
+        ...resolved,
+        context: {
+          apiKey,
+          baseUrl: request.baseUrl ?? options.baseUrl ?? DEFAULT_BASE_URL,
+          fetch,
+          resolveSource: options.sourceResolver ?? defaultGenerationSourceResolver,
+        },
+      });
+    } catch (error) {
+      if (error instanceof GenerationProviderError && requestIds) {
+        error.requestId = requestIds.requestId;
+        error.upstreamRequestIds = requestIds.upstreamRequestIds;
+      }
+      throw error;
+    }
   }
 
   const client: GenerationClientWithResult = {
@@ -195,7 +211,7 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
     },
 
     async generate(request: GenerateRequest) {
-      return runAdapter(request, adapterFetch);
+      return runAdapter(request);
     },
 
     async generateResult(request: GenerateRequest): Promise<GenerationResult> {
@@ -203,7 +219,9 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
       let capturedBodyRequestId: string | undefined;
       let capturedRequestId: string | undefined;
       let capturedOneApiRequestId: string | undefined;
-      const captureFetch = createResultFieldCaptureFetch(adapterFetch, (fields, headerFields) => {
+      const content = await runAdapter(request, (headers, body) => {
+        const fields = extractGenerationResultFields(body);
+        const headerFields = extractGenerationResultHeaderFields(headers);
         if (fields) capturedFields = { ...capturedFields, ...fields };
         if (fields?.requestId) capturedBodyRequestId = fields.requestId;
         if (headerFields?.requestId) capturedRequestId = headerFields.requestId;
@@ -211,7 +229,6 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
         const requestId = capturedBodyRequestId ?? capturedRequestId ?? capturedOneApiRequestId;
         if (requestId) capturedFields = { ...capturedFields, requestId };
       });
-      const content = await runAdapter(request, captureFetch);
       return { content, ...(capturedFields ?? {}) };
     },
 

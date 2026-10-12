@@ -184,18 +184,14 @@ describe("Luna Decisions", () => {
     [401, UnauthorizedResponseError],
     [400, BadRequestResponseError],
     [502, BadGatewayResponseError],
-  ] as const)("maps gateway status %i to the official error class", async (status, ErrorClass) => {
+  ] as const)("maps gateway status %i to the official error class without retrying", async (status, ErrorClass) => {
     await withServer(
       (_received, response) =>
         sendJson(response, status, {
           error: { code: status, message: `gateway status ${status}`, metadata: { request_id: "error-request-id" } },
         }),
       async (origin, received) => {
-        const client = createGenerationClient({
-          apiKey: "local",
-          baseUrl: origin,
-          decisions: { retryConfig: { strategy: "none" } },
-        });
+        const client = createGenerationClient({ apiKey: "local", baseUrl: origin });
         const error = await client.decisions(request).catch((caught: unknown) => caught);
         expect(error).toBeInstanceOf(ErrorClass);
         expect(error).toMatchObject({

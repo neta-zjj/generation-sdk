@@ -162,7 +162,7 @@ const direct = createGenerationClient({
 });
 ```
 
-`decisions` client options reuse the official `SDKOptions` except `apiKey`, `httpClient`, and `server`. `serverURL` is applied to every call, because the official Decisions operation ignores the client-level server URL. Per-call options reuse the official `RequestOptions` (`signal`, `timeoutMs`, `retries`, `headers`, `serverURL`). The official retry default applies: 5XX responses and connection errors are retried with exponential backoff for up to one hour; pass `retryConfig: { strategy: "none" }` to disable it. Official request/response types and error classes are re-exported from this package. Use `decisions()` or `decisionsResult()` for this model; `generate()`, `generateResult()`, and `validate()` reject it.
+`decisions` client options reuse the official `SDKOptions` except `apiKey`, `httpClient`, and `server`. `serverURL` is applied to every call, because the official Decisions operation ignores the client-level server URL. Per-call options reuse the official `RequestOptions` (`signal`, `timeoutMs`, `retries`, `headers`, `serverURL`). Retries are off by default: a failed gateway call may already be billed, so retrying would charge again. Pass `retryConfig` (client) or `retries` (per call) to opt in. Official request/response types and error classes are re-exported from this package. Use `decisions()` or `decisionsResult()` for this model; `generate()`, `generateResult()`, and `validate()` reject it.
 
 For a real-provider check, set `LUNA_API_KEY` and `LUNA_SERVER_URL` (the Decisions API root, such as `https://openrouter.ai` or `https://new-api.talesofai.com/openrouter`), then run `pnpm test:live:luna`. `LUNA_MODEL` defaults to `openai/gpt-6-luna-decisions`.
 

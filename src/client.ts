@@ -1,4 +1,5 @@
 import { HTTPClient, OpenRouter } from "@openrouter/sdk";
+import type { RequestOptions as OpenRouterRequestOptions } from "@openrouter/sdk/lib/sdks.js";
 import { TypeSafeClient } from "@typesafe-ai/sdk";
 import { getGenerationAdapter, tryGetGenerationAdapter } from "./adapters/index.js";
 import { builtinGenerationModels } from "./builtins.js";
@@ -182,6 +183,11 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
   const decisionsServerURL = configuredServerURL ?? joinUrl(options.baseUrl ?? DEFAULT_BASE_URL, "openrouter");
   let decisionsClient: OpenRouter | undefined;
 
+  // 单次调用未给出 serverURL 时始终使用网关地址，避免官方函数退回 openrouter.ai。
+  function decisionsCallOptions(requestOptions: OpenRouterRequestOptions | undefined): OpenRouterRequestOptions {
+    return { ...requestOptions, serverURL: requestOptions?.serverURL ?? decisionsServerURL };
+  }
+
   function requireModel(model: string): GenerationModelDeclaration {
     const declaration = byModel.get(model);
     if (!declaration) throw new GenerationConfigError(`Generation model is unavailable: ${model}`);
@@ -236,7 +242,9 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
 
   function createDecisionsClient(fetch: typeof globalThis.fetch): OpenRouter {
     if (!options.apiKey) throw new GenerationConfigError("apiKey is required");
+    // 网关在失败时可能已经扣费，默认不重试。
     return new OpenRouter({
+      retryConfig: { strategy: "none" },
       ...decisionsConfig,
       apiKey: options.apiKey,
       httpClient: new HTTPClient({ fetcher: fetch }),
@@ -260,16 +268,16 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
     async decisions(request, requestOptions) {
       requireDecisionModel(request.decisionsRequest.model, "decisions()");
       decisionsClient ??= createDecisionsClient(adapterFetch);
-      return decisionsClient.alpha.decisions.create(request, { serverURL: decisionsServerURL, ...requestOptions });
+      return decisionsClient.alpha.decisions.create(request, decisionsCallOptions(requestOptions));
     },
 
     async decisionsResult(request, requestOptions) {
       requireDecisionModel(request.decisionsRequest.model, "decisions()");
       const capture = createDecisionMetadataCapture(adapterFetch);
-      const result = await createDecisionsClient(capture.fetch).alpha.decisions.create(request, {
-        serverURL: decisionsServerURL,
-        ...requestOptions,
-      });
+      const result = await createDecisionsClient(capture.fetch).alpha.decisions.create(
+        request,
+        decisionsCallOptions(requestOptions),
+      );
       return { result, ...capture.fields() };
     },
 

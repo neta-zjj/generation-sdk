@@ -79,6 +79,24 @@ console.log(result.answers.team.choice); // inferred as "billing" | "technical"
 console.log(result.usage.input_tokens);
 ```
 
+Use `systemOneResult()` when you need billing metadata alongside the typed answers:
+
+```ts
+const { result, cost, requestId } = await client.systemOneResult({
+  model: "jev-latest",
+  state: { ticket: "I was charged twice." },
+  questions: {
+    refund: noul("Does the customer need a refund?"),
+    team: choice("Which team?", { billing: "Charges", technical: "Bugs" }),
+  },
+});
+
+console.log(result.answers.team.choice); // inferred as "billing" | "technical"
+console.log(cost, requestId);
+```
+
+This method returns `Promise<SystemOneResultWithMetadata<Q>>`. `result` is the official `SystemOneResult<Q>`; `cost` reads `usage.cost` from the response extensions. `requestId` uses the response body's `request_id`, followed by the `x-request-id` and `x-oneapi-request-id` response headers. Both metadata fields are optional and are omitted when unavailable; a reported zero cost is preserved. Each call captures its own metadata, and retries use the final response. Clients created from model files or directories also expose this method.
+
 The default System One URL is `${baseUrl}/typesafe/v1/systemone`, using the client's gateway token and fetch implementation. The gateway must enable the requested Jev model and native plugin route. To call OpenRouter directly, configure its System One base URL and use an OpenRouter key:
 
 ```ts
@@ -93,11 +111,11 @@ const direct = createGenerationClient({
 });
 ```
 
-`systemOne` client options reuse the official `TypeSafeClientConfig`; per-call options reuse `RequestOptions`. `apiKey` and `fetch` come from the generation client. The official defaults apply for timeout and retries (10 seconds per attempt, 2 retries). Pass `signal`, `timeout`, `retry`, or `headers` as the second argument to `systemOne()` to override a call. Generation `debug` observes this transport with its existing redaction rules.
+`systemOne` client options reuse the official `TypeSafeClientConfig`; per-call options reuse `RequestOptions`. `apiKey` and `fetch` come from the generation client. The official defaults apply for timeout and retries (10 seconds per attempt, 2 retries). Pass `signal`, `timeout`, `retry`, or `headers` as the second argument to `systemOne()` or `systemOneResult()` to override a call. Generation `debug` observes this transport with its existing redaction rules.
 
-The return value is the official `APIPromise<SystemOneResult<Q>>`, preserving question-name and criteria-key inference, `.asResponse()`, and `.withResponse()`. Request and response extensions remain available in the raw response. Gateway cost metadata can be read from `X-OneAPI-Cost-Metadata`; `.withResponse().requestId` follows the official SDK's `x-typesafe-request-id` header rule. Helpers `noul`, `choice`, and `score`, official request/result types, and official SDK error classes are re-exported from this package.
+`systemOne()` returns the official `APIPromise<SystemOneResult<Q>>`, preserving question-name and criteria-key inference, `.asResponse()`, and `.withResponse()`. Request and response extensions remain available in the raw response. Gateway cost metadata can be read from `X-OneAPI-Cost-Metadata`; `.withResponse().requestId` follows the official SDK's `x-typesafe-request-id` header rule. Helpers `noul`, `choice`, and `score`, official request/result types, and official SDK error classes are re-exported from this package.
 
-`listModels()` is synchronous and local, works without credentials, and includes `jev-latest` and `jev-1.13.0` with category `decision` and `systemOneExamples`. It does not call the TypeSafe SDK's remote model listing, which cannot parse OpenRouter's model-list format. A local declaration describes SDK capabilities; it does not assert account access or server availability. Additional Jev aliases can be supplied through `models` using `adapter: { type: "typesafe.systemOne" }`. Use `systemOne()` for these models; `generate()`, `generateResult()`, and `validate()` accept the media generation request shape.
+`listModels()` is synchronous and local, works without credentials, and includes `jev-latest` and `jev-1.13.0` with category `decision` and `systemOneExamples`. It does not call the TypeSafe SDK's remote model listing, which cannot parse OpenRouter's model-list format. A local declaration describes SDK capabilities; it does not assert account access or server availability. Additional Jev aliases can be supplied through `models` using `adapter: { type: "typesafe.systemOne" }`. Use `systemOne()` or `systemOneResult()` for these models; `generate()`, `generateResult()`, and `validate()` accept the media generation request shape.
 
 For a real-provider check, set `JEV_API_KEY` and `JEV_BASE_URL` (the System One API root, such as `https://openrouter.ai/api` or `https://dev.new-api.talesofai.com/typesafe`), then run `pnpm test:live:jev`. `JEV_MODEL` defaults to `jev-latest`.
 

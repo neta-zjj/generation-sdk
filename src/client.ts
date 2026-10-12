@@ -20,7 +20,6 @@ import { defaultGenerationSourceResolver } from "./source.js";
 import type {
   CreateGenerationClientOptions,
   GenerateRequest,
-  GenerationClient,
   GenerationClientWithResult,
   GenerationDebugConfig,
   GenerationModelDeclaration,
@@ -141,7 +140,7 @@ function createResultFieldCaptureFetch(
         // No JSON body, no result fields.
       }
     }
-    if (fields || headerFields) onFields(fields, headerFields);
+    onFields(fields, headerFields);
     return response;
   }) as typeof fetch;
 }
@@ -199,21 +198,34 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
     });
   }
 
+  function requireSystemOneModel(model: string | undefined): void {
+    const declaration = requireModel(model ?? systemOneConfig.defaultModel);
+    if (declaration.adapter.type !== "typesafe.systemOne") {
+      throw new GenerationConfigError(`Model does not support systemOne(): ${declaration.model}`);
+    }
+  }
+
+  function createSystemOneClient(fetch: typeof globalThis.fetch): TypeSafeClient {
+    if (!options.apiKey) throw new GenerationConfigError("apiKey is required");
+    return new TypeSafeClient({ ...systemOneConfig, apiKey: options.apiKey, fetch });
+  }
+
   const client: GenerationClientWithResult = {
     systemOne(request, requestOptions) {
-      const declaration = requireModel(request.model ?? systemOneConfig.defaultModel);
-      if (declaration.adapter.type !== "typesafe.systemOne") {
-        throw new GenerationConfigError(`Model does not support systemOne(): ${declaration.model}`);
-      }
-      if (!systemOneClient) {
-        if (!options.apiKey) throw new GenerationConfigError("apiKey is required");
-        systemOneClient = new TypeSafeClient({
-          ...systemOneConfig,
-          apiKey: options.apiKey,
-          fetch: adapterFetch,
-        });
-      }
+      requireSystemOneModel(request.model);
+      systemOneClient ??= createSystemOneClient(adapterFetch);
       return systemOneClient.systemOne(request, requestOptions);
+    },
+
+    async systemOneResult(request, requestOptions) {
+      requireSystemOneModel(request.model);
+      let capturedFields: GenerationResultFields = {};
+      const captureFetch = createResultFieldCaptureFetch(adapterFetch, (fields, headerFields) => {
+        const requestId = fields?.requestId ?? headerFields?.requestId ?? headerFields?.oneApiRequestId;
+        capturedFields = { ...fields, ...(requestId ? { requestId } : {}) };
+      });
+      const result = await createSystemOneClient(captureFetch).systemOne(request, requestOptions);
+      return { result, ...capturedFields };
     },
 
     validate(request: GenerateRequest) {
@@ -269,7 +281,7 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
 export async function createGenerationClientFromFiles(
   filePaths: string[],
   options: Omit<CreateGenerationClientOptions, "models"> = {},
-): Promise<GenerationClient> {
+): Promise<GenerationClientWithResult> {
   const models = await readGenerationModelDeclarationsFromFiles(filePaths);
   return createGenerationClient({ ...options, models, includeBuiltinModels: options.includeBuiltinModels ?? true });
 }
@@ -277,7 +289,7 @@ export async function createGenerationClientFromFiles(
 export async function createGenerationClientFromDirectory(
   directory: string,
   options: Omit<CreateGenerationClientOptions, "models"> = {},
-): Promise<GenerationClient> {
+): Promise<GenerationClientWithResult> {
   const models = await readGenerationModelDeclarationsFromDirectory(directory);
   return createGenerationClient({ ...options, models, includeBuiltinModels: options.includeBuiltinModels ?? true });
 }
@@ -285,6 +297,6 @@ export async function createGenerationClientFromDirectory(
 export async function createGenerationClientFromFile(
   filePath: string,
   options: Omit<CreateGenerationClientOptions, "models"> = {},
-): Promise<GenerationClient> {
+): Promise<GenerationClientWithResult> {
   return createGenerationClientFromFiles([filePath], options);
 }

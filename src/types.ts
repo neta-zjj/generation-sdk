@@ -1,4 +1,11 @@
-import type { SystemOneRequest, TypeSafeClient, TypeSafeClientConfig } from "@typesafe-ai/sdk";
+import type {
+  Questions,
+  RequestOptions,
+  SystemOneRequest,
+  SystemOneResult,
+  TypeSafeClient,
+  TypeSafeClientConfig,
+} from "@typesafe-ai/sdk";
 
 export const MODEL_SCHEMA = "neta.generation.model.v1" as const;
 
@@ -33,6 +40,12 @@ export type GenerationContentBlock =
 
 export type GenerationResult = {
   content: GenerationContentBlock[];
+  requestId?: string;
+  cost?: number;
+};
+
+export type SystemOneResultWithMetadata<Q extends Questions = Questions> = {
+  result: SystemOneResult<Q>;
   requestId?: string;
   cost?: number;
 };
@@ -244,6 +257,11 @@ export type GenerationClient = {
 };
 
 export type GenerationClientWithResult = GenerationClient & {
+  /** 返回官方答案及响应中提供的费用和请求标识。 */
+  systemOneResult<const Q extends Questions>(
+    request: SystemOneRequest<Q>,
+    options?: RequestOptions,
+  ): Promise<SystemOneResultWithMetadata<Q>>;
   /** Generates content and returns observed request metadata such as requestId and cost when available. */
   generateResult(request: GenerateRequest): Promise<GenerationResult>;
 };

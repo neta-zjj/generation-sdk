@@ -7,6 +7,7 @@ import {
   choice,
   createGenerationClient,
   createGenerationClientFromFile,
+  type GenerationClientWithResult,
   GenerationConfigError,
   type GenerationDebugEvent,
   noul,
@@ -33,6 +34,7 @@ describe("System One", () => {
     const fromFile = await createGenerationClientFromFile("models/jev-latest.yaml");
     expect(fromFile.getModel("jev-latest")).toEqual(client.getModel("jev-latest"));
     expectTypeOf(fromFile.systemOne).toEqualTypeOf<TypeSafeClient["systemOne"]>();
+    expectTypeOf(fromFile.systemOneResult).toEqualTypeOf<GenerationClientWithResult["systemOneResult"]>();
   });
 
   it("uses the configured catalog and rejects mismatched entry points before transport", async () => {
@@ -45,11 +47,19 @@ describe("System One", () => {
     expect(() => client.systemOne({ ...request, model: "gpt-image-2" })).toThrow("does not support systemOne()");
     expect(() => client.validate({ model: "jev-latest", content: [] })).toThrow("requires systemOne()");
     await expect(client.generate({ model: "jev-latest", content: [] })).rejects.toBeInstanceOf(GenerationConfigError);
+    await expect(client.systemOneResult(request)).rejects.toThrow("apiKey is required");
+    await expect(createGenerationClient({ includeBuiltinModels: false }).systemOneResult(request)).rejects.toThrow(
+      "Generation model is unavailable: jev-latest",
+    );
+    await expect(client.systemOneResult({ ...request, model: "gpt-image-2" })).rejects.toThrow(
+      "does not support systemOne()",
+    );
   });
 
-  it("preserves official question validation", () => {
+  it("preserves official question validation", async () => {
     const client = createGenerationClient({ apiKey: "local-validation" });
     expect(() => client.systemOne({ state: null, questions: {} })).toThrow(TypeSafeError);
+    await expect(client.systemOneResult({ state: null, questions: {} })).rejects.toThrow(TypeSafeError);
   });
 
   it("rejects invalid System One example envelopes from configuration", () => {
@@ -62,7 +72,10 @@ describe("System One", () => {
   });
 
   for (const target of ["gateway", "systemOne"] as const) {
-    it(`sends ordered JSON and honors cancellation over a real ${target} HTTP connection`, async () => {
+    it.each([
+      "systemOne",
+      "systemOneResult",
+    ] as const)(`%s sends ordered JSON and honors cancellation over a real ${target} HTTP connection`, async (method) => {
       let resolveRequest: (value: { path: string; method: string; headers: IncomingHttpHeaders; body: string }) => void;
       const received = new Promise<{ path: string; method: string; headers: IncomingHttpHeaders; body: string }>(
         (resolve) => {
@@ -110,10 +123,19 @@ describe("System One", () => {
         provider: { allow_fallbacks: false },
       };
       try {
-        const call = client.systemOne(input, { signal: controller.signal, headers: { "X-Request-Test": "ordered" } });
+        const call = client[method](input, { signal: controller.signal, headers: { "X-Request-Test": "ordered" } });
         expectTypeOf(client.systemOne).toEqualTypeOf<TypeSafeClient["systemOne"]>();
-        expectTypeOf<Awaited<typeof call>["answers"]["team"]["choice"]>().toEqualTypeOf<"billing" | "technical">();
-        expectTypeOf<Awaited<typeof call>["answers"]["severity"]["score"]>().toEqualTypeOf<number>();
+        const resultCall = () => client.systemOneResult(input);
+        type Result = Awaited<ReturnType<typeof resultCall>>;
+        expectTypeOf<Result["result"]["answers"]["team"]["choice"]>().toEqualTypeOf<"billing" | "technical">();
+        expectTypeOf<Result["result"]["answers"]["severity"]["score"]>().toEqualTypeOf<number>();
+        expectTypeOf<Result["result"]["answers"]["severity"]["probabilities"]>().toEqualTypeOf<{
+          readonly "0": number;
+          readonly "1": number;
+        }>();
+        expectTypeOf<Result["result"]["answers"]["check"]["noul"]>().toEqualTypeOf<number>();
+        expectTypeOf<Result["cost"]>().toEqualTypeOf<number | undefined>();
+        expectTypeOf<Result["requestId"]>().toEqualTypeOf<string | undefined>();
         expectTypeOf(input).toMatchTypeOf<SystemOneRequest>();
         const outcome = call.then(
           (value) => value,
@@ -128,8 +150,10 @@ describe("System One", () => {
         expect(actual.body).toBe(JSON.stringify({ ...input, model: "jev-1.13.0" }));
         expect(JSON.stringify(events)).not.toContain("local-http-credential");
         expect(events[0]?.type).toBe("request");
-        expect(typeof call.withResponse).toBe("function");
-        expect(typeof call.asResponse).toBe("function");
+        if (method === "systemOne") {
+          expect(call).toHaveProperty("withResponse", expect.any(Function));
+          expect(call).toHaveProperty("asResponse", expect.any(Function));
+        }
         controller.abort();
         expect(await outcome).toBeInstanceOf(APIUserAbortError);
       } finally {

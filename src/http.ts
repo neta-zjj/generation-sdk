@@ -99,7 +99,12 @@ async function emitDebugResponse(
 export function createDebugFetch(fetchFn: typeof fetch, debug: GenerationDebugConfig): typeof fetch {
   return (async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input instanceof Request ? input.url : input);
-    const requestInit = init ?? (input instanceof Request ? input : {});
+    // 官方 SDK 传入 Request 对象时，从副本读取请求体。
+    const requestInit =
+      init ??
+      (input instanceof Request
+        ? { method: input.method, headers: input.headers, body: input.body ? await input.clone().text() : null }
+        : {});
     const startedAt = emitDebugRequest(debug, url, requestInit);
     const response = await fetchFn(input, init);
     await emitDebugResponse(debug, url, response, startedAt);

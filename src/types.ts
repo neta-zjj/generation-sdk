@@ -1,3 +1,7 @@
+import type { OpenRouter, SDKOptions } from "@openrouter/sdk";
+import type { RequestOptions as OpenRouterRequestOptions } from "@openrouter/sdk/lib/sdks.js";
+import type { DecisionsRequest, DecisionsResponse } from "@openrouter/sdk/models";
+import type { CreateApiAlphaDecisionsRequest } from "@openrouter/sdk/models/operations";
 import type {
   Questions,
   RequestOptions,
@@ -46,6 +50,12 @@ export type GenerationResult = {
 
 export type SystemOneResultWithMetadata<Q extends Questions = Questions> = {
   result: SystemOneResult<Q>;
+  requestId?: string;
+  cost?: number;
+};
+
+export type DecisionsResultWithMetadata = {
+  result: DecisionsResponse;
   requestId?: string;
   cost?: number;
 };
@@ -152,6 +162,11 @@ export type GenerationModelDeclaration = {
     title?: string;
     request: SystemOneRequest;
   }>;
+  /** Examples passed as decisionsRequest to decisions(), using the official OpenRouter request type. */
+  decisionsExamples?: Array<{
+    title?: string;
+    request: DecisionsRequest;
+  }>;
 };
 
 export type GenerateRequest = {
@@ -235,11 +250,15 @@ export type CreateGenerationClientOptions = {
   debug?: boolean | GenerationDebugOptions;
   /** Official TypeSafe SDK settings. Uses apiKey and fetch from this generation client. */
   systemOne?: Omit<TypeSafeClientConfig, "apiKey" | "fetch">;
+  /** Official OpenRouter SDK settings for decisions(). Uses apiKey and fetch from this generation client; serverURL is the Decisions API root and defaults to `${baseUrl}/openrouter`. */
+  decisions?: Omit<SDKOptions, "apiKey" | "httpClient" | "server">;
 };
 
 export type GenerationClient = {
   /** Evaluates state and typed questions with the official TypeSafe SDK. */
   systemOne: TypeSafeClient["systemOne"];
+  /** Evaluates state and questions with the official OpenRouter SDK's Decisions API. */
+  decisions: OpenRouter["alpha"]["decisions"]["create"];
   /** Validates the request and sends it to the model adapter. */
   generate(request: GenerateRequest): Promise<GenerationContentBlock[]>;
   /** Resolves model defaults and all available validation rules without requiring an API key or making a network request. */
@@ -262,6 +281,11 @@ export type GenerationClientWithResult = GenerationClient & {
     request: SystemOneRequest<Q>,
     options?: RequestOptions,
   ): Promise<SystemOneResultWithMetadata<Q>>;
+  /** 返回官方 Decisions 答案及响应中提供的费用和请求标识。 */
+  decisionsResult(
+    request: CreateApiAlphaDecisionsRequest,
+    options?: OpenRouterRequestOptions,
+  ): Promise<DecisionsResultWithMetadata>;
   /** Generates content and returns observed request metadata such as requestId and cost when available. */
   generateResult(request: GenerateRequest): Promise<GenerationResult>;
 };

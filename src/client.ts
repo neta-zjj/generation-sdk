@@ -1,3 +1,4 @@
+import { HTTPClient, OpenRouter } from "@openrouter/sdk";
 import { TypeSafeClient } from "@typesafe-ai/sdk";
 import { getGenerationAdapter, tryGetGenerationAdapter } from "./adapters/index.js";
 import { builtinGenerationModels } from "./builtins.js";
@@ -145,6 +146,24 @@ function createResultFieldCaptureFetch(
   }) as typeof fetch;
 }
 
+type DecisionEntryPoint = "systemOne()" | "decisions()";
+
+// 决策模型只通过各自官方 SDK 的入口调用。
+const DECISION_ENTRY_POINTS = new Map<string, DecisionEntryPoint>([
+  ["typesafe.systemOne", "systemOne()"],
+  ["openrouter.decisions", "decisions()"],
+]);
+
+// 每次调用单独捕获最终响应中的费用和请求标识。
+function createDecisionMetadataCapture(fetchFn: typeof fetch) {
+  let captured: GenerationResultFields = {};
+  const fetch = createResultFieldCaptureFetch(fetchFn, (fields, headerFields) => {
+    const requestId = fields?.requestId ?? headerFields?.requestId ?? headerFields?.oneApiRequestId;
+    captured = { ...fields, ...(requestId ? { requestId } : {}) };
+  });
+  return { fetch, fields: () => captured };
+}
+
 export function createGenerationClient(options: CreateGenerationClientOptions = {}): GenerationClientWithResult {
   const models = resolveModels(options);
   const byModel = new Map(models.map((declaration) => [declaration.model, declaration]));
@@ -158,6 +177,10 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
     defaultModel: options.systemOne?.defaultModel ?? "jev-latest",
   };
   let systemOneClient: TypeSafeClient | undefined;
+  // 官方 Decisions 接口只读取单次调用的 serverURL，客户端级 serverURL 对它无效。
+  const { serverURL: configuredServerURL, ...decisionsConfig } = options.decisions ?? {};
+  const decisionsServerURL = configuredServerURL ?? joinUrl(options.baseUrl ?? DEFAULT_BASE_URL, "openrouter");
+  let decisionsClient: OpenRouter | undefined;
 
   function requireModel(model: string): GenerationModelDeclaration {
     const declaration = byModel.get(model);
@@ -167,8 +190,9 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
 
   function validateRequest(request: GenerateRequest): ResolvedGenerationRequest {
     const declaration = requireModel(request.model);
-    if (declaration.adapter.type === "typesafe.systemOne") {
-      throw new GenerationConfigError(`Model ${request.model} requires systemOne() with state and questions`);
+    const entryPoint = DECISION_ENTRY_POINTS.get(declaration.adapter.type);
+    if (entryPoint) {
+      throw new GenerationConfigError(`Model ${request.model} requires ${entryPoint} with state and questions`);
     }
     validateGenerationContent(declaration, request.content);
     const parameters = resolveGenerationParameters(declaration, request.parameters);
@@ -198,10 +222,10 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
     });
   }
 
-  function requireSystemOneModel(model: string | undefined): void {
-    const declaration = requireModel(model ?? systemOneConfig.defaultModel);
-    if (declaration.adapter.type !== "typesafe.systemOne") {
-      throw new GenerationConfigError(`Model does not support systemOne(): ${declaration.model}`);
+  function requireDecisionModel(model: string, entryPoint: DecisionEntryPoint): void {
+    const declaration = requireModel(model);
+    if (DECISION_ENTRY_POINTS.get(declaration.adapter.type) !== entryPoint) {
+      throw new GenerationConfigError(`Model does not support ${entryPoint}: ${declaration.model}`);
     }
   }
 
@@ -210,22 +234,43 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
     return new TypeSafeClient({ ...systemOneConfig, apiKey: options.apiKey, fetch });
   }
 
+  function createDecisionsClient(fetch: typeof globalThis.fetch): OpenRouter {
+    if (!options.apiKey) throw new GenerationConfigError("apiKey is required");
+    return new OpenRouter({
+      ...decisionsConfig,
+      apiKey: options.apiKey,
+      httpClient: new HTTPClient({ fetcher: fetch }),
+    });
+  }
+
   const client: GenerationClientWithResult = {
     systemOne(request, requestOptions) {
-      requireSystemOneModel(request.model);
+      requireDecisionModel(request.model ?? systemOneConfig.defaultModel, "systemOne()");
       systemOneClient ??= createSystemOneClient(adapterFetch);
       return systemOneClient.systemOne(request, requestOptions);
     },
 
     async systemOneResult(request, requestOptions) {
-      requireSystemOneModel(request.model);
-      let capturedFields: GenerationResultFields = {};
-      const captureFetch = createResultFieldCaptureFetch(adapterFetch, (fields, headerFields) => {
-        const requestId = fields?.requestId ?? headerFields?.requestId ?? headerFields?.oneApiRequestId;
-        capturedFields = { ...fields, ...(requestId ? { requestId } : {}) };
+      requireDecisionModel(request.model ?? systemOneConfig.defaultModel, "systemOne()");
+      const capture = createDecisionMetadataCapture(adapterFetch);
+      const result = await createSystemOneClient(capture.fetch).systemOne(request, requestOptions);
+      return { result, ...capture.fields() };
+    },
+
+    async decisions(request, requestOptions) {
+      requireDecisionModel(request.decisionsRequest.model, "decisions()");
+      decisionsClient ??= createDecisionsClient(adapterFetch);
+      return decisionsClient.alpha.decisions.create(request, { serverURL: decisionsServerURL, ...requestOptions });
+    },
+
+    async decisionsResult(request, requestOptions) {
+      requireDecisionModel(request.decisionsRequest.model, "decisions()");
+      const capture = createDecisionMetadataCapture(adapterFetch);
+      const result = await createDecisionsClient(capture.fetch).alpha.decisions.create(request, {
+        serverURL: decisionsServerURL,
+        ...requestOptions,
       });
-      const result = await createSystemOneClient(captureFetch).systemOne(request, requestOptions);
-      return { result, ...capturedFields };
+      return { result, ...capture.fields() };
     },
 
     validate(request: GenerateRequest) {

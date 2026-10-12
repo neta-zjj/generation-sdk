@@ -1508,6 +1508,33 @@ const builtinModels = [
       ],
     }),
   ),
+  {
+    schema: MODEL_SCHEMA,
+    model: "openai/gpt-6-luna-decisions",
+    title: "Luna Decisions",
+    category: "decision",
+    description:
+      "Evaluates text, JSON, or PNG/JPEG/WebP base64 images against up to 200 named Noul, Choice, and Score questions using decisions().",
+    adapter: { type: "openrouter.decisions" },
+    content: { input: [] },
+    decisionsExamples: [
+      {
+        title: "Classify a support ticket",
+        request: {
+          model: "openai/gpt-6-luna-decisions",
+          state: "I was charged twice for my subscription.",
+          questions: {
+            refund: { type: "noul", instructions: "Does the customer need a refund?" },
+            team: {
+              type: "choice",
+              instructions: "Which team should handle this ticket?",
+              criteria: { billing: "Charges and refunds", technical: "Bugs and outages" },
+            },
+          },
+        },
+      },
+    ],
+  },
   ...sunoModels,
 ] satisfies GenerationModelDeclaration[];
 

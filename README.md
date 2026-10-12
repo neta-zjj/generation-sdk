@@ -119,6 +119,53 @@ const direct = createGenerationClient({
 
 For a real-provider check, set `JEV_API_KEY` and `JEV_BASE_URL` (the System One API root, such as `https://openrouter.ai/api` or `https://dev.new-api.talesofai.com/typesafe`), then run `pnpm test:live:jev`. `JEV_MODEL` defaults to `jev-latest`.
 
+## Luna Decisions
+
+`decisions()` uses `@openrouter/sdk@1.4.25` (`alpha.decisions.create()`) for requests, response parsing, cancellation, retries, and errors. The model `openai/gpt-6-luna-decisions` is listed locally with category `decision` and `decisionsExamples`.
+
+```ts
+import { createGenerationClient } from "@neta-art/generation";
+
+const client = createGenerationClient({
+  apiKey: process.env.NETA_ROUTER_API_KEY!,
+});
+
+const result = await client.decisions({
+  decisionsRequest: {
+    model: "openai/gpt-6-luna-decisions",
+    state: [
+      "Does this receipt show a duplicate charge?",
+      { type: "image_url", image_url: { url: "data:image/png;base64,..." } },
+    ],
+    questions: {
+      duplicate: { type: "noul", instructions: "Is the same charge listed twice?" },
+      team: { type: "choice", instructions: "Which team?", criteria: { billing: "Charges", technical: "Bugs" } },
+    },
+  },
+});
+
+const duplicate = result.answers.duplicate;
+if (duplicate?.type === "noul") console.log(duplicate.noul);
+console.log(result.usage.inputTokens);
+```
+
+`state` is text, a JSON object, or an array of text and `image_url` parts. Images are PNG, JPEG, or WebP base64 data URLs, at most 128 per request; a request has at most 200 questions. Answers are the official `DecisionsResponse` union keyed by question name, so check `type` before reading `noul`, `choice`, or `score`.
+
+`decisionsResult()` takes the same arguments and returns `Promise<DecisionsResultWithMetadata>`: `result` is the official `DecisionsResponse`, `cost` reads `usage.cost` from the response body, and `requestId` uses the body's `request_id`, followed by the `x-request-id` and `x-oneapi-request-id` response headers. Both metadata fields are omitted when unavailable.
+
+The default Decisions URL is `${baseUrl}/openrouter/api/alpha/decisions`, using the client's gateway token and fetch implementation. Gateway errors use OpenRouter's error format, so they are thrown as the official error classes (`UnauthorizedResponseError`, `PaymentRequiredResponseError`, `BadGatewayResponseError`, and so on) with `error.metadata.request_id`. To call OpenRouter directly, set the Decisions API root and use an OpenRouter key:
+
+```ts
+const direct = createGenerationClient({
+  apiKey: process.env.OPENROUTER_API_KEY!,
+  decisions: { serverURL: "https://openrouter.ai", timeoutMs: 60_000 },
+});
+```
+
+`decisions` client options reuse the official `SDKOptions` except `apiKey`, `httpClient`, and `server`. `serverURL` is applied to every call, because the official Decisions operation ignores the client-level server URL. Per-call options reuse the official `RequestOptions` (`signal`, `timeoutMs`, `retries`, `headers`, `serverURL`). The official retry default applies: 5XX responses and connection errors are retried with exponential backoff for up to one hour; pass `retryConfig: { strategy: "none" }` to disable it. Official request/response types and error classes are re-exported from this package. Use `decisions()` or `decisionsResult()` for this model; `generate()`, `generateResult()`, and `validate()` reject it.
+
+For a real-provider check, set `LUNA_API_KEY` and `LUNA_SERVER_URL` (the Decisions API root, such as `https://openrouter.ai` or `https://new-api.talesofai.com/openrouter`), then run `pnpm test:live:luna`. `LUNA_MODEL` defaults to `openai/gpt-6-luna-decisions`.
+
 ## Speech to text
 
 Doubao ASR 2.0 (`volc.seedasr.auc`) accepts exactly one audio URL and returns a text block. The gateway must support JSON requests to `/v1/audio/transcriptions` and have an enabled Volcengine speech channel.

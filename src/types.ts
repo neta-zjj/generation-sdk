@@ -1,6 +1,15 @@
+import type {
+  Questions,
+  RequestOptions,
+  SystemOneRequest,
+  SystemOneResult,
+  TypeSafeClient,
+  TypeSafeClientConfig,
+} from "@typesafe-ai/sdk";
+
 export const MODEL_SCHEMA = "neta.generation.model.v1" as const;
 
-export const GENERATION_MODEL_CATEGORIES = ["image", "video", "audio"] as const;
+export const GENERATION_MODEL_CATEGORIES = ["image", "video", "audio", "decision"] as const;
 
 export type GenerationModelCategory = (typeof GENERATION_MODEL_CATEGORIES)[number];
 
@@ -31,6 +40,12 @@ export type GenerationContentBlock =
 
 export type GenerationResult = {
   content: GenerationContentBlock[];
+  requestId?: string;
+  cost?: number;
+};
+
+export type SystemOneResultWithMetadata<Q extends Questions = Questions> = {
+  result: SystemOneResult<Q>;
   requestId?: string;
   cost?: number;
 };
@@ -132,6 +147,11 @@ export type GenerationModelDeclaration = {
     title?: string;
     request: GenerateRequest;
   }>;
+  /** Examples passed directly to systemOne(), using the official TypeSafe request type. */
+  systemOneExamples?: Array<{
+    title?: string;
+    request: SystemOneRequest;
+  }>;
 };
 
 export type GenerateRequest = {
@@ -213,9 +233,13 @@ export type CreateGenerationClientOptions = {
   sourceResolver?: GenerationSourceResolver;
   adapters?: Record<string, GenerationAdapter>;
   debug?: boolean | GenerationDebugOptions;
+  /** Official TypeSafe SDK settings. Uses apiKey and fetch from this generation client. */
+  systemOne?: Omit<TypeSafeClientConfig, "apiKey" | "fetch">;
 };
 
 export type GenerationClient = {
+  /** Evaluates state and typed questions with the official TypeSafe SDK. */
+  systemOne: TypeSafeClient["systemOne"];
   /** Validates the request and sends it to the model adapter. */
   generate(request: GenerateRequest): Promise<GenerationContentBlock[]>;
   /** Resolves model defaults and all available validation rules without requiring an API key or making a network request. */
@@ -233,6 +257,11 @@ export type GenerationClient = {
 };
 
 export type GenerationClientWithResult = GenerationClient & {
+  /** 返回官方答案及响应中提供的费用和请求标识。 */
+  systemOneResult<const Q extends Questions>(
+    request: SystemOneRequest<Q>,
+    options?: RequestOptions,
+  ): Promise<SystemOneResultWithMetadata<Q>>;
   /** Generates content and returns observed request metadata such as requestId and cost when available. */
   generateResult(request: GenerateRequest): Promise<GenerationResult>;
 };

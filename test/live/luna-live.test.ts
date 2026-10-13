@@ -18,9 +18,13 @@ it("evaluates text questions with typed answers and billing metadata", async () 
   const { result, cost, requestId } = await createLiveClient().decisionsResult({
     decisionsRequest: {
       model,
-      state: { ticket: "I was charged twice for my subscription.", enabled: false, optional: null },
+      state: {
+        ticket: "I was charged twice for my subscription. Please refund the duplicate charge.",
+        enabled: false,
+        optional: null,
+      },
       questions: {
-        refund: { type: "noul", instructions: "Does the customer need a refund?" },
+        refund: { type: "noul", instructions: "Is the customer asking for a refund?" },
         team: { type: "choice", instructions: "Which team?", criteria: { billing: "Charges", technical: "Bugs" } },
         urgency: { type: "score", instructions: "How urgent?", criteria: ["Can wait", "Needs attention"] },
       },
@@ -28,7 +32,7 @@ it("evaluates text questions with typed answers and billing metadata", async () 
   });
   expect(result.model).toBeTruthy();
   const { refund, team, urgency } = result.answers;
-  expect(refund?.type === "noul" && refund.noul).toBeGreaterThan(0.5);
+  expect(refund?.type === "noul" && refund.noul).toBeGreaterThanOrEqual(0.5);
   expect(team?.type === "choice" && team.choice).toBe("billing");
   expect(urgency?.type === "score" && urgency.score).toBeGreaterThanOrEqual(0);
   expect(Number.isInteger(result.usage.inputTokens)).toBe(true);

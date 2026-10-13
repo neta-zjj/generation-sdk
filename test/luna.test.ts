@@ -204,6 +204,21 @@ describe("Luna Decisions", () => {
     );
   });
 
+  it("treats an empty server URL as unset and keeps the gateway", async () => {
+    await withServer(
+      (_received, response) => sendJson(response, 200, gatewayResponse),
+      async (origin, received) => {
+        const client = createGenerationClient({ apiKey: "local", baseUrl: origin, decisions: { serverURL: "" } });
+        await client.decisions(request, { serverURL: "" });
+        await client.decisionsResult(request);
+        expect(received.map((entry) => entry.path)).toEqual([
+          "/openrouter/api/alpha/decisions",
+          "/openrouter/api/alpha/decisions",
+        ]);
+      },
+    );
+  });
+
   it("uses a configured OpenRouter server URL and honors cancellation", async () => {
     await withServer(
       () => {},

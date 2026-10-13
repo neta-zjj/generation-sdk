@@ -178,14 +178,14 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
     defaultModel: options.systemOne?.defaultModel ?? "jev-latest",
   };
   let systemOneClient: TypeSafeClient | undefined;
-  // 官方 Decisions 接口只读取单次调用的 serverURL，客户端级 serverURL 对它无效。
+  // 官方 Decisions 接口只读取单次调用的 serverURL，客户端级 serverURL 对它无效；空字符串与官方一致视为未设置。
   const { serverURL: configuredServerURL, ...decisionsConfig } = options.decisions ?? {};
-  const decisionsServerURL = configuredServerURL ?? joinUrl(options.baseUrl ?? DEFAULT_BASE_URL, "openrouter");
+  const decisionsServerURL = configuredServerURL || joinUrl(options.baseUrl ?? DEFAULT_BASE_URL, "openrouter");
   let decisionsClient: OpenRouter | undefined;
 
   // 单次调用未给出 serverURL 时始终使用网关地址，避免官方函数退回 openrouter.ai。
   function decisionsCallOptions(requestOptions: OpenRouterRequestOptions | undefined): OpenRouterRequestOptions {
-    return { ...requestOptions, serverURL: requestOptions?.serverURL ?? decisionsServerURL };
+    return { ...requestOptions, serverURL: requestOptions?.serverURL || decisionsServerURL };
   }
 
   function requireModel(model: string): GenerationModelDeclaration {
@@ -244,8 +244,8 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
     if (!options.apiKey) throw new GenerationConfigError("apiKey is required");
     // 网关在失败时可能已经扣费，默认不重试。
     return new OpenRouter({
-      retryConfig: { strategy: "none" },
       ...decisionsConfig,
+      retryConfig: decisionsConfig.retryConfig ?? { strategy: "none" },
       apiKey: options.apiKey,
       httpClient: new HTTPClient({ fetcher: fetch }),
     });

@@ -20,10 +20,10 @@ import {
 describe("System One", () => {
   it("discovers and roundtrips Jev declarations without credentials", async () => {
     const client = createGenerationClient();
-    const models = client.listModels().filter((model) => model.category === "decision");
+    const models = client.listModels().filter((model) => model.adapter.type === "typesafe.systemOne");
     expect(models.map((model) => model.model)).toEqual(["jev-1.13.0", "jev-latest"]);
     for (const model of models) {
-      expect(model.adapter.type).toBe("typesafe.systemOne");
+      expect(model.category).toBe("decision");
       expect(model.systemOneExamples?.[0]?.request.model).toBe(model.model);
       expect(parseGenerationModelDeclaration(client.stringifyModelConfig(model.model))).toEqual(model);
     }

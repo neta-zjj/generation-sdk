@@ -54,11 +54,12 @@ function isMetaTaskVariantSpec(value: unknown): boolean {
   );
 }
 
-function isSystemOneExample(value: unknown): boolean {
+function isDecisionExample(value: unknown, modelRequired: boolean): boolean {
   if (!isRecord(value) || !isRecord(value.request)) return false;
+  const model = value.request.model;
   return (
     (value.title === undefined || typeof value.title === "string") &&
-    (value.request.model === undefined || typeof value.request.model === "string") &&
+    (typeof model === "string" || (!modelRequired && model === undefined)) &&
     "state" in value.request &&
     isRecord(value.request.questions)
   );
@@ -105,6 +106,7 @@ export function isGenerationModelDeclaration(value: unknown): value is Generatio
   const meta = value.meta;
   const examples = value.examples;
   const systemOneExamples = value.systemOneExamples;
+  const decisionsExamples = value.decisionsExamples;
   return (
     value.schema === MODEL_SCHEMA &&
     typeof value.model === "string" &&
@@ -121,7 +123,9 @@ export function isGenerationModelDeclaration(value: unknown): value is Generatio
     (meta === undefined || isMetaSpec(meta)) &&
     (examples === undefined || Array.isArray(examples)) &&
     (systemOneExamples === undefined ||
-      (Array.isArray(systemOneExamples) && systemOneExamples.every(isSystemOneExample)))
+      (Array.isArray(systemOneExamples) && systemOneExamples.every((example) => isDecisionExample(example, false)))) &&
+    (decisionsExamples === undefined ||
+      (Array.isArray(decisionsExamples) && decisionsExamples.every((example) => isDecisionExample(example, true))))
   );
 }
 

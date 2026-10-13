@@ -47,7 +47,7 @@ describe("config", () => {
         "video-upscale-native",
       ],
       audio: ["suno_music_chirp_fenix"],
-      decision: ["jev-1.13.0", "jev-latest"],
+      decision: ["jev-1.13.0", "jev-latest", "openai/gpt-6-luna-decisions"],
     } as const;
 
     const byCategory = {

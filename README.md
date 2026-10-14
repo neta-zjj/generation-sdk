@@ -334,17 +334,7 @@ const client = createGenerationClient({
 - `suno_image_to_song_chirp_v5`
 - `suno_video_to_song_chirp_v5`
 - `suno_vox_chirp_v5`
-- `meshy-text-to-3d`
-- `meshy-text-to-3d-refine`
-- `meshy-image-to-3d`
-- `meshy-multi-image-to-3d`
-- `meshy-retexture`
-- `meshy-remesh`
-- `meshy-rigging`
-- `meshy-animation`
-- `meshy-text-to-motion`
-- `meshy-text-to-image`
-- `meshy-image-to-image`
+- `meshy`
 
 Built-in model declarations share the same client-level `apiKey` and `baseUrl`.
 
@@ -566,25 +556,40 @@ Suno uses one shared adapter with a small public model set: `suno_music_chirp_fe
 
 ```ts
 const preview = await client.generate({
-  model: "meshy-text-to-3d",
+  model: "meshy",
   content: [{ type: "text", text: "a wooden treasure chest with iron bands" }],
-  parameters: { target_formats: ["glb", "usdz"] },
+  parameters: { operation: "text-to-3d", target_formats: ["glb", "usdz"] },
 });
 const [model] = preview;
 if (!model) throw new Error("Meshy returned no files");
 
 const refined = await client.generate({
-  model: "meshy-text-to-3d-refine",
+  model: "meshy",
   content: [model, { type: "text", text: "weathered oak planks and dark iron" }],
-  parameters: { enable_pbr: true },
+  parameters: { operation: "text-to-3d-refine", enable_pbr: true },
 });
 ```
 
-Each Meshy action is a separate model. `meshy-text-to-3d`, `meshy-text-to-3d-refine`, `meshy-image-to-3d`,
-`meshy-multi-image-to-3d`, `meshy-retexture`, `meshy-remesh`, `meshy-rigging`, `meshy-animation`, and
-`meshy-text-to-motion` have category `3d`; `meshy-text-to-image` and `meshy-image-to-image` have category `image`.
-Meshy request fields such as `ai_model`, `target_formats`, and `enable_pbr` go in `parameters`. `poll_interval` and
-`max_wait` control how the SDK waits for the task.
+Meshy is one model, `meshy`, with category `3d`. The required `parameters.operation` selects the function:
+
+| `operation` | Function |
+| --- | --- |
+| `text-to-image` | Generate an image from a text prompt |
+| `image-to-image` | Edit 1 to 5 reference images with a text prompt |
+| `text-to-3d` | Generate an untextured model from a text prompt |
+| `text-to-3d-refine` | Texture a `text-to-3d` model |
+| `image-to-3d` | Generate a textured model from one image |
+| `multi-image-to-3d` | Generate a textured model from 1 to 4 views of an object |
+| `retexture` | Apply a new texture to a model |
+| `remesh` | Rebuild the mesh of a model and convert it to other formats |
+| `rigging` | Add a skeleton to a humanoid model |
+| `text-to-motion` | Generate a motion clip from a text description |
+| `animation` | Apply preset actions or a motion clip to a rigged character |
+
+`operations` in the model declaration lists the content inputs and parameters of each function. A request may use only
+those of the selected operation, plus `poll_interval` and `max_wait`, which control how the SDK waits for the task.
+Meshy request fields such as `ai_model`, `target_formats`, and `enable_pbr` go in `parameters`; the SDK does not send
+`operation`, `poll_interval`, or `max_wait` to Meshy.
 
 The result has one content block per file: `3d` blocks first, starting with the main GLB, then `image` blocks for
 thumbnails, texture maps, and generated images, then a `video` block when Meshy returns a preview video. Every block
@@ -595,38 +600,40 @@ a motion clip carries `meta.duration_ms`, and `meta.task_expires_at` is set when
 To continue from an earlier result, pass its output block as input. A `3d` block with `meta.task_id` references that
 task:
 
-- `meshy-text-to-3d-refine` sends it as `preview_task_id`. The block must come from `meshy-text-to-3d`.
-- `meshy-retexture`, `meshy-remesh`, and `meshy-rigging` send it as `input_task_id`, and Meshy reads the main model of
-  that task. They send the file URL as `model_url` instead when the block holds another file of the task, such as
+- `text-to-3d-refine` sends it as `preview_task_id`. The block must come from `text-to-3d`.
+- `retexture`, `remesh`, and `rigging` send it as `input_task_id`, and Meshy reads the main model of that task. They
+  send the file URL as `model_url` instead when the block holds another file of the task, such as
   `model_urls.pre_remeshed_glb` or a rigged character, when Meshy does not accept the source task type in
-  `meta.task_type` for that action, or when the task has expired.
-- `meshy-animation` sends the `meshy-rigging` block as `rig_task_id`, and a `meshy-text-to-motion` block marked with
+  `meta.task_type` for that operation, or when the task has expired.
+- `animation` sends the `rigging` block as `rig_task_id`, and a `text-to-motion` block marked with
   `meta.role: "motion"` as `motion_task_id`.
 
 A `3d` block without `meta.task_id` sends its URL as `model_url`. Meshy deletes a task 3 days after it finishes, at
 `meta.task_expires_at`, and rejects later references to it. Refine and animation can only reference a task, so the SDK
-rejects an expired source task before any request. The other actions send the file URL, which keeps working when it
+rejects an expired source task before any request. The other operations send the file URL, which keeps working when it
 points to a stored copy, such as the files neta-router archives.
 
 ```ts
 const [character] = await client.generate({
-  model: "meshy-rigging",
+  model: "meshy",
   content: [{ type: "3d", source: { type: "url", url: "https://example.com/character.glb" } }],
+  parameters: { operation: "rigging" },
 });
 const [motion] = await client.generate({
-  model: "meshy-text-to-motion",
+  model: "meshy",
   content: [{ type: "text", text: "a person jumps forward and lands softly" }],
-  parameters: { duration: 3 },
+  parameters: { operation: "text-to-motion", duration: 3 },
 });
 if (!character || !motion) throw new Error("Meshy returned no files");
 await client.generate({
-  model: "meshy-animation",
+  model: "meshy",
   content: [character, { ...motion, meta: { ...motion.meta, role: "motion" } }],
+  parameters: { operation: "animation" },
 });
 ```
 
-`meshy-image-to-3d` and `meshy-multi-image-to-3d` take texture guide images as `image` blocks with
-`meta.role: "texture"`. Image and 3D inputs use URL sources.
+`image-to-3d` and `multi-image-to-3d` take texture guide images as `image` blocks with `meta.role: "texture"`. Image
+and 3D inputs use URL sources.
 
 Meshy recommends waiting at least 60 minutes for a task, so `max_wait` defaults to 3600 seconds. A status check that
 fails with a network error, a timeout, 408, 429, or 5xx, or that breaks off while its body is read, is retried at the
@@ -712,6 +719,49 @@ parameters:
 Parameter specs have `type` `string`, `number`, `integer`, `boolean`, or `array`. Numbers and integers accept `min`,
 `max`, and `multipleOf`. An array declares `items`, either a string with an optional `enum` or an integer with optional
 `min` and `max`, plus optional `min` and `max` item counts and `unique`.
+
+A model with several functions declares them in `operations`, and its string parameter `operation` selects one per
+request, so `operation` is required unless it declares a `default`. The `enum` of `operation` lists the operation names
+in the order of `operations`. Each operation may declare a `title`, a `description`, `content.input`, and `parameters`,
+which add to the model's own and do not repeat its content types or parameter names:
+
+```yaml
+schema: neta.generation.model.v1
+model: meshy
+category: 3d
+adapter:
+  type: meshy.tasks
+content:
+  input: []
+parameters:
+  operation:
+    type: string
+    enum: [text-to-3d, remesh]
+  max_wait:
+    type: integer
+    optional: true
+    default: 3600
+operations:
+  text-to-3d:
+    content:
+      input:
+        - type: text
+          required: true
+  remesh:
+    content:
+      input:
+        - type: 3d
+          required: true
+    parameters:
+      topology:
+        type: string
+        optional: true
+        enum: [quad, triangle]
+```
+
+`validate()` checks the request against the model's content inputs and parameters plus those of the selected operation,
+and returns that combined declaration as `declaration`. `resolveGenerationOperation(declaration, parameters)` returns
+the combined declaration for the operation in `parameters`, and checks only `parameters.operation`.
 
 A declaration may carry a display-only `pricing` block in USD. `unit` names what one charge covers
 (`image`, `second`, `request`, or `1m_tokens`); `amount` is the exact unit price, or a `min`/`max`

@@ -156,6 +156,16 @@ export type GenerationMetaSpec = {
   taskVariants?: Record<string, GenerationMetaTaskVariantSpec>;
 };
 
+/** One function of a model: the content inputs and parameters it adds to the model's own. */
+export type GenerationOperationSpec = {
+  title?: string;
+  description?: string;
+  content?: {
+    input: GenerationContentSpec[];
+  };
+  parameters?: Record<string, GenerationParameterSpec>;
+};
+
 export type GenerationModelDeclaration = {
   schema: typeof MODEL_SCHEMA;
   model: string;
@@ -175,6 +185,11 @@ export type GenerationModelDeclaration = {
     input: GenerationContentSpec[];
   };
   parameters?: Record<string, GenerationParameterSpec>;
+  /**
+   * Functions of the model, selected by the string parameter `operation`, whose `enum` lists these keys. A request uses
+   * the model's content inputs and parameters plus those of the selected operation.
+   */
+  operations?: Record<string, GenerationOperationSpec>;
   meta?: GenerationMetaSpec;
   examples?: Array<{
     title?: string;

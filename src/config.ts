@@ -126,11 +126,51 @@ function isMetaSpec(value: unknown): boolean {
   );
 }
 
-export function isGenerationModelDeclaration(value: unknown): value is GenerationModelDeclaration {
+function isParameters(value: unknown): boolean {
+  return isRecord(value) && Object.values(value).every(isParameterSpec);
+}
+
+function isOperationSpec(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  return (
+    (value.title === undefined || typeof value.title === "string") &&
+    (value.description === undefined || typeof value.description === "string") &&
+    (value.content === undefined || (isRecord(value.content) && Array.isArray(value.content.input))) &&
+    (value.parameters === undefined || isParameters(value.parameters))
+  );
+}
+
+function contentTypes(content: { input: unknown[] } | undefined): unknown[] {
+  return (content?.input ?? []).map((input) => (isRecord(input) ? input.type : undefined));
+}
+
+// 参数 operation 的 enum 按顺序列出全部功能，并且请求总是会选中一个功能；功能的参数和内容类型不能与模型自己的重复。
+function hasSelectableOperations({ operations, parameters = {}, content }: GenerationModelDeclaration): boolean {
+  if (!operations) return true;
+  const names = Object.keys(operations);
+  const selector = parameters.operation;
+  const modelTypes = new Set(contentTypes(content));
+  return (
+    names.length > 0 &&
+    selector?.type === "string" &&
+    (selector.optional !== true || selector.default !== undefined) &&
+    Array.isArray(selector.enum) &&
+    selector.enum.length === names.length &&
+    names.every((name, index) => selector.enum?.[index] === name) &&
+    Object.values(operations).every(
+      (operation) =>
+        Object.keys(operation.parameters ?? {}).every((key) => !Object.hasOwn(parameters, key)) &&
+        contentTypes(operation.content).every((type) => !modelTypes.has(type)),
+    )
+  );
+}
+
+function hasDeclarationFields(value: unknown): value is GenerationModelDeclaration {
   if (!isRecord(value)) return false;
   const adapter = value.adapter;
   const content = value.content;
   const parameters = value.parameters;
+  const operations = value.operations;
   const meta = value.meta;
   const examples = value.examples;
   const systemOneExamples = value.systemOneExamples;
@@ -147,7 +187,8 @@ export function isGenerationModelDeclaration(value: unknown): value is Generatio
     typeof adapter.type === "string" &&
     isRecord(content) &&
     Array.isArray(content.input) &&
-    (parameters === undefined || (isRecord(parameters) && Object.values(parameters).every(isParameterSpec))) &&
+    (parameters === undefined || isParameters(parameters)) &&
+    (operations === undefined || (isRecord(operations) && Object.values(operations).every(isOperationSpec))) &&
     (meta === undefined || isMetaSpec(meta)) &&
     (examples === undefined || Array.isArray(examples)) &&
     (systemOneExamples === undefined ||
@@ -155,6 +196,10 @@ export function isGenerationModelDeclaration(value: unknown): value is Generatio
     (decisionsExamples === undefined ||
       (Array.isArray(decisionsExamples) && decisionsExamples.every((example) => isDecisionExample(example, true))))
   );
+}
+
+export function isGenerationModelDeclaration(value: unknown): value is GenerationModelDeclaration {
+  return hasDeclarationFields(value) && hasSelectableOperations(value);
 }
 
 export function parseGenerationModelDeclaration(rawText: string, filePath = "model.yaml"): GenerationModelDeclaration {

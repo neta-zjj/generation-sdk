@@ -5,11 +5,19 @@ import { describe, expect, it } from "vitest";
 import {
   createGenerationClient,
   exportBuiltinModelConfig,
+  type GenerationModelDeclaration,
   parseGenerationModelDeclaration,
   readGenerationModelDeclarationsFromDirectory,
   stringifyBuiltinModelConfig,
   stringifyGenerationModelDeclaration,
 } from "../src/index.js";
+
+function contentInputs(declaration: GenerationModelDeclaration) {
+  return [
+    ...declaration.content.input,
+    ...Object.values(declaration.operations ?? {}).flatMap((operation) => operation.content?.input ?? []),
+  ];
+}
 
 describe("config", () => {
   it("roundtrips a built-in model declaration", () => {
@@ -29,8 +37,6 @@ describe("config", () => {
         "gemini-3.1-flash-lite-image",
         "gpt-image-2",
         "krea2",
-        "meshy-image-to-image",
-        "meshy-text-to-image",
         "noobxl-i2i-ipa-onediff",
         "noobxl-t2i-onediff",
         "qwen-image-edit",
@@ -49,17 +55,7 @@ describe("config", () => {
         "video-upscale-native",
       ],
       audio: ["suno_music_chirp_fenix"],
-      "3d": [
-        "meshy-animation",
-        "meshy-image-to-3d",
-        "meshy-multi-image-to-3d",
-        "meshy-remesh",
-        "meshy-retexture",
-        "meshy-rigging",
-        "meshy-text-to-3d",
-        "meshy-text-to-3d-refine",
-        "meshy-text-to-motion",
-      ],
+      "3d": ["meshy"],
       decision: ["jev-1.13.0", "jev-latest", "openai/gpt-6-luna-decisions"],
     } as const;
 
@@ -368,7 +364,7 @@ describe("config", () => {
   it("does not advertise base64 input sources in model YAML", async () => {
     const models = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
     for (const model of models) {
-      for (const input of model.content.input) {
+      for (const input of contentInputs(model)) {
         expect(input.sources ?? [], `${model.model}: ${input.type}`).not.toContain("base64");
       }
     }
@@ -592,12 +588,69 @@ describe("config", () => {
     expect(await readFile(join(process.cwd(), "README.md"), "utf8")).not.toContain("preview_text");
   });
 
-  it("validates every built-in model example", () => {
+  it("validates every built-in model example and selects every operation in one", () => {
     const client = createGenerationClient({ apiKey: "test" });
     for (const model of client.listModels()) {
       for (const example of model.examples ?? []) {
-        expect(() => client.validate(example.request), `${model.model}: ${example.title ?? "example"}`).not.toThrow();
+        const label = `${model.model}: ${example.title ?? "example"}`;
+        expect(example.request.model, label).toBe(model.model);
+        expect(() => client.validate(example.request), label).not.toThrow();
       }
+      const selected = new Set(model.examples?.map((example) => example.request.parameters?.operation));
+      expect(
+        Object.keys(model.operations ?? {}).filter((operation) => !selected.has(operation)),
+        model.model,
+      ).toEqual([]);
+    }
+  });
+
+  it("parses model declarations with operations and rejects operations that a request cannot select", () => {
+    const declaration = {
+      schema: "neta.generation.model.v1",
+      model: "custom.operations",
+      adapter: { type: "custom.adapter" },
+      content: { input: [{ type: "text", required: true }] },
+      parameters: {
+        operation: { type: "string", enum: ["draw", "edit"] },
+        seed: { type: "integer", optional: true },
+      },
+      operations: {
+        draw: { title: "Draw", description: "Draw an image.", parameters: { size: { type: "string" } } },
+        edit: { content: { input: [{ type: "image", required: true }] } },
+      },
+    };
+    const parse = (value: unknown) => parseGenerationModelDeclaration(JSON.stringify(value), "custom.json");
+    const selector = (spec: Record<string, unknown>) => ({
+      ...declaration,
+      parameters: { ...declaration.parameters, operation: { type: "string", enum: ["draw", "edit"], ...spec } },
+    });
+    const operations = (value: unknown) => ({ ...declaration, operations: value });
+
+    expect(parse(declaration)).toEqual(declaration);
+    expect(parse(selector({ optional: true, default: "draw" })).parameters?.operation).toMatchObject({
+      default: "draw",
+    });
+    const meshy = stringifyBuiltinModelConfig("meshy");
+    expect(parseGenerationModelDeclaration(meshy, "meshy.yaml")).toEqual(createGenerationClient().getModel("meshy"));
+
+    for (const invalid of [
+      { ...declaration, parameters: { seed: declaration.parameters.seed } },
+      selector({ type: "integer" }),
+      selector({ enum: ["edit", "draw"] }),
+      selector({ enum: ["draw"] }),
+      selector({ enum: undefined }),
+      selector({ optional: true }),
+      { ...selector({ enum: [] }), operations: {} },
+      operations([]),
+      operations({ ...declaration.operations, edit: "edit" }),
+      operations({ ...declaration.operations, edit: { title: 1 } }),
+      operations({ ...declaration.operations, edit: { content: { input: {} } } }),
+      operations({ ...declaration.operations, edit: { parameters: { size: { type: "color" } } } }),
+      operations({ ...declaration.operations, edit: { parameters: { seed: { type: "integer" } } } }),
+      operations({ ...declaration.operations, edit: { parameters: { operation: { type: "string" } } } }),
+      operations({ ...declaration.operations, edit: { content: { input: [{ type: "text" }] } } }),
+    ]) {
+      expect(() => parse(invalid), JSON.stringify(invalid)).toThrow("Invalid model declaration: custom.json");
     }
   });
 

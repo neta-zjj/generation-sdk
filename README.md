@@ -334,6 +334,17 @@ const client = createGenerationClient({
 - `suno_image_to_song_chirp_v5`
 - `suno_video_to_song_chirp_v5`
 - `suno_vox_chirp_v5`
+- `meshy-text-to-3d`
+- `meshy-text-to-3d-refine`
+- `meshy-image-to-3d`
+- `meshy-multi-image-to-3d`
+- `meshy-retexture`
+- `meshy-remesh`
+- `meshy-rigging`
+- `meshy-animation`
+- `meshy-text-to-motion`
+- `meshy-text-to-image`
+- `meshy-image-to-image`
 
 Built-in model declarations share the same client-level `apiKey` and `baseUrl`.
 
@@ -551,6 +562,86 @@ Suno uses one shared adapter with a small public model set: `suno_music_chirp_fe
 
 `suno_music` is removed in this release. Migrate to a concrete model name and stop sending `parameters.operation` or `meta.task`.
 
+## 3D generation
+
+```ts
+const preview = await client.generate({
+  model: "meshy-text-to-3d",
+  content: [{ type: "text", text: "a wooden treasure chest with iron bands" }],
+  parameters: { target_formats: ["glb", "usdz"] },
+});
+const [model] = preview;
+if (!model) throw new Error("Meshy returned no files");
+
+const refined = await client.generate({
+  model: "meshy-text-to-3d-refine",
+  content: [model, { type: "text", text: "weathered oak planks and dark iron" }],
+  parameters: { enable_pbr: true },
+});
+```
+
+Each Meshy action is a separate model. `meshy-text-to-3d`, `meshy-text-to-3d-refine`, `meshy-image-to-3d`,
+`meshy-multi-image-to-3d`, `meshy-retexture`, `meshy-remesh`, `meshy-rigging`, `meshy-animation`, and
+`meshy-text-to-motion` have category `3d`; `meshy-text-to-image` and `meshy-image-to-image` have category `image`.
+Meshy request fields such as `ai_model`, `target_formats`, and `enable_pbr` go in `parameters`. `poll_interval` and
+`max_wait` control how the SDK waits for the task.
+
+The result has one content block per file: `3d` blocks first, starting with the main GLB, then `image` blocks for
+thumbnails, texture maps, and generated images, then a `video` block when Meshy returns a preview video. Every block
+carries `meta.task_id`, `meta.task_type`, and `meta.field`, the Meshy response field the file came from, such as
+`model_urls.glb` or `texture_urls[0].normal`. `3d` blocks also carry `meta.format`. An OBJ block carries `meta.mtl_url`,
+a motion clip carries `meta.duration_ms`, and `meta.task_expires_at` is set when Meshy reports when the task expires.
+
+To continue from an earlier result, pass its output block as input. A `3d` block with `meta.task_id` references that
+task:
+
+- `meshy-text-to-3d-refine` sends it as `preview_task_id`. The block must come from `meshy-text-to-3d`.
+- `meshy-retexture`, `meshy-remesh`, and `meshy-rigging` send it as `input_task_id`, and Meshy reads the main model of
+  that task. They send the file URL as `model_url` instead when the block holds another file of the task, such as
+  `model_urls.pre_remeshed_glb` or a rigged character, when Meshy does not accept the source task type in
+  `meta.task_type` for that action, or when the task has expired.
+- `meshy-animation` sends the `meshy-rigging` block as `rig_task_id`, and a `meshy-text-to-motion` block marked with
+  `meta.role: "motion"` as `motion_task_id`.
+
+A `3d` block without `meta.task_id` sends its URL as `model_url`. Meshy deletes a task 3 days after it finishes, at
+`meta.task_expires_at`, and rejects later references to it. Refine and animation can only reference a task, so the SDK
+rejects an expired source task before any request. The other actions send the file URL, which keeps working when it
+points to a stored copy, such as the files neta-router archives.
+
+```ts
+const [character] = await client.generate({
+  model: "meshy-rigging",
+  content: [{ type: "3d", source: { type: "url", url: "https://example.com/character.glb" } }],
+});
+const [motion] = await client.generate({
+  model: "meshy-text-to-motion",
+  content: [{ type: "text", text: "a person jumps forward and lands softly" }],
+  parameters: { duration: 3 },
+});
+if (!character || !motion) throw new Error("Meshy returned no files");
+await client.generate({
+  model: "meshy-animation",
+  content: [character, { ...motion, meta: { ...motion.meta, role: "motion" } }],
+});
+```
+
+`meshy-image-to-3d` and `meshy-multi-image-to-3d` take texture guide images as `image` blocks with
+`meta.role: "texture"`. Image and 3D inputs use URL sources.
+
+Meshy recommends waiting at least 60 minutes for a task, so `max_wait` defaults to 3600 seconds. A status check that
+fails with a network error, a timeout, 408, 429, or 5xx, or that breaks off while its body is read, is retried at the
+next poll, up to 10 times in a row. Each request waits up to 240 seconds, below the 300-second response header limit of
+Node's built-in fetch. After the task succeeds, neta-router archives the result files before it answers; when that takes
+longer, the next poll waits for the archive that is already running. Errors raised after the task is submitted carry
+its ID in `details.task_id`, with the original error as `cause`. `generateResult()` reports the `usage.cost` of the last
+gateway response that has one. While the task runs, the gateway reports the estimate it holds; once the task succeeds,
+it reports the cost settled from the credits Meshy consumed, except for a status check that arrives between recording
+the success and settling the cost.
+
+For a real gateway check, export `NETA_ROUTER_API_KEY` for a key that can use Meshy, optionally `NETA_ROUTER_BASE_URL`,
+and run `pnpm test:live:meshy`. The check spends Meshy credits on a short chain of text-to-image, image-to-3D,
+rigging, text-to-motion, animation, text-to-3D, refine, and remesh tasks.
+
 ## Load model declarations from files
 
 ```ts
@@ -618,6 +709,10 @@ parameters:
     default: 1024x1024
 ```
 
+Parameter specs have `type` `string`, `number`, `integer`, `boolean`, or `array`. Numbers and integers accept `min`,
+`max`, and `multipleOf`. An array declares `items`, either a string with an optional `enum` or an integer with optional
+`min` and `max`, plus optional `min` and `max` item counts and `unique`.
+
 A declaration may carry a display-only `pricing` block in USD. `unit` names what one charge covers
 (`image`, `second`, `request`, or `1m_tokens`); `amount` is the exact unit price, or a `min`/`max`
 pair when the price depends on request parameters (resolution, duration, quality). The SDK does not
@@ -639,7 +734,7 @@ type GenerationSource =
   | { type: "base64"; mediaType: string; data: string };
 ```
 
-The content block `type` selects the media kind (`image`, `video`, or `audio`). The source `type` selects how that media is supplied (`url` or `base64`). When a model declares `roles`, `meta.role` selects the media's provider-specific purpose. When it also sets `roleRequired`, that role must be present.
+The content block `type` selects the media kind (`image`, `video`, `audio`, or `3d`). The source `type` selects how that media is supplied (`url` or `base64`). When a model declares `roles`, `meta.role` selects the media's provider-specific purpose. When it also sets `roleRequired`, that role must be present.
 
 ## Adapter types
 
@@ -652,6 +747,7 @@ Built-in adapters:
 - `ark.videoGenerations`
 - `kling.videoGenerations`
 - `suno.tasks`
+- `meshy.tasks`
 
 You can register custom adapters:
 

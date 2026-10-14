@@ -874,6 +874,770 @@ const audioSpeechModels = [
   },
 ] satisfies GenerationModelDeclaration[];
 
+const meshyTaskParameters = {
+  poll_interval: {
+    type: "integer",
+    optional: true,
+    default: 5,
+    min: 1,
+    max: 60,
+    description: "Seconds between task status checks.",
+  },
+  max_wait: {
+    type: "integer",
+    optional: true,
+    default: 3600,
+    min: 60,
+    max: 7200,
+    description: "Maximum seconds to wait for the task. Meshy recommends waiting at least 60 minutes.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
+function meshyTargetFormats(formats: string[], whenOmitted: string) {
+  return {
+    target_formats: {
+      type: "array",
+      optional: true,
+      items: { type: "string", enum: formats },
+      min: 1,
+      unique: true,
+      description: `3D file formats to generate. ${whenOmitted}`,
+    },
+  } satisfies GenerationModelDeclaration["parameters"];
+}
+
+const meshyGenerationTargetFormats = meshyTargetFormats(
+  ["glb", "obj", "fbx", "stl", "usdz", "3mf"],
+  "Meshy generates every format except 3mf when omitted.",
+);
+
+function meshyAiModel(models: string[], description: string) {
+  return {
+    ai_model: { type: "string", optional: true, enum: models, description },
+  } satisfies GenerationModelDeclaration["parameters"];
+}
+
+const meshyGeometryParameters = {
+  model_type: {
+    type: "string",
+    optional: true,
+    enum: ["standard", "smart-topology"],
+    description:
+      "Mesh generation type. Meshy defaults to standard; smart-topology uses meshy-t2 and outputs triangles.",
+  },
+  ...meshyAiModel(
+    ["latest", "meshy-7.1", "meshy-6", "meshy-6-lite", "meshy-t2"],
+    "Meshy model. Meshy defaults to latest (Meshy 7.1) for standard and to meshy-t2 for smart-topology.",
+  ),
+} satisfies GenerationModelDeclaration["parameters"];
+
+function meshyPolygonParameters(polycountDescription: string) {
+  return {
+    topology: {
+      type: "string",
+      optional: true,
+      enum: ["quad", "triangle"],
+      description: "Mesh topology. Meshy defaults to triangle.",
+    },
+    target_polycount: {
+      type: "integer",
+      optional: true,
+      min: 100,
+      max: 300000,
+      description: polycountDescription,
+    },
+    decimation_mode: {
+      type: "integer",
+      optional: true,
+      min: 1,
+      max: 4,
+      description: "Adaptive polycount level from 1 (ultra) to 4 (low). Overrides target_polycount.",
+    },
+  } satisfies GenerationModelDeclaration["parameters"];
+}
+
+const meshySmartTopologyPolycount =
+  "Target face count: 100 to 300,000 with should_remesh on a standard model, 100 to 15,000 with smart-topology.";
+
+function meshyRemeshPhaseParameters(polycountDescription: string) {
+  return {
+    should_remesh: {
+      type: "boolean",
+      optional: true,
+      description:
+        "Run the remesh phase. Meshy defaults to false for Meshy 6 and Meshy 7 models and to true for others.",
+    },
+    ...meshyPolygonParameters(polycountDescription),
+  } satisfies GenerationModelDeclaration["parameters"];
+}
+
+const meshyTextureParameters = {
+  enable_pbr: {
+    type: "boolean",
+    optional: true,
+    description: "Generate metallic, roughness, and normal maps in addition to the base color.",
+  },
+  texture_resolution: {
+    type: "string",
+    optional: true,
+    enum: ["2k", "4k", "8k"],
+    description: "Base color texture resolution. Meshy defaults to 2k; 4k and 8k are not available with meshy-6-lite.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
+function meshyImageInputParameters(polycountDescription: string) {
+  return {
+    should_texture: {
+      type: "boolean",
+      optional: true,
+      description: "Generate textures. Set to false for an untextured mesh. Meshy defaults to true.",
+    },
+    ...meshyTextureParameters,
+    ...meshyRemeshPhaseParameters(polycountDescription),
+    save_pre_remeshed_model: {
+      type: "boolean",
+      optional: true,
+      description: "Also return the GLB from before the remesh phase.",
+    },
+    image_enhancement: {
+      type: "boolean",
+      optional: true,
+      description: "Optimize the input images. Set to false to keep their exact appearance. Meshy defaults to true.",
+    },
+    remove_lighting: {
+      type: "boolean",
+      optional: true,
+      description: "Remove highlights and shadows from the base color texture. Meshy defaults to true.",
+    },
+    multi_view_thumbnails: {
+      type: "boolean",
+      optional: true,
+      description: "Also render front, right, back, and left thumbnails.",
+    },
+  } satisfies GenerationModelDeclaration["parameters"];
+}
+
+const meshyPoseParameters = {
+  pose_mode: {
+    type: "string",
+    optional: true,
+    enum: ["a-pose", "t-pose"],
+    description: "Generate the subject in an A pose or a T pose. No pose is applied when omitted.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
+const meshyModerationParameters = {
+  moderation: {
+    type: "boolean",
+    optional: true,
+    description: "Screen the inputs for harmful content before generation.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
+const meshyThumbnailParameters = {
+  alpha_thumbnail: {
+    type: "boolean",
+    optional: true,
+    description: "Also render a transparent-background thumbnail.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
+const meshySizeParameters = {
+  auto_size: {
+    type: "boolean",
+    optional: true,
+    description: "Estimate the real-world height of the object and resize the model to it.",
+  },
+  origin_at: {
+    type: "string",
+    optional: true,
+    enum: ["bottom", "center"],
+    description: "Origin position when auto_size is enabled. Meshy defaults to bottom.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
+const meshyImageModelParameters = {
+  ai_model: {
+    type: "string",
+    enum: [
+      "nano-banana",
+      "nano-banana-2",
+      "nano-banana-2-lite",
+      "nano-banana-pro",
+      "gpt-image-2",
+      "gpt-image-2-5-flare",
+      "gpt-image-2-5-sunburst",
+    ],
+    description: "Image model. Meshy charges different credits per image for each model.",
+  },
+  generate_multi_view: {
+    type: "boolean",
+    optional: true,
+    description: "Generate one image that shows the subject from several angles. aspect_ratio cannot be set with it.",
+  },
+  aspect_ratio: {
+    type: "string",
+    optional: true,
+    enum: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"],
+    description: "Output aspect ratio. Meshy defaults to 1:1; 3:2 and 2:3 require a GPT Image model.",
+  },
+  remove_background: {
+    type: "boolean",
+    optional: true,
+    description: "Return a transparent PNG with the background removed.",
+  },
+} satisfies GenerationModelDeclaration["parameters"];
+
+const meshyModelFileInput = {
+  type: "3d",
+  required: true,
+  min: 1,
+  max: 1,
+  sources: ["url"],
+  description:
+    "Model file (GLB, GLTF, OBJ, FBX, or STL, up to 100 MB). A block with meta.task_id from a Meshy task that this model accepts references the task instead of the file.",
+} satisfies GenerationModelDeclaration["content"]["input"][number];
+
+function meshyTextInput(required: boolean, description: string) {
+  return {
+    type: "text",
+    required,
+    ...(required ? { min: 1 } : {}),
+    max: 16,
+    merge: "newline",
+    description,
+  } satisfies GenerationModelDeclaration["content"]["input"][number];
+}
+
+const meshyModels = [
+  {
+    schema: MODEL_SCHEMA,
+    model: "meshy-text-to-3d",
+    title: "Meshy Text To 3D",
+    category: "3d",
+    description:
+      "Generates an untextured 3D model from a text prompt. Pass the result to meshy-text-to-3d-refine to texture it.",
+    adapter: { type: "meshy.tasks", operation: "text_to_3d" },
+    content: {
+      input: [meshyTextInput(true, "Description of the object, up to 800 characters.")],
+    },
+    parameters: {
+      ...meshyGeometryParameters,
+      geometry_resolution: {
+        type: "string",
+        optional: true,
+        enum: ["standard", "2k", "4k"],
+        description: "Geometry pass. 2k and 4k run the Ultra pass and require meshy-7.1 or latest.",
+      },
+      ...meshyRemeshPhaseParameters(meshySmartTopologyPolycount),
+      ...meshyPoseParameters,
+      ...meshyModerationParameters,
+      ...meshyGenerationTargetFormats,
+      ...meshyThumbnailParameters,
+      ...meshySizeParameters,
+      ...meshyTaskParameters,
+    },
+    examples: [
+      {
+        title: "Text to 3D preview",
+        request: {
+          model: "meshy-text-to-3d",
+          content: [{ type: "text", text: "a wooden treasure chest with iron bands" }],
+          parameters: { target_formats: ["glb", "usdz"] },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "meshy-text-to-3d-refine",
+    title: "Meshy Text To 3D Refine",
+    category: "3d",
+    description:
+      "Textures a model from meshy-text-to-3d. Texturing can be guided by a text prompt or by an image, but not both.",
+    adapter: { type: "meshy.tasks", operation: "text_to_3d_refine" },
+    content: {
+      input: [
+        {
+          type: "3d",
+          required: true,
+          min: 1,
+          max: 1,
+          sources: ["url"],
+          description: "A meshy-text-to-3d output block. Its meta.task_id selects the preview task.",
+        },
+        meshyTextInput(false, "Texture prompt, up to 800 characters."),
+        {
+          type: "image",
+          required: false,
+          max: 1,
+          sources: ["url"],
+          description: "Texture guide image (JPG, PNG, or WebP, up to 20 MB).",
+        },
+      ],
+    },
+    parameters: {
+      ...meshyTextureParameters,
+      ...meshyAiModel(
+        ["latest", "meshy-7.1", "meshy-6", "meshy-6-lite"],
+        "Texture model. Meshy defaults to the model of the preview task.",
+      ),
+      remove_lighting: {
+        type: "boolean",
+        optional: true,
+        description: "Remove highlights and shadows from the base color texture. Takes effect with meshy-6.",
+      },
+      ...meshyModerationParameters,
+      ...meshyGenerationTargetFormats,
+      ...meshyThumbnailParameters,
+      ...meshySizeParameters,
+      ...meshyTaskParameters,
+    },
+    examples: [
+      {
+        title: "Refine a preview",
+        request: {
+          model: "meshy-text-to-3d-refine",
+          content: [
+            {
+              type: "3d",
+              source: { type: "url", url: "https://example.com/preview.glb" },
+              meta: { task_id: "task_preview_id" },
+            },
+            { type: "text", text: "weathered oak planks and dark iron" },
+          ],
+          parameters: { enable_pbr: true },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "meshy-image-to-3d",
+    title: "Meshy Image To 3D",
+    category: "3d",
+    description: "Generates a textured 3D model from one image.",
+    adapter: { type: "meshy.tasks", operation: "image_to_3d" },
+    content: {
+      input: [
+        {
+          type: "image",
+          required: true,
+          min: 1,
+          max: 2,
+          sources: ["url"],
+          roles: ["texture"],
+          description:
+            "Input image (JPG, PNG, or WebP, up to 20 MB), and optionally a texture guide image with meta.role texture.",
+        },
+        meshyTextInput(false, "Texture prompt, up to 800 characters. Use either this or a texture guide image."),
+      ],
+    },
+    parameters: {
+      ...meshyGeometryParameters,
+      geometry_resolution: {
+        type: "string",
+        optional: true,
+        enum: ["standard", "2k", "4k"],
+        description: "Geometry pass. 2k and 4k run the Ultra pass and require meshy-7.1 or latest.",
+      },
+      ...meshyImageInputParameters(meshySmartTopologyPolycount),
+      ...meshyPoseParameters,
+      ...meshyModerationParameters,
+      ...meshyGenerationTargetFormats,
+      ...meshyThumbnailParameters,
+      ...meshySizeParameters,
+      ...meshyTaskParameters,
+    },
+    examples: [
+      {
+        title: "Image to 3D",
+        request: {
+          model: "meshy-image-to-3d",
+          content: [{ type: "image", source: { type: "url", url: "https://example.com/character.png" } }],
+          parameters: { pose_mode: "a-pose", target_formats: ["glb"] },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "meshy-multi-image-to-3d",
+    title: "Meshy Multi-Image To 3D",
+    category: "3d",
+    description: "Generates a textured 3D model from 1 to 4 images of the same object taken from different angles.",
+    adapter: { type: "meshy.tasks", operation: "multi_image_to_3d" },
+    content: {
+      input: [
+        {
+          type: "image",
+          required: true,
+          min: 1,
+          max: 8,
+          sources: ["url"],
+          roles: ["texture"],
+          description:
+            "1 to 4 views of the object, front view first, and optionally up to 4 texture guide images with meta.role texture.",
+        },
+        meshyTextInput(false, "Texture prompt, up to 800 characters. Use either this or texture guide images."),
+      ],
+    },
+    parameters: {
+      ...meshyAiModel(
+        ["latest", "meshy-7.1", "meshy-6", "meshy-6-lite"],
+        "Meshy model. Meshy defaults to latest (Meshy 7.1); more than one texture guide image requires meshy-7.1 or latest.",
+      ),
+      geometry_resolution: {
+        type: "string",
+        optional: true,
+        enum: ["standard", "2k"],
+        description: "Geometry pass. 2k runs the Ultra pass and requires meshy-7.1 or latest.",
+      },
+      ...meshyImageInputParameters(
+        "Target face count with should_remesh, from 100 to 300,000. Meshy defaults to 30,000.",
+      ),
+      ...meshyPoseParameters,
+      ...meshyModerationParameters,
+      ...meshyGenerationTargetFormats,
+      ...meshyThumbnailParameters,
+      ...meshySizeParameters,
+      ...meshyTaskParameters,
+    },
+    examples: [
+      {
+        title: "Multi-image to 3D",
+        request: {
+          model: "meshy-multi-image-to-3d",
+          content: [
+            { type: "image", source: { type: "url", url: "https://example.com/front.png" } },
+            { type: "image", source: { type: "url", url: "https://example.com/side.png" } },
+            { type: "image", source: { type: "url", url: "https://example.com/back.png" } },
+          ],
+          parameters: { target_formats: ["glb"] },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "meshy-retexture",
+    title: "Meshy Retexture",
+    category: "3d",
+    description: "Applies a new texture to a 3D model, guided by a style prompt or by style images.",
+    adapter: { type: "meshy.tasks", operation: "retexture" },
+    content: {
+      input: [
+        meshyModelFileInput,
+        meshyTextInput(false, "Style prompt, up to 800 characters. Use either this or style images."),
+        {
+          type: "image",
+          required: false,
+          max: 4,
+          sources: ["url"],
+          description:
+            "One style image, or 2 to 4 views of the object, front view first, which require ai_model meshy-7.",
+        },
+      ],
+    },
+    parameters: {
+      ...meshyAiModel(
+        ["latest", "meshy-7", "meshy-6", "meshy-6-lite"],
+        "Meshy model. Meshy defaults to latest (Meshy 7).",
+      ),
+      enable_original_uv: {
+        type: "boolean",
+        optional: true,
+        description: "Keep the existing UV layout of the model. Recommended for models that Meshy generated.",
+      },
+      ...meshyTextureParameters,
+      remove_lighting: {
+        type: "boolean",
+        optional: true,
+        description:
+          "Remove highlights and shadows from the base color texture. Takes effect with meshy-6 at 2k or 4k.",
+      },
+      ...meshyGenerationTargetFormats,
+      ...meshyThumbnailParameters,
+      ...meshyTaskParameters,
+    },
+    examples: [
+      {
+        title: "Retexture from a style prompt",
+        request: {
+          model: "meshy-retexture",
+          content: [
+            { type: "3d", source: { type: "url", url: "https://example.com/model.glb" } },
+            { type: "text", text: "polished marble with gold trim" },
+          ],
+          parameters: { enable_original_uv: true },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "meshy-remesh",
+    title: "Meshy Remesh",
+    category: "3d",
+    description:
+      "Rebuilds the mesh of a 3D model at a target topology and polycount, and converts it to other formats.",
+    adapter: { type: "meshy.tasks", operation: "remesh" },
+    content: { input: [meshyModelFileInput] },
+    parameters: {
+      ...meshyTargetFormats(
+        ["glb", "fbx", "obj", "usdz", "blend", "stl", "3mf"],
+        "Meshy generates only GLB when omitted.",
+      ),
+      ...meshyPolygonParameters("Target face count, from 100 to 300,000. Meshy defaults to 30,000."),
+      ...meshyThumbnailParameters,
+      ...meshyTaskParameters,
+    },
+    examples: [
+      {
+        title: "Remesh to quads",
+        request: {
+          model: "meshy-remesh",
+          content: [{ type: "3d", source: { type: "url", url: "https://example.com/model.glb" } }],
+          parameters: { topology: "quad", target_polycount: 10000, target_formats: ["glb", "fbx"] },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "meshy-rigging",
+    title: "Meshy Rigging",
+    category: "3d",
+    description:
+      "Adds a skeleton to a textured humanoid model and returns the rigged character with walking and running animations.",
+    adapter: { type: "meshy.tasks", operation: "rigging" },
+    content: {
+      input: [
+        {
+          ...meshyModelFileInput,
+          description:
+            "Textured humanoid GLB, up to 100 MB and 300,000 faces. A block with meta.task_id from a Meshy task references the task instead of the file.",
+        },
+        {
+          type: "image",
+          required: false,
+          max: 1,
+          sources: ["url"],
+          description: "UV-unwrapped base color texture of the model (PNG, up to 20 MB).",
+        },
+      ],
+    },
+    parameters: {
+      height_meters: {
+        type: "number",
+        optional: true,
+        description: "Approximate height of the character in meters; must be positive. Meshy defaults to 1.7.",
+      },
+      ...meshyTaskParameters,
+    },
+    examples: [
+      {
+        title: "Rig a character",
+        request: {
+          model: "meshy-rigging",
+          content: [{ type: "3d", source: { type: "url", url: "https://example.com/character.glb" } }],
+          parameters: { height_meters: 1.8 },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "meshy-animation",
+    title: "Meshy Animation",
+    category: "3d",
+    description:
+      "Applies preset actions from the Meshy animation library, or a meshy-text-to-motion clip, to a character from meshy-rigging.",
+    adapter: { type: "meshy.tasks", operation: "animation" },
+    content: {
+      input: [
+        {
+          type: "3d",
+          required: true,
+          min: 1,
+          max: 2,
+          sources: ["url"],
+          roles: ["motion"],
+          description:
+            "A meshy-rigging output block, whose meta.task_id selects the rigging task, and optionally a meshy-text-to-motion output block with meta.role motion.",
+        },
+      ],
+    },
+    parameters: {
+      action_id: {
+        type: "integer",
+        optional: true,
+        min: 0,
+        description: "Preset action ID from the Meshy animation library.",
+      },
+      action_ids: {
+        type: "array",
+        optional: true,
+        items: { type: "integer", min: 0 },
+        min: 1,
+        max: 10,
+        unique: true,
+        description: "1 to 10 preset action IDs, returned as one file with one clip per action in this order.",
+      },
+      post_process: {
+        type: "string",
+        optional: true,
+        enum: ["change_fps", "fbx2usdz", "extract_armature"],
+        description: "Post-processing applied to the animation output.",
+      },
+      fps: {
+        type: "integer",
+        optional: true,
+        min: 24,
+        max: 60,
+        description: "Frame rate for post_process change_fps: 24, 25, 30, or 60. Meshy defaults to 30.",
+      },
+      ...meshyTaskParameters,
+    },
+    examples: [
+      {
+        title: "Apply preset actions",
+        request: {
+          model: "meshy-animation",
+          content: [
+            {
+              type: "3d",
+              source: { type: "url", url: "https://example.com/rigged.glb" },
+              meta: { task_id: "task_rigging_id" },
+            },
+          ],
+          parameters: { action_ids: [10, 25, 92] },
+        },
+      },
+      {
+        title: "Apply a text-to-motion clip",
+        request: {
+          model: "meshy-animation",
+          content: [
+            {
+              type: "3d",
+              source: { type: "url", url: "https://example.com/rigged.glb" },
+              meta: { task_id: "task_rigging_id" },
+            },
+            {
+              type: "3d",
+              source: { type: "url", url: "https://example.com/clip.fbx" },
+              meta: { task_id: "task_motion_id", role: "motion" },
+            },
+          ],
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "meshy-text-to-motion",
+    title: "Meshy Text To Motion",
+    category: "3d",
+    description:
+      "Generates a motion clip from a text description. Apply it to a rigged character with meshy-animation.",
+    adapter: { type: "meshy.tasks", operation: "text_to_motion" },
+    content: {
+      input: [meshyTextInput(true, "Description of the motion, up to 400 characters.")],
+    },
+    parameters: {
+      duration: {
+        type: "number",
+        min: 2,
+        max: 10,
+        multipleOf: 0.5,
+        description: "Clip duration in seconds, from 2 to 10 in steps of 0.5.",
+      },
+      mode: {
+        type: "string",
+        optional: true,
+        enum: ["prime", "swift"],
+        description: "prime gives the highest quality and outputs FBX; swift is faster, costs less, and outputs BVH.",
+      },
+      ...meshyTaskParameters,
+    },
+    examples: [
+      {
+        title: "Text to motion",
+        request: {
+          model: "meshy-text-to-motion",
+          content: [{ type: "text", text: "a person jumps forward and lands softly" }],
+          parameters: { duration: 3, mode: "prime" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "meshy-text-to-image",
+    title: "Meshy Text To Image",
+    category: "image",
+    description: "Generates an image from a text prompt through Meshy, for use as input to the Meshy 3D models.",
+    adapter: { type: "meshy.tasks", operation: "text_to_image" },
+    content: {
+      input: [meshyTextInput(true, "Image prompt.")],
+    },
+    parameters: {
+      ...meshyImageModelParameters,
+      ...meshyPoseParameters,
+      ...meshyTaskParameters,
+    },
+    examples: [
+      {
+        title: "Character concept",
+        request: {
+          model: "meshy-text-to-image",
+          content: [{ type: "text", text: "a cartoon knight, full body, plain background" }],
+          parameters: { ai_model: "nano-banana-2", pose_mode: "a-pose" },
+        },
+      },
+    ],
+  },
+  {
+    schema: MODEL_SCHEMA,
+    model: "meshy-image-to-image",
+    title: "Meshy Image To Image",
+    category: "image",
+    description: "Edits 1 to 5 reference images with a text prompt through Meshy.",
+    adapter: { type: "meshy.tasks", operation: "image_to_image" },
+    content: {
+      input: [
+        meshyTextInput(true, "Edit prompt."),
+        {
+          type: "image",
+          required: true,
+          min: 1,
+          max: 5,
+          sources: ["url"],
+          description: "1 to 5 reference images (JPG, PNG, or WebP, up to 20 MB each).",
+        },
+      ],
+    },
+    parameters: {
+      ...meshyImageModelParameters,
+      ...meshyTaskParameters,
+    },
+    examples: [
+      {
+        title: "Edit a reference image",
+        request: {
+          model: "meshy-image-to-image",
+          content: [
+            { type: "text", text: "turn the knight's armor silver" },
+            { type: "image", source: { type: "url", url: "https://example.com/knight.png" } },
+          ],
+          parameters: { ai_model: "nano-banana-2" },
+        },
+      },
+    ],
+  },
+] satisfies GenerationModelDeclaration[];
+
 const builtinModels = [
   {
     schema: MODEL_SCHEMA,
@@ -1536,6 +2300,7 @@ const builtinModels = [
     ],
   },
   ...sunoModels,
+  ...meshyModels,
 ] satisfies GenerationModelDeclaration[];
 
 export const builtinGenerationModels: GenerationModelDeclaration[] = cloneJson(builtinModels);

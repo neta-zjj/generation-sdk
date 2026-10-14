@@ -13,7 +13,7 @@ import type {
 
 export const MODEL_SCHEMA = "neta.generation.model.v1" as const;
 
-export const GENERATION_MODEL_CATEGORIES = ["image", "video", "audio", "decision"] as const;
+export const GENERATION_MODEL_CATEGORIES = ["image", "video", "audio", "3d", "decision"] as const;
 
 export type GenerationModelCategory = (typeof GENERATION_MODEL_CATEGORIES)[number];
 
@@ -40,7 +40,9 @@ export type GenerationContentBlock =
   | { type: "text"; text: string; meta?: GenerationContentBlockMeta }
   | { type: "image"; source: GenerationSource; meta?: GenerationContentBlockMeta }
   | { type: "video"; source: GenerationSource; meta?: GenerationContentBlockMeta }
-  | { type: "audio"; source: GenerationSource; meta?: GenerationContentBlockMeta };
+  | { type: "audio"; source: GenerationSource; meta?: GenerationContentBlockMeta }
+  /** A 3D asset file such as a GLB, FBX, OBJ, USDZ, or STL model, or an FBX/BVH motion clip. */
+  | { type: "3d"; source: GenerationSource; meta?: GenerationContentBlockMeta };
 
 export type GenerationResult = {
   content: GenerationContentBlock[];
@@ -61,7 +63,7 @@ export type DecisionsResultWithMetadata = {
 };
 
 export type GenerationContentSpec = {
-  type: "text" | "image" | "video" | "audio";
+  type: GenerationContentBlock["type"];
   required?: boolean;
   min?: number;
   max?: number;
@@ -96,6 +98,8 @@ export type GenerationParameterSpec =
       default?: number;
       min?: number;
       max?: number;
+      /** Values must be whole multiples of this step, for example 0.5. */
+      multipleOf?: number;
       description?: string;
       examples?: number[];
     }
@@ -105,6 +109,7 @@ export type GenerationParameterSpec =
       default?: number;
       min?: number;
       max?: number;
+      multipleOf?: number;
       description?: string;
       examples?: number[];
     }
@@ -114,7 +119,25 @@ export type GenerationParameterSpec =
       default?: boolean;
       description?: string;
       examples?: boolean[];
+    }
+  | {
+      type: "array";
+      optional?: boolean;
+      default?: Array<string | number>;
+      items: GenerationArrayItemSpec;
+      /** Minimum item count. */
+      min?: number;
+      /** Maximum item count. */
+      max?: number;
+      /** Items must not repeat. */
+      unique?: boolean;
+      description?: string;
+      examples?: Array<Array<string | number>>;
     };
+
+export type GenerationArrayItemSpec =
+  | { type: "string"; enum?: string[] }
+  | { type: "integer"; min?: number; max?: number };
 
 export type GenerationMetaFieldSpec =
   | GenerationParameterSpec

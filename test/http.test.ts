@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { fetchWithTimeout } from "../src/http.js";
+import { createDebugFetch, fetchTextWithTimeout, fetchWithTimeout } from "../src/http.js";
 import { createGenerationClient, GenerationTimeoutError, GenerationTransportError } from "../src/index.js";
 
 describe("generation HTTP transport errors", () => {
@@ -170,5 +170,58 @@ describe("generation HTTP transport errors", () => {
 
     expect(error).toBe(loggerError);
     expect(error).not.toBeInstanceOf(GenerationTransportError);
+  });
+
+  it("reports a response body that breaks off or stalls while debug reads it as a transport error or a timeout", async () => {
+    const debug = { enabled: true, includeSensitive: false, includeResponseBody: true, logger: () => undefined };
+    const breaking = async () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.error(new TypeError("terminated"));
+          },
+        }),
+        { headers: { "content-type": "application/json" } },
+      );
+    const broken = await fetchTextWithTimeout(
+      createDebugFetch(breaking as typeof fetch, debug),
+      "https://router.neta.art/meshy/openapi/v2/text-to-3d/task_1",
+      { method: "GET" },
+      1_000,
+    ).catch((value: unknown) => value);
+    expect(broken).toBeInstanceOf(GenerationTransportError);
+    expect(broken).toMatchObject({ cause: expect.any(TypeError) });
+
+    vi.useFakeTimers();
+    try {
+      const stalling = async (_input: string | URL | Request, init?: RequestInit) =>
+        new Response(
+          new ReadableStream<Uint8Array>({
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode('{"status":'));
+              init?.signal?.addEventListener(
+                "abort",
+                () => controller.error(new DOMException("aborted", "AbortError")),
+                {
+                  once: true,
+                },
+              );
+            },
+          }),
+          { headers: { "content-type": "application/json" } },
+        );
+      const request = expect(
+        fetchTextWithTimeout(
+          createDebugFetch(stalling as typeof fetch, debug),
+          "https://router.neta.art/meshy/openapi/v2/text-to-3d/task_1",
+          { method: "GET" },
+          100,
+        ),
+      ).rejects.toBeInstanceOf(GenerationTimeoutError);
+      await vi.advanceTimersByTimeAsync(100);
+      await request;
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

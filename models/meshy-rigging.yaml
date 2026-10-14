@@ -1,0 +1,54 @@
+schema: neta.generation.model.v1
+model: meshy-rigging
+title: Meshy Rigging
+category: 3d
+description: Adds a skeleton to a textured humanoid model and returns the rigged character with walking and running animations.
+adapter:
+  type: meshy.tasks
+  operation: rigging
+content:
+  input:
+    - type: 3d
+      required: true
+      min: 1
+      max: 1
+      sources:
+        - url
+      description: Textured humanoid GLB, up to 100 MB and 300,000 faces. A block with meta.task_id from a Meshy task
+        references the task instead of the file.
+    - type: image
+      required: false
+      max: 1
+      sources:
+        - url
+      description: UV-unwrapped base color texture of the model (PNG, up to 20 MB).
+parameters:
+  height_meters:
+    type: number
+    optional: true
+    description: Approximate height of the character in meters; must be positive. Meshy defaults to 1.7.
+  poll_interval:
+    type: integer
+    optional: true
+    default: 5
+    min: 1
+    max: 60
+    description: Seconds between task status checks.
+  max_wait:
+    type: integer
+    optional: true
+    default: 3600
+    min: 60
+    max: 7200
+    description: Maximum seconds to wait for the task. Meshy recommends waiting at least 60 minutes.
+examples:
+  - title: Rig a character
+    request:
+      model: meshy-rigging
+      content:
+        - type: 3d
+          source:
+            type: url
+            url: https://example.com/character.glb
+      parameters:
+        height_meters: 1.8

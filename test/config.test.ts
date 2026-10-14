@@ -29,6 +29,8 @@ describe("config", () => {
         "gemini-3.1-flash-lite-image",
         "gpt-image-2",
         "krea2",
+        "meshy-image-to-image",
+        "meshy-text-to-image",
         "noobxl-i2i-ipa-onediff",
         "noobxl-t2i-onediff",
         "qwen-image-edit",
@@ -47,6 +49,17 @@ describe("config", () => {
         "video-upscale-native",
       ],
       audio: ["suno_music_chirp_fenix"],
+      "3d": [
+        "meshy-animation",
+        "meshy-image-to-3d",
+        "meshy-multi-image-to-3d",
+        "meshy-remesh",
+        "meshy-retexture",
+        "meshy-rigging",
+        "meshy-text-to-3d",
+        "meshy-text-to-3d-refine",
+        "meshy-text-to-motion",
+      ],
       decision: ["jev-1.13.0", "jev-latest", "openai/gpt-6-luna-decisions"],
     } as const;
 
@@ -63,6 +76,10 @@ describe("config", () => {
         .listModels()
         .filter((model) => model.category === "audio")
         .map((model) => model.model),
+      "3d": client
+        .listModels()
+        .filter((model) => model.category === "3d")
+        .map((model) => model.model),
       decision: client
         .listModels()
         .filter((model) => model.category === "decision")
@@ -72,6 +89,7 @@ describe("config", () => {
     expect(byCategory.image.sort()).toEqual([...expected.image]);
     expect(byCategory.video.sort()).toEqual([...expected.video]);
     expect(byCategory.audio.sort()).toEqual([...expected.audio]);
+    expect(byCategory["3d"].sort()).toEqual([...expected["3d"]]);
     expect(byCategory.decision.sort()).toEqual([...expected.decision]);
     for (const model of [
       "higgs-tts",
@@ -90,7 +108,11 @@ describe("config", () => {
       expect(client.getModel(model)?.category, model).toBeUndefined();
     }
     expect(
-      byCategory.image.length + byCategory.video.length + byCategory.audio.length + byCategory.decision.length,
+      byCategory.image.length +
+        byCategory.video.length +
+        byCategory.audio.length +
+        byCategory["3d"].length +
+        byCategory.decision.length,
     ).toBe(client.listModels().filter((model) => model.category !== undefined).length);
 
     const files = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
@@ -184,6 +206,47 @@ describe("config", () => {
       expect(() => parseGenerationModelDeclaration(JSON.stringify({ ...parsed, pricing }), "gpt-image-2.json")).toThrow(
         "Invalid model declaration: gpt-image-2.json",
       );
+    }
+  });
+
+  it("accepts array and stepped number parameter specs and rejects malformed ones", () => {
+    const parsed = JSON.parse(stringifyBuiltinModelConfig("gpt-image-2", { format: "json" })) as Record<
+      string,
+      unknown
+    >;
+    const withParameter = (spec: unknown) =>
+      JSON.stringify({ ...parsed, parameters: { ...(parsed.parameters as object), extra: spec } });
+
+    for (const spec of [
+      {
+        type: "array",
+        items: { type: "string", enum: ["glb", "fbx"] },
+        min: 1,
+        max: 2,
+        unique: true,
+        default: ["glb"],
+      },
+      { type: "array", optional: true, items: { type: "integer", min: 0, max: 9 }, min: 0 },
+      { type: "number", min: 2, max: 10, multipleOf: 0.5 },
+      { type: "integer", multipleOf: 2 },
+    ]) {
+      expect(parseGenerationModelDeclaration(withParameter(spec), "gpt-image-2.json").parameters?.extra).toEqual(spec);
+    }
+    for (const spec of [
+      { type: "array" },
+      { type: "array", items: { type: "boolean" } },
+      { type: "array", items: { type: "string", enum: [1] } },
+      { type: "array", items: { type: "integer" }, min: -1 },
+      { type: "array", items: { type: "integer" }, min: 1.5 },
+      { type: "array", items: { type: "integer" }, min: 3, max: 2 },
+      { type: "array", items: { type: "integer" }, unique: "yes" },
+      { type: "number", multipleOf: 0 },
+      { type: "integer", multipleOf: "2" },
+    ]) {
+      expect(
+        () => parseGenerationModelDeclaration(withParameter(spec), "gpt-image-2.json"),
+        JSON.stringify(spec),
+      ).toThrow("Invalid model declaration: gpt-image-2.json");
     }
   });
 

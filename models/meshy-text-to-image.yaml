@@ -1,0 +1,79 @@
+schema: neta.generation.model.v1
+model: meshy-text-to-image
+title: Meshy Text To Image
+category: image
+description: Generates an image from a text prompt through Meshy, for use as input to the Meshy 3D models.
+adapter:
+  type: meshy.tasks
+  operation: text_to_image
+content:
+  input:
+    - type: text
+      required: true
+      min: 1
+      max: 16
+      merge: newline
+      description: Image prompt.
+parameters:
+  ai_model:
+    type: string
+    enum:
+      - nano-banana
+      - nano-banana-2
+      - nano-banana-2-lite
+      - nano-banana-pro
+      - gpt-image-2
+      - gpt-image-2-5-flare
+      - gpt-image-2-5-sunburst
+    description: Image model. Meshy charges different credits per image for each model.
+  generate_multi_view:
+    type: boolean
+    optional: true
+    description: Generate one image that shows the subject from several angles. aspect_ratio cannot be set with it.
+  aspect_ratio:
+    type: string
+    optional: true
+    enum:
+      - 1:1
+      - 16:9
+      - 9:16
+      - 4:3
+      - 3:4
+      - 3:2
+      - 2:3
+    description: Output aspect ratio. Meshy defaults to 1:1; 3:2 and 2:3 require a GPT Image model.
+  remove_background:
+    type: boolean
+    optional: true
+    description: Return a transparent PNG with the background removed.
+  pose_mode:
+    type: string
+    optional: true
+    enum:
+      - a-pose
+      - t-pose
+    description: Generate the subject in an A pose or a T pose. No pose is applied when omitted.
+  poll_interval:
+    type: integer
+    optional: true
+    default: 5
+    min: 1
+    max: 60
+    description: Seconds between task status checks.
+  max_wait:
+    type: integer
+    optional: true
+    default: 3600
+    min: 60
+    max: 7200
+    description: Maximum seconds to wait for the task. Meshy recommends waiting at least 60 minutes.
+examples:
+  - title: Character concept
+    request:
+      model: meshy-text-to-image
+      content:
+        - type: text
+          text: a cartoon knight, full body, plain background
+      parameters:
+        ai_model: nano-banana-2
+        pose_mode: a-pose

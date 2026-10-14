@@ -5,6 +5,7 @@ import { audioSpeechAdapter } from "./audio-speech.js";
 import { audioTranscriptionAdapter } from "./audio-transcription.js";
 import { geminiGenerateContentAdapter } from "./gemini-generate-content.js";
 import { klingVideoGenerationsAdapter } from "./kling-video-generations.js";
+import { meshyTasksAdapter } from "./meshy-tasks.js";
 import { minimaxH3VideoGenerationsAdapter } from "./minimax-h3-video-generations.js";
 import { openAiImageEditsAdapter } from "./openai-image-edits.js";
 import { openAiImagesAdapter } from "./openai-images.js";
@@ -17,6 +18,7 @@ export const builtinGenerationAdapters: Record<string, GenerationAdapter> = {
   "openai.audioSpeech": audioSpeechAdapter,
   "gemini.generateContent": geminiGenerateContentAdapter,
   "kling.videoGenerations": klingVideoGenerationsAdapter,
+  "meshy.tasks": meshyTasksAdapter,
   "minimax.h3VideoGenerations": minimaxH3VideoGenerationsAdapter,
   "openai.imageEdits": openAiImageEditsAdapter,
   "openai.images": openAiImagesAdapter,
@@ -45,6 +47,7 @@ export * from "./audio-speech.js";
 export * from "./audio-transcription.js";
 export * from "./gemini-generate-content.js";
 export * from "./kling-video-generations.js";
+export * from "./meshy-tasks.js";
 export * from "./minimax-h3-video-generations.js";
 export * from "./openai-image-edits.js";
 export * from "./openai-images.js";

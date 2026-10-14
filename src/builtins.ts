@@ -1,4 +1,4 @@
-import type { GenerationModelDeclaration, GenerationModelPricing } from "./types.js";
+import type { GenerationModelDeclaration, GenerationModelPricing, GenerationOperationSpec } from "./types.js";
 import { MODEL_SCHEMA } from "./types.js";
 import { cloneJson } from "./utils.js";
 
@@ -1095,7 +1095,7 @@ const meshyModelFileInput = {
   max: 1,
   sources: ["url"],
   description:
-    "Model file (GLB, GLTF, OBJ, FBX, or STL, up to 100 MB). A block with meta.task_id from a Meshy task that this model accepts references the task instead of the file.",
+    "Model file (GLB, GLTF, OBJ, FBX, or STL, up to 100 MB). A block with meta.task_id from a Meshy task that this operation accepts references the task instead of the file.",
 } satisfies GenerationModelDeclaration["content"]["input"][number];
 
 function meshyTextInput(required: boolean, description: string) {
@@ -1109,15 +1109,42 @@ function meshyTextInput(required: boolean, description: string) {
   } satisfies GenerationModelDeclaration["content"]["input"][number];
 }
 
-const meshyModels = [
-  {
-    schema: MODEL_SCHEMA,
-    model: "meshy-text-to-3d",
-    title: "Meshy Text To 3D",
-    category: "3d",
+const meshyOperations = {
+  "text-to-image": {
+    title: "Text To Image",
+    description: "Generates an image from a text prompt, for use as input to the 3D operations.",
+    content: {
+      input: [meshyTextInput(true, "Image prompt.")],
+    },
+    parameters: {
+      ...meshyImageModelParameters,
+      ...meshyPoseParameters,
+    },
+  },
+  "image-to-image": {
+    title: "Image To Image",
+    description: "Edits 1 to 5 reference images with a text prompt.",
+    content: {
+      input: [
+        meshyTextInput(true, "Edit prompt."),
+        {
+          type: "image",
+          required: true,
+          min: 1,
+          max: 5,
+          sources: ["url"],
+          description: "1 to 5 reference images (JPG, PNG, or WebP, up to 20 MB each).",
+        },
+      ],
+    },
+    parameters: {
+      ...meshyImageModelParameters,
+    },
+  },
+  "text-to-3d": {
+    title: "Text To 3D",
     description:
-      "Generates an untextured 3D model from a text prompt. Pass the result to meshy-text-to-3d-refine to texture it.",
-    adapter: { type: "meshy.tasks", operation: "text_to_3d" },
+      "Generates an untextured 3D model from a text prompt. Pass the result to the text-to-3d-refine operation to texture it.",
     content: {
       input: [meshyTextInput(true, "Description of the object, up to 800 characters.")],
     },
@@ -1135,27 +1162,12 @@ const meshyModels = [
       ...meshyGenerationTargetFormats,
       ...meshyThumbnailParameters,
       ...meshySizeParameters,
-      ...meshyTaskParameters,
     },
-    examples: [
-      {
-        title: "Text to 3D preview",
-        request: {
-          model: "meshy-text-to-3d",
-          content: [{ type: "text", text: "a wooden treasure chest with iron bands" }],
-          parameters: { target_formats: ["glb", "usdz"] },
-        },
-      },
-    ],
   },
-  {
-    schema: MODEL_SCHEMA,
-    model: "meshy-text-to-3d-refine",
-    title: "Meshy Text To 3D Refine",
-    category: "3d",
+  "text-to-3d-refine": {
+    title: "Text To 3D Refine",
     description:
-      "Textures a model from meshy-text-to-3d. Texturing can be guided by a text prompt or by an image, but not both.",
-    adapter: { type: "meshy.tasks", operation: "text_to_3d_refine" },
+      "Textures a model from the text-to-3d operation. Texturing can be guided by a text prompt or by an image, but not both.",
     content: {
       input: [
         {
@@ -1164,7 +1176,7 @@ const meshyModels = [
           min: 1,
           max: 1,
           sources: ["url"],
-          description: "A meshy-text-to-3d output block. Its meta.task_id selects the preview task.",
+          description: "A text-to-3d output block. Its meta.task_id selects the preview task.",
         },
         meshyTextInput(false, "Texture prompt, up to 800 characters."),
         {
@@ -1191,33 +1203,11 @@ const meshyModels = [
       ...meshyGenerationTargetFormats,
       ...meshyThumbnailParameters,
       ...meshySizeParameters,
-      ...meshyTaskParameters,
     },
-    examples: [
-      {
-        title: "Refine a preview",
-        request: {
-          model: "meshy-text-to-3d-refine",
-          content: [
-            {
-              type: "3d",
-              source: { type: "url", url: "https://example.com/preview.glb" },
-              meta: { task_id: "task_preview_id" },
-            },
-            { type: "text", text: "weathered oak planks and dark iron" },
-          ],
-          parameters: { enable_pbr: true },
-        },
-      },
-    ],
   },
-  {
-    schema: MODEL_SCHEMA,
-    model: "meshy-image-to-3d",
-    title: "Meshy Image To 3D",
-    category: "3d",
+  "image-to-3d": {
+    title: "Image To 3D",
     description: "Generates a textured 3D model from one image.",
-    adapter: { type: "meshy.tasks", operation: "image_to_3d" },
     content: {
       input: [
         {
@@ -1247,26 +1237,11 @@ const meshyModels = [
       ...meshyGenerationTargetFormats,
       ...meshyThumbnailParameters,
       ...meshySizeParameters,
-      ...meshyTaskParameters,
     },
-    examples: [
-      {
-        title: "Image to 3D",
-        request: {
-          model: "meshy-image-to-3d",
-          content: [{ type: "image", source: { type: "url", url: "https://example.com/character.png" } }],
-          parameters: { pose_mode: "a-pose", target_formats: ["glb"] },
-        },
-      },
-    ],
   },
-  {
-    schema: MODEL_SCHEMA,
-    model: "meshy-multi-image-to-3d",
-    title: "Meshy Multi-Image To 3D",
-    category: "3d",
+  "multi-image-to-3d": {
+    title: "Multi-Image To 3D",
     description: "Generates a textured 3D model from 1 to 4 images of the same object taken from different angles.",
-    adapter: { type: "meshy.tasks", operation: "multi_image_to_3d" },
     content: {
       input: [
         {
@@ -1301,30 +1276,11 @@ const meshyModels = [
       ...meshyGenerationTargetFormats,
       ...meshyThumbnailParameters,
       ...meshySizeParameters,
-      ...meshyTaskParameters,
     },
-    examples: [
-      {
-        title: "Multi-image to 3D",
-        request: {
-          model: "meshy-multi-image-to-3d",
-          content: [
-            { type: "image", source: { type: "url", url: "https://example.com/front.png" } },
-            { type: "image", source: { type: "url", url: "https://example.com/side.png" } },
-            { type: "image", source: { type: "url", url: "https://example.com/back.png" } },
-          ],
-          parameters: { target_formats: ["glb"] },
-        },
-      },
-    ],
   },
-  {
-    schema: MODEL_SCHEMA,
-    model: "meshy-retexture",
-    title: "Meshy Retexture",
-    category: "3d",
+  retexture: {
+    title: "Retexture",
     description: "Applies a new texture to a 3D model, guided by a style prompt or by style images.",
-    adapter: { type: "meshy.tasks", operation: "retexture" },
     content: {
       input: [
         meshyModelFileInput,
@@ -1358,30 +1314,12 @@ const meshyModels = [
       },
       ...meshyGenerationTargetFormats,
       ...meshyThumbnailParameters,
-      ...meshyTaskParameters,
     },
-    examples: [
-      {
-        title: "Retexture from a style prompt",
-        request: {
-          model: "meshy-retexture",
-          content: [
-            { type: "3d", source: { type: "url", url: "https://example.com/model.glb" } },
-            { type: "text", text: "polished marble with gold trim" },
-          ],
-          parameters: { enable_original_uv: true },
-        },
-      },
-    ],
   },
-  {
-    schema: MODEL_SCHEMA,
-    model: "meshy-remesh",
-    title: "Meshy Remesh",
-    category: "3d",
+  remesh: {
+    title: "Remesh",
     description:
       "Rebuilds the mesh of a 3D model at a target topology and polycount, and converts it to other formats.",
-    adapter: { type: "meshy.tasks", operation: "remesh" },
     content: { input: [meshyModelFileInput] },
     parameters: {
       ...meshyTargetFormats(
@@ -1390,27 +1328,12 @@ const meshyModels = [
       ),
       ...meshyPolygonParameters("Target face count, from 100 to 300,000. Meshy defaults to 30,000."),
       ...meshyThumbnailParameters,
-      ...meshyTaskParameters,
     },
-    examples: [
-      {
-        title: "Remesh to quads",
-        request: {
-          model: "meshy-remesh",
-          content: [{ type: "3d", source: { type: "url", url: "https://example.com/model.glb" } }],
-          parameters: { topology: "quad", target_polycount: 10000, target_formats: ["glb", "fbx"] },
-        },
-      },
-    ],
   },
-  {
-    schema: MODEL_SCHEMA,
-    model: "meshy-rigging",
-    title: "Meshy Rigging",
-    category: "3d",
+  rigging: {
+    title: "Rigging",
     description:
       "Adds a skeleton to a textured humanoid model and returns the rigged character with walking and running animations.",
-    adapter: { type: "meshy.tasks", operation: "rigging" },
     content: {
       input: [
         {
@@ -1433,27 +1356,35 @@ const meshyModels = [
         optional: true,
         description: "Approximate height of the character in meters; must be positive. Meshy defaults to 1.7.",
       },
-      ...meshyTaskParameters,
     },
-    examples: [
-      {
-        title: "Rig a character",
-        request: {
-          model: "meshy-rigging",
-          content: [{ type: "3d", source: { type: "url", url: "https://example.com/character.glb" } }],
-          parameters: { height_meters: 1.8 },
-        },
-      },
-    ],
   },
-  {
-    schema: MODEL_SCHEMA,
-    model: "meshy-animation",
-    title: "Meshy Animation",
-    category: "3d",
+  "text-to-motion": {
+    title: "Text To Motion",
     description:
-      "Applies preset actions from the Meshy animation library, or a meshy-text-to-motion clip, to a character from meshy-rigging.",
-    adapter: { type: "meshy.tasks", operation: "animation" },
+      "Generates a motion clip from a text description. Apply it to a rigged character with the animation operation.",
+    content: {
+      input: [meshyTextInput(true, "Description of the motion, up to 400 characters.")],
+    },
+    parameters: {
+      duration: {
+        type: "number",
+        min: 2,
+        max: 10,
+        multipleOf: 0.5,
+        description: "Clip duration in seconds, from 2 to 10 in steps of 0.5.",
+      },
+      mode: {
+        type: "string",
+        optional: true,
+        enum: ["prime", "swift"],
+        description: "prime gives the highest quality and outputs FBX; swift is faster, costs less, and outputs BVH.",
+      },
+    },
+  },
+  animation: {
+    title: "Animation",
+    description:
+      "Applies preset actions from the Meshy animation library, or a text-to-motion clip, to a character from the rigging operation.",
     content: {
       input: [
         {
@@ -1464,7 +1395,7 @@ const meshyModels = [
           sources: ["url"],
           roles: ["motion"],
           description:
-            "A meshy-rigging output block, whose meta.task_id selects the rigging task, and optionally a meshy-text-to-motion output block with meta.role motion.",
+            "A rigging output block, whose meta.task_id selects the rigging task, and optionally a text-to-motion output block with meta.role motion.",
         },
       ],
     },
@@ -1497,146 +1428,161 @@ const meshyModels = [
         max: 60,
         description: "Frame rate for post_process change_fps: 24, 25, 30, or 60. Meshy defaults to 30.",
       },
-      ...meshyTaskParameters,
     },
-    examples: [
-      {
-        title: "Apply preset actions",
-        request: {
-          model: "meshy-animation",
-          content: [
-            {
-              type: "3d",
-              source: { type: "url", url: "https://example.com/rigged.glb" },
-              meta: { task_id: "task_rigging_id" },
-            },
-          ],
-          parameters: { action_ids: [10, 25, 92] },
-        },
-      },
-      {
-        title: "Apply a text-to-motion clip",
-        request: {
-          model: "meshy-animation",
-          content: [
-            {
-              type: "3d",
-              source: { type: "url", url: "https://example.com/rigged.glb" },
-              meta: { task_id: "task_rigging_id" },
-            },
-            {
-              type: "3d",
-              source: { type: "url", url: "https://example.com/clip.fbx" },
-              meta: { task_id: "task_motion_id", role: "motion" },
-            },
-          ],
-        },
-      },
-    ],
   },
-  {
-    schema: MODEL_SCHEMA,
-    model: "meshy-text-to-motion",
-    title: "Meshy Text To Motion",
-    category: "3d",
-    description:
-      "Generates a motion clip from a text description. Apply it to a rigged character with meshy-animation.",
-    adapter: { type: "meshy.tasks", operation: "text_to_motion" },
-    content: {
-      input: [meshyTextInput(true, "Description of the motion, up to 400 characters.")],
+} satisfies Record<string, GenerationOperationSpec>;
+
+const meshyModel = {
+  schema: MODEL_SCHEMA,
+  model: "meshy",
+  title: "Meshy",
+  category: "3d",
+  description:
+    "Generates, textures, remeshes, rigs, and animates 3D models, and generates the images they start from. parameters.operation selects the function.",
+  adapter: { type: "meshy.tasks" },
+  content: { input: [] },
+  parameters: {
+    operation: {
+      type: "string",
+      enum: Object.keys(meshyOperations),
+      description: "Function to run. operations declares the content inputs and parameters of each function.",
     },
-    parameters: {
-      duration: {
-        type: "number",
-        min: 2,
-        max: 10,
-        multipleOf: 0.5,
-        description: "Clip duration in seconds, from 2 to 10 in steps of 0.5.",
-      },
-      mode: {
-        type: "string",
-        optional: true,
-        enum: ["prime", "swift"],
-        description: "prime gives the highest quality and outputs FBX; swift is faster, costs less, and outputs BVH.",
-      },
-      ...meshyTaskParameters,
-    },
-    examples: [
-      {
-        title: "Text to motion",
-        request: {
-          model: "meshy-text-to-motion",
-          content: [{ type: "text", text: "a person jumps forward and lands softly" }],
-          parameters: { duration: 3, mode: "prime" },
-        },
-      },
-    ],
+    ...meshyTaskParameters,
   },
-  {
-    schema: MODEL_SCHEMA,
-    model: "meshy-text-to-image",
-    title: "Meshy Text To Image",
-    category: "image",
-    description: "Generates an image from a text prompt through Meshy, for use as input to the Meshy 3D models.",
-    adapter: { type: "meshy.tasks", operation: "text_to_image" },
-    content: {
-      input: [meshyTextInput(true, "Image prompt.")],
-    },
-    parameters: {
-      ...meshyImageModelParameters,
-      ...meshyPoseParameters,
-      ...meshyTaskParameters,
-    },
-    examples: [
-      {
-        title: "Character concept",
-        request: {
-          model: "meshy-text-to-image",
-          content: [{ type: "text", text: "a cartoon knight, full body, plain background" }],
-          parameters: { ai_model: "nano-banana-2", pose_mode: "a-pose" },
-        },
+  operations: meshyOperations,
+  examples: [
+    {
+      title: "Character concept",
+      request: {
+        model: "meshy",
+        content: [{ type: "text", text: "a cartoon knight, full body, plain background" }],
+        parameters: { operation: "text-to-image", ai_model: "nano-banana-2", pose_mode: "a-pose" },
       },
-    ],
-  },
-  {
-    schema: MODEL_SCHEMA,
-    model: "meshy-image-to-image",
-    title: "Meshy Image To Image",
-    category: "image",
-    description: "Edits 1 to 5 reference images with a text prompt through Meshy.",
-    adapter: { type: "meshy.tasks", operation: "image_to_image" },
-    content: {
-      input: [
-        meshyTextInput(true, "Edit prompt."),
-        {
-          type: "image",
-          required: true,
-          min: 1,
-          max: 5,
-          sources: ["url"],
-          description: "1 to 5 reference images (JPG, PNG, or WebP, up to 20 MB each).",
-        },
-      ],
     },
-    parameters: {
-      ...meshyImageModelParameters,
-      ...meshyTaskParameters,
-    },
-    examples: [
-      {
-        title: "Edit a reference image",
-        request: {
-          model: "meshy-image-to-image",
-          content: [
-            { type: "text", text: "turn the knight's armor silver" },
-            { type: "image", source: { type: "url", url: "https://example.com/knight.png" } },
-          ],
-          parameters: { ai_model: "nano-banana-2" },
-        },
+    {
+      title: "Edit a reference image",
+      request: {
+        model: "meshy",
+        content: [
+          { type: "text", text: "turn the knight's armor silver" },
+          { type: "image", source: { type: "url", url: "https://example.com/knight.png" } },
+        ],
+        parameters: { operation: "image-to-image", ai_model: "nano-banana-2" },
       },
-    ],
-  },
-] satisfies GenerationModelDeclaration[];
+    },
+    {
+      title: "Text to 3D preview",
+      request: {
+        model: "meshy",
+        content: [{ type: "text", text: "a wooden treasure chest with iron bands" }],
+        parameters: { operation: "text-to-3d", target_formats: ["glb", "usdz"] },
+      },
+    },
+    {
+      title: "Refine a preview",
+      request: {
+        model: "meshy",
+        content: [
+          {
+            type: "3d",
+            source: { type: "url", url: "https://example.com/preview.glb" },
+            meta: { task_id: "task_preview_id" },
+          },
+          { type: "text", text: "weathered oak planks and dark iron" },
+        ],
+        parameters: { operation: "text-to-3d-refine", enable_pbr: true },
+      },
+    },
+    {
+      title: "Image to 3D",
+      request: {
+        model: "meshy",
+        content: [{ type: "image", source: { type: "url", url: "https://example.com/character.png" } }],
+        parameters: { operation: "image-to-3d", pose_mode: "a-pose", target_formats: ["glb"] },
+      },
+    },
+    {
+      title: "Multi-image to 3D",
+      request: {
+        model: "meshy",
+        content: [
+          { type: "image", source: { type: "url", url: "https://example.com/front.png" } },
+          { type: "image", source: { type: "url", url: "https://example.com/side.png" } },
+          { type: "image", source: { type: "url", url: "https://example.com/back.png" } },
+        ],
+        parameters: { operation: "multi-image-to-3d", target_formats: ["glb"] },
+      },
+    },
+    {
+      title: "Retexture from a style prompt",
+      request: {
+        model: "meshy",
+        content: [
+          { type: "3d", source: { type: "url", url: "https://example.com/model.glb" } },
+          { type: "text", text: "polished marble with gold trim" },
+        ],
+        parameters: { operation: "retexture", enable_original_uv: true },
+      },
+    },
+    {
+      title: "Remesh to quads",
+      request: {
+        model: "meshy",
+        content: [{ type: "3d", source: { type: "url", url: "https://example.com/model.glb" } }],
+        parameters: { operation: "remesh", topology: "quad", target_polycount: 10000, target_formats: ["glb", "fbx"] },
+      },
+    },
+    {
+      title: "Rig a character",
+      request: {
+        model: "meshy",
+        content: [{ type: "3d", source: { type: "url", url: "https://example.com/character.glb" } }],
+        parameters: { operation: "rigging", height_meters: 1.8 },
+      },
+    },
+    {
+      title: "Text to motion",
+      request: {
+        model: "meshy",
+        content: [{ type: "text", text: "a person jumps forward and lands softly" }],
+        parameters: { operation: "text-to-motion", duration: 3, mode: "prime" },
+      },
+    },
+    {
+      title: "Apply preset actions",
+      request: {
+        model: "meshy",
+        content: [
+          {
+            type: "3d",
+            source: { type: "url", url: "https://example.com/rigged.glb" },
+            meta: { task_id: "task_rigging_id" },
+          },
+        ],
+        parameters: { operation: "animation", action_ids: [10, 25, 92] },
+      },
+    },
+    {
+      title: "Apply a text-to-motion clip",
+      request: {
+        model: "meshy",
+        content: [
+          {
+            type: "3d",
+            source: { type: "url", url: "https://example.com/rigged.glb" },
+            meta: { task_id: "task_rigging_id" },
+          },
+          {
+            type: "3d",
+            source: { type: "url", url: "https://example.com/clip.fbx" },
+            meta: { task_id: "task_motion_id", role: "motion" },
+          },
+        ],
+        parameters: { operation: "animation" },
+      },
+    },
+  ],
+} satisfies GenerationModelDeclaration;
 
 const builtinModels = [
   {
@@ -2300,7 +2246,7 @@ const builtinModels = [
     ],
   },
   ...sunoModels,
-  ...meshyModels,
+  meshyModel,
 ] satisfies GenerationModelDeclaration[];
 
 export const builtinGenerationModels: GenerationModelDeclaration[] = cloneJson(builtinModels);

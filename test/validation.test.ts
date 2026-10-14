@@ -1,12 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   createGenerationClient,
+  type GenerateRequest,
   type GenerationAdapter,
+  type GenerationAdapterInput,
+  GenerationConfigError,
   type GenerationModelDeclaration,
   GenerationUnsupportedAdapterError,
   GenerationValidationError,
   MODEL_SCHEMA,
 } from "../src/index.js";
+
+const textBlock = { type: "text" as const, text: "a fox" };
+const imageBlock = { type: "image" as const, source: { type: "url" as const, url: "https://example.com/fox.png" } };
 
 describe("validation", () => {
   it("resolves default parameters", () => {
@@ -156,6 +162,99 @@ describe("validation", () => {
     }
   });
 
+  it("validates a request against the model and the operation that parameters.operation selects", async () => {
+    const model = operationsModel("custom.operations");
+    const received: GenerationAdapterInput[] = [];
+    const adapter: GenerationAdapter = async (input) => {
+      received.push(input);
+      return [];
+    };
+    const client = createGenerationClient({
+      apiKey: "test",
+      models: [model],
+      includeBuiltinModels: false,
+      adapters: { "custom.adapter": adapter },
+    });
+    const validate = (content: GenerationAdapterInput["request"]["content"], parameters?: Record<string, unknown>) =>
+      client.validate({ model: model.model, content, ...(parameters ? { parameters } : {}) });
+
+    const draw = validate([textBlock], { operation: "draw", size: "1024x1024" });
+    expect(draw.parameters).toEqual({ operation: "draw", seed: 7, size: "1024x1024" });
+    expect(draw.declaration).toEqual({
+      schema: MODEL_SCHEMA,
+      model: model.model,
+      category: "image",
+      adapter: { type: "custom.adapter" },
+      content: { input: [{ type: "text", required: true, min: 1, max: 1 }] },
+      parameters: { ...model.parameters, size: { type: "string" } },
+    });
+    expect(validate([textBlock, imageBlock], { operation: "edit" }).declaration.content.input).toEqual([
+      { type: "text", required: true, min: 1, max: 1 },
+      { type: "image", required: true, min: 1, max: 1 },
+    ]);
+    expect(client.getModel(model.model)).toEqual(model);
+
+    await client.generate({ model: model.model, content: [textBlock, imageBlock], parameters: { operation: "edit" } });
+    expect(received.map((input) => [input.parameters, Object.keys(input.declaration.parameters ?? {})])).toEqual([
+      [{ operation: "edit", seed: 7 }, ["operation", "seed"]],
+    ]);
+
+    for (const [content, parameters, message] of [
+      [[textBlock], undefined, "Missing required parameter: operation"],
+      [[textBlock], { operation: null }, "Parameter operation must be a string"],
+      [[textBlock], { operation: "erase" }, "Parameter operation must be one of: draw, edit"],
+      [[textBlock], { operation: "draw" }, "Missing required parameter: size"],
+      [[textBlock, imageBlock], { operation: "edit", size: "1024x1024" }, "Unknown parameter: size"],
+      [[textBlock, imageBlock], { operation: "draw", size: "1024x1024" }, "Content block type is not supported"],
+      [[textBlock], { operation: "edit" }, "Missing required image content block"],
+    ] as const) {
+      expect(() => validate([...content], parameters), message).toThrow(GenerationValidationError);
+      expect(() => validate([...content], parameters), message).toThrow(message);
+    }
+  });
+
+  it("uses the operation parameter default and fails fast on operations that the declaration cannot select", () => {
+    const model = operationsModel("custom.default-operation");
+    const withDefault: GenerationModelDeclaration = {
+      ...model,
+      parameters: { ...model.parameters, operation: { type: "string", enum: ["draw", "edit"], default: "edit" } },
+    };
+    const withoutSelector: GenerationModelDeclaration = {
+      ...model,
+      model: "custom.no-selector",
+      parameters: { seed: { type: "integer", default: 7 } },
+    };
+    const unknownOperation: GenerationModelDeclaration = {
+      ...model,
+      model: "custom.unknown-operation",
+      parameters: { ...model.parameters, operation: { type: "string", enum: ["draw", "edit", "erase"] } },
+    };
+    const client = createGenerationClient({
+      apiKey: "test",
+      models: [withDefault, withoutSelector, unknownOperation],
+      includeBuiltinModels: false,
+    });
+
+    expect(client.validate({ model: model.model, content: [textBlock, imageBlock] }).parameters).toEqual({
+      operation: "edit",
+      seed: 7,
+    });
+    const cases: Array<[GenerateRequest, string]> = [
+      [
+        { model: withoutSelector.model, content: [textBlock] },
+        "custom.no-selector declares operations without an operation parameter",
+      ],
+      [
+        { model: unknownOperation.model, content: [textBlock], parameters: { operation: "erase" } },
+        "custom.unknown-operation does not declare operation erase",
+      ],
+    ];
+    for (const [request, message] of cases) {
+      expect(() => client.validate(request), message).toThrow(GenerationConfigError);
+      expect(() => client.validate(request), message).toThrow(message);
+    }
+  });
+
   it("runs a custom adapter validation hook exactly once per validate or generate call", async () => {
     let validationCalls = 0;
     let adapterCalls = 0;
@@ -283,6 +382,20 @@ function customModel(model: string): GenerationModelDeclaration {
     adapter: { type: "custom.adapter" },
     content: {
       input: [{ type: "text", required: true, min: 1, max: 1 }],
+    },
+  };
+}
+
+function operationsModel(model: string): GenerationModelDeclaration {
+  return {
+    ...customModel(model),
+    parameters: {
+      operation: { type: "string", enum: ["draw", "edit"] },
+      seed: { type: "integer", default: 7 },
+    },
+    operations: {
+      draw: { title: "Draw", parameters: { size: { type: "string" } } },
+      edit: { content: { input: [{ type: "image", required: true, min: 1, max: 1 }] } },
     },
   };
 }

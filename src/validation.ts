@@ -1,4 +1,4 @@
-import { GenerationValidationError } from "./errors.js";
+import { GenerationConfigError, GenerationValidationError } from "./errors.js";
 import type {
   GenerationArrayItemSpec,
   GenerationContentBlock,
@@ -90,6 +90,33 @@ export function resolveGenerationParameters(
   }
 
   return resolved;
+}
+
+/**
+ * Returns the declaration that a request to a model with operations is validated against: the model's content inputs
+ * and parameters plus those of the operation selected by `parameters.operation`. Other declarations are returned as is.
+ */
+export function resolveGenerationOperation(
+  declaration: GenerationModelDeclaration,
+  parameters: Record<string, unknown> | undefined,
+): GenerationModelDeclaration {
+  const { operations, ...model } = declaration;
+  if (!operations) return declaration;
+  const spec = model.parameters?.operation;
+  if (!spec) throw new GenerationConfigError(`${model.model} declares operations without an operation parameter`);
+
+  const requested = parameters?.operation;
+  const name = requested === undefined ? spec.default : requested;
+  if (name === undefined) throw new GenerationValidationError("Missing required parameter: operation");
+  validateSpecValue("Parameter operation", spec, name);
+  const operation = typeof name === "string" && Object.hasOwn(operations, name) ? operations[name] : undefined;
+  if (!operation) throw new GenerationConfigError(`${model.model} does not declare operation ${String(name)}`);
+
+  return {
+    ...model,
+    content: { input: [...model.content.input, ...(operation.content?.input ?? [])] },
+    parameters: { ...model.parameters, ...operation.parameters },
+  };
 }
 
 export function mergeGenerationMeta(

@@ -32,6 +32,7 @@ import { cloneJson } from "./utils.js";
 import {
   mergeGenerationMeta,
   resolveGenerationMeta,
+  resolveGenerationOperation,
   resolveGenerationParameters,
   validateGenerationContent,
 } from "./validation.js";
@@ -195,7 +196,7 @@ export function createGenerationClient(options: CreateGenerationClientOptions = 
   }
 
   function validateRequest(request: GenerateRequest): ResolvedGenerationRequest {
-    const declaration = requireModel(request.model);
+    const declaration = resolveGenerationOperation(requireModel(request.model), request.parameters);
     const entryPoint = DECISION_ENTRY_POINTS.get(declaration.adapter.type);
     if (entryPoint) {
       throw new GenerationConfigError(`Model ${request.model} requires ${entryPoint} with state and questions`);

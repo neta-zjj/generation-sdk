@@ -24,7 +24,8 @@ const DEFAULT_POLL_INTERVAL_SEC = 5;
 const DEFAULT_MAX_WAIT_SEC = 3600;
 // 单次查询的网络错误、超时、408、429 和 5xx 不代表任务失败，下一次轮询继续查询；连续失败这么多次之后放弃。
 const MAX_CONSECUTIVE_POLL_FAILURES = 10;
-const SDK_PARAMETERS = new Set(["poll_interval", "max_wait"]);
+// operation 选择功能，poll_interval 和 max_wait 控制等待，这些参数不发送给 Meshy。
+const SDK_PARAMETERS = new Set(["operation", "poll_interval", "max_wait"]);
 
 // Meshy 文档列出的可以作为 input_task_id 的任务类型；其他类型的任务改为发送模型文件的链接。
 const RETEXTURE_INPUT_TASK_TYPES = ["text-to-3d-preview", "text-to-3d-refine", "image-to-3d", "remesh"];
@@ -49,10 +50,10 @@ type BodyFields = Record<string, unknown>;
 
 type MeshyContent = {
   prompt: string;
-  /** Image blocks, except texture-role images on models that declare the texture role. */
+  /** Image blocks, except texture-role images on operations that declare the texture role. */
   images: MediaBlock[];
   textures: MediaBlock[];
-  /** 3D blocks, except motion-role blocks on models that declare the motion role. */
+  /** 3D blocks, except motion-role blocks on operations that declare the motion role. */
   models: MediaBlock[];
   motions: MediaBlock[];
 };
@@ -70,11 +71,11 @@ class PendingSource {
 }
 
 const OPERATIONS: Record<string, MeshyOperation> = {
-  text_to_3d: {
+  "text-to-3d": {
     path: "/meshy/openapi/v2/text-to-3d",
     plan: (content, parameters) => ({ ...parameters, mode: "preview", prompt: requirePrompt(content) }),
   },
-  text_to_3d_refine: {
+  "text-to-3d-refine": {
     path: "/meshy/openapi/v2/text-to-3d",
     plan(content, parameters) {
       const preview = one(content.models, "3d preview model");
@@ -89,7 +90,7 @@ const OPERATIONS: Record<string, MeshyOperation> = {
       };
     },
   },
-  image_to_3d: {
+  "image-to-3d": {
     path: "/meshy/openapi/v1/image-to-3d",
     plan(content, parameters) {
       const image = one(content.images, "input image");
@@ -103,7 +104,7 @@ const OPERATIONS: Record<string, MeshyOperation> = {
       };
     },
   },
-  multi_image_to_3d: {
+  "multi-image-to-3d": {
     path: "/meshy/openapi/v1/multi-image-to-3d",
     plan(content, parameters) {
       const images = between(content.images, 1, 4, "input image");
@@ -180,16 +181,16 @@ const OPERATIONS: Record<string, MeshyOperation> = {
       };
     },
   },
-  text_to_motion: {
+  "text-to-motion": {
     path: "/meshy/openapi/v1/text-to-motion",
     plan: (content, parameters) => ({ ...parameters, prompt: requirePrompt(content) }),
   },
-  text_to_image: {
+  "text-to-image": {
     path: "/meshy/openapi/v1/text-to-image",
     plan: (content, parameters) => ({ ...parameters, prompt: requirePrompt(content) }),
     returnsImages: true,
   },
-  image_to_image: {
+  "image-to-image": {
     path: "/meshy/openapi/v1/image-to-image",
     plan: (content, parameters) => ({
       ...parameters,
@@ -333,8 +334,8 @@ function classifyContent(input: ResolvedGenerationRequest): MeshyContent {
 }
 
 function getOperation(input: ResolvedGenerationRequest): MeshyOperation {
-  const name = asString(input.declaration.adapter.operation);
-  const operation = name ? OPERATIONS[name] : undefined;
+  const name = asString(input.parameters.operation);
+  const operation = name && Object.hasOwn(OPERATIONS, name) ? OPERATIONS[name] : undefined;
   if (!operation) throw new GenerationValidationError(`Unsupported Meshy operation: ${String(name)}`);
   return operation;
 }

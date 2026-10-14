@@ -79,8 +79,11 @@ async function emitDebugResponse(
   response: Response,
   startedAt: number,
 ): Promise<void> {
+  const elapsedMs = Date.now() - startedAt;
+  // 读取响应体副本的错误属于请求本身，按超时或者网络错误报告；DebugObserverError 只包装 logger 抛出的错误。
+  const body = debug.includeResponseBody ? { body: await readDebugResponseBody(response) } : {};
+  const headers = headersToRecord(response.headers);
   try {
-    const headers = headersToRecord(response.headers);
     debug.logger({
       type: "response",
       url,
@@ -88,8 +91,8 @@ async function emitDebugResponse(
       statusText: response.statusText,
       headers,
       trace: pickTraceHeaders(headers),
-      elapsedMs: Date.now() - startedAt,
-      ...(debug.includeResponseBody ? { body: await readDebugResponseBody(response) } : {}),
+      elapsedMs,
+      ...body,
     });
   } catch (cause) {
     throw new DebugObserverError(cause);
@@ -112,24 +115,47 @@ export function createDebugFetch(fetchFn: typeof fetch, debug: GenerationDebugCo
   }) as typeof fetch;
 }
 
-export async function fetchWithTimeout(
+// 请求和读取响应体共用一个超时：SDK 自己的定时器中止请求时报告超时，其他错误按网络错误报告。
+async function withRequestTimeout<T>(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+  run: (signal: AbortSignal) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const startedAt = Date.now();
+  try {
+    return await run(controller.signal);
+  } catch (error) {
+    if (error instanceof DebugObserverError) throw error.cause;
+    if (controller.signal.aborted) throw new GenerationTimeoutError();
+    throw new GenerationTransportError(transportErrorDetails(url, init, startedAt, error), error);
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+export function fetchWithTimeout(
   fetchFn: typeof fetch,
   url: string,
   init: RequestInit,
   timeoutMs: number,
 ): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  const startedAt = Date.now();
-  try {
-    return await fetchFn(url, { ...init, signal: controller.signal });
-  } catch (error) {
-    if (error instanceof DebugObserverError) throw error.cause;
-    if (error instanceof Error && error.name === "AbortError") throw new GenerationTimeoutError();
-    throw new GenerationTransportError(transportErrorDetails(url, init, startedAt, error), error);
-  } finally {
-    clearTimeout(timeout);
-  }
+  return withRequestTimeout(url, init, timeoutMs, (signal) => fetchFn(url, { ...init, signal }));
+}
+
+/** Fetches a URL and reads the whole body as text; the timeout and the error mapping cover the body as well as the headers. */
+export function fetchTextWithTimeout(
+  fetchFn: typeof fetch,
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<{ response: Response; text: string }> {
+  return withRequestTimeout(url, init, timeoutMs, async (signal) => {
+    const response = await fetchFn(url, { ...init, signal });
+    return { response, text: await response.text() };
+  });
 }
 
 export function joinUrl(baseUrl: string, path: string): string {

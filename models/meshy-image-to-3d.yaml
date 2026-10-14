@@ -1,0 +1,173 @@
+schema: neta.generation.model.v1
+model: meshy-image-to-3d
+title: Meshy Image To 3D
+category: 3d
+description: Generates a textured 3D model from one image.
+adapter:
+  type: meshy.tasks
+  operation: image_to_3d
+content:
+  input:
+    - type: image
+      required: true
+      min: 1
+      max: 2
+      sources:
+        - url
+      roles:
+        - texture
+      description: Input image (JPG, PNG, or WebP, up to 20 MB), and optionally a texture guide image with meta.role texture.
+    - type: text
+      required: false
+      max: 16
+      merge: newline
+      description: Texture prompt, up to 800 characters. Use either this or a texture guide image.
+parameters:
+  model_type:
+    type: string
+    optional: true
+    enum:
+      - standard
+      - smart-topology
+    description: Mesh generation type. Meshy defaults to standard; smart-topology uses meshy-t2 and outputs triangles.
+  ai_model:
+    type: string
+    optional: true
+    enum:
+      - latest
+      - meshy-7.1
+      - meshy-6
+      - meshy-6-lite
+      - meshy-t2
+    description: Meshy model. Meshy defaults to latest (Meshy 7.1) for standard and to meshy-t2 for smart-topology.
+  geometry_resolution:
+    type: string
+    optional: true
+    enum:
+      - standard
+      - 2k
+      - 4k
+    description: Geometry pass. 2k and 4k run the Ultra pass and require meshy-7.1 or latest.
+  should_texture:
+    type: boolean
+    optional: true
+    description: Generate textures. Set to false for an untextured mesh. Meshy defaults to true.
+  enable_pbr:
+    type: boolean
+    optional: true
+    description: Generate metallic, roughness, and normal maps in addition to the base color.
+  texture_resolution:
+    type: string
+    optional: true
+    enum:
+      - 2k
+      - 4k
+      - 8k
+    description: Base color texture resolution. Meshy defaults to 2k; 4k and 8k are not available with meshy-6-lite.
+  should_remesh:
+    type: boolean
+    optional: true
+    description: Run the remesh phase. Meshy defaults to false for Meshy 6 and Meshy 7 models and to true for others.
+  topology:
+    type: string
+    optional: true
+    enum:
+      - quad
+      - triangle
+    description: Mesh topology. Meshy defaults to triangle.
+  target_polycount:
+    type: integer
+    optional: true
+    min: 100
+    max: 300000
+    description: "Target face count: 100 to 300,000 with should_remesh on a standard model, 100 to 15,000 with smart-topology."
+  decimation_mode:
+    type: integer
+    optional: true
+    min: 1
+    max: 4
+    description: Adaptive polycount level from 1 (ultra) to 4 (low). Overrides target_polycount.
+  save_pre_remeshed_model:
+    type: boolean
+    optional: true
+    description: Also return the GLB from before the remesh phase.
+  image_enhancement:
+    type: boolean
+    optional: true
+    description: Optimize the input images. Set to false to keep their exact appearance. Meshy defaults to true.
+  remove_lighting:
+    type: boolean
+    optional: true
+    description: Remove highlights and shadows from the base color texture. Meshy defaults to true.
+  multi_view_thumbnails:
+    type: boolean
+    optional: true
+    description: Also render front, right, back, and left thumbnails.
+  pose_mode:
+    type: string
+    optional: true
+    enum:
+      - a-pose
+      - t-pose
+    description: Generate the subject in an A pose or a T pose. No pose is applied when omitted.
+  moderation:
+    type: boolean
+    optional: true
+    description: Screen the inputs for harmful content before generation.
+  target_formats:
+    type: array
+    optional: true
+    items:
+      type: string
+      enum:
+        - glb
+        - obj
+        - fbx
+        - stl
+        - usdz
+        - 3mf
+    min: 1
+    unique: true
+    description: 3D file formats to generate. Meshy generates every format except 3mf when omitted.
+  alpha_thumbnail:
+    type: boolean
+    optional: true
+    description: Also render a transparent-background thumbnail.
+  auto_size:
+    type: boolean
+    optional: true
+    description: Estimate the real-world height of the object and resize the model to it.
+  origin_at:
+    type: string
+    optional: true
+    enum:
+      - bottom
+      - center
+    description: Origin position when auto_size is enabled. Meshy defaults to bottom.
+  poll_interval:
+    type: integer
+    optional: true
+    default: 5
+    min: 1
+    max: 60
+    description: Seconds between task status checks.
+  max_wait:
+    type: integer
+    optional: true
+    default: 3600
+    min: 60
+    max: 7200
+    description: Maximum seconds to wait for the task. Meshy recommends waiting at least 60 minutes.
+examples:
+  - title: Image to 3D
+    request:
+      model: meshy-image-to-3d
+      content:
+        - type: image
+          source:
+            type: url
+            url: https://example.com/character.png
+      parameters:
+        pose_mode: a-pose
+        target_formats:
+          - glb

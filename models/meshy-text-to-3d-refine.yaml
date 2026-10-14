@@ -1,0 +1,117 @@
+schema: neta.generation.model.v1
+model: meshy-text-to-3d-refine
+title: Meshy Text To 3D Refine
+category: 3d
+description: Textures a model from meshy-text-to-3d. Texturing can be guided by a text prompt or by an image, but not both.
+adapter:
+  type: meshy.tasks
+  operation: text_to_3d_refine
+content:
+  input:
+    - type: 3d
+      required: true
+      min: 1
+      max: 1
+      sources:
+        - url
+      description: A meshy-text-to-3d output block. Its meta.task_id selects the preview task.
+    - type: text
+      required: false
+      max: 16
+      merge: newline
+      description: Texture prompt, up to 800 characters.
+    - type: image
+      required: false
+      max: 1
+      sources:
+        - url
+      description: Texture guide image (JPG, PNG, or WebP, up to 20 MB).
+parameters:
+  enable_pbr:
+    type: boolean
+    optional: true
+    description: Generate metallic, roughness, and normal maps in addition to the base color.
+  texture_resolution:
+    type: string
+    optional: true
+    enum:
+      - 2k
+      - 4k
+      - 8k
+    description: Base color texture resolution. Meshy defaults to 2k; 4k and 8k are not available with meshy-6-lite.
+  ai_model:
+    type: string
+    optional: true
+    enum:
+      - latest
+      - meshy-7.1
+      - meshy-6
+      - meshy-6-lite
+    description: Texture model. Meshy defaults to the model of the preview task.
+  remove_lighting:
+    type: boolean
+    optional: true
+    description: Remove highlights and shadows from the base color texture. Takes effect with meshy-6.
+  moderation:
+    type: boolean
+    optional: true
+    description: Screen the inputs for harmful content before generation.
+  target_formats:
+    type: array
+    optional: true
+    items:
+      type: string
+      enum:
+        - glb
+        - obj
+        - fbx
+        - stl
+        - usdz
+        - 3mf
+    min: 1
+    unique: true
+    description: 3D file formats to generate. Meshy generates every format except 3mf when omitted.
+  alpha_thumbnail:
+    type: boolean
+    optional: true
+    description: Also render a transparent-background thumbnail.
+  auto_size:
+    type: boolean
+    optional: true
+    description: Estimate the real-world height of the object and resize the model to it.
+  origin_at:
+    type: string
+    optional: true
+    enum:
+      - bottom
+      - center
+    description: Origin position when auto_size is enabled. Meshy defaults to bottom.
+  poll_interval:
+    type: integer
+    optional: true
+    default: 5
+    min: 1
+    max: 60
+    description: Seconds between task status checks.
+  max_wait:
+    type: integer
+    optional: true
+    default: 3600
+    min: 60
+    max: 7200
+    description: Maximum seconds to wait for the task. Meshy recommends waiting at least 60 minutes.
+examples:
+  - title: Refine a preview
+    request:
+      model: meshy-text-to-3d-refine
+      content:
+        - type: 3d
+          source:
+            type: url
+            url: https://example.com/preview.glb
+          meta:
+            task_id: task_preview_id
+        - type: text
+          text: weathered oak planks and dark iron
+      parameters:
+        enable_pbr: true

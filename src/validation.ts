@@ -1,5 +1,6 @@
 import { GenerationValidationError } from "./errors.js";
 import type {
+  GenerationArrayItemSpec,
   GenerationContentBlock,
   GenerationContentSpec,
   GenerationMetaFieldSpec,
@@ -79,7 +80,7 @@ export function resolveGenerationParameters(
   for (const [key, spec] of Object.entries(specs)) {
     const value = parameters?.[key];
     if (value === undefined) {
-      if (spec.default !== undefined) resolved[key] = spec.default;
+      if (spec.default !== undefined) resolved[key] = Array.isArray(spec.default) ? [...spec.default] : spec.default;
       else if (!spec.optional) throw new GenerationValidationError(`Missing required parameter: ${key}`);
       continue;
     }
@@ -140,7 +141,7 @@ function validateDimensions(
 
 function validateSpecValue(
   label: string,
-  spec: GenerationParameterSpec | GenerationMetaFieldSpec,
+  spec: GenerationParameterSpec | GenerationMetaFieldSpec | GenerationArrayItemSpec,
   value: unknown,
 ): void {
   switch (spec.type) {
@@ -148,32 +149,58 @@ function validateSpecValue(
       if (typeof value !== "string") throw new GenerationValidationError(`${label} must be a string`);
       if (spec.enum && !spec.enum.includes(value))
         throw new GenerationValidationError(`${label} must be one of: ${spec.enum.join(", ")}`);
-      if (spec.dimensions) validateDimensions(label, value, spec.dimensions);
+      if ("dimensions" in spec && spec.dimensions) validateDimensions(label, value, spec.dimensions);
       break;
     case "number":
       if (typeof value !== "number" || !Number.isFinite(value))
         throw new GenerationValidationError(`${label} must be a number`);
-      if (spec.min !== undefined && value < spec.min)
-        throw new GenerationValidationError(`${label} must be >= ${spec.min}`);
-      if (spec.max !== undefined && value > spec.max)
-        throw new GenerationValidationError(`${label} must be <= ${spec.max}`);
+      validateNumberRange(label, spec, value);
       break;
     case "integer":
       if (typeof value !== "number" || !Number.isInteger(value))
         throw new GenerationValidationError(`${label} must be an integer`);
-      if (spec.min !== undefined && value < spec.min)
-        throw new GenerationValidationError(`${label} must be >= ${spec.min}`);
-      if (spec.max !== undefined && value > spec.max)
-        throw new GenerationValidationError(`${label} must be <= ${spec.max}`);
+      validateNumberRange(label, spec, value);
       break;
     case "boolean":
       if (typeof value !== "boolean") throw new GenerationValidationError(`${label} must be a boolean`);
+      break;
+    case "array":
+      validateArray(label, spec, value);
       break;
     case "object":
       if (!value || typeof value !== "object" || Array.isArray(value))
         throw new GenerationValidationError(`${label} must be an object`);
       break;
   }
+}
+
+function validateNumberRange(
+  label: string,
+  spec: { min?: number; max?: number; multipleOf?: number },
+  value: number,
+): void {
+  if (spec.min !== undefined && value < spec.min)
+    throw new GenerationValidationError(`${label} must be >= ${spec.min}`);
+  if (spec.max !== undefined && value > spec.max)
+    throw new GenerationValidationError(`${label} must be <= ${spec.max}`);
+  if (spec.multipleOf !== undefined) {
+    const steps = value / spec.multipleOf;
+    if (Math.abs(steps - Math.round(steps)) > 1e-9)
+      throw new GenerationValidationError(`${label} must be a multiple of ${spec.multipleOf}`);
+  }
+}
+
+function validateArray(label: string, spec: Extract<GenerationParameterSpec, { type: "array" }>, value: unknown): void {
+  if (!Array.isArray(value)) throw new GenerationValidationError(`${label} must be an array`);
+  if (spec.min !== undefined && value.length < spec.min)
+    throw new GenerationValidationError(`${label} must contain at least ${spec.min} item(s)`);
+  if (spec.max !== undefined && value.length > spec.max)
+    throw new GenerationValidationError(`${label} must contain at most ${spec.max} item(s)`);
+  if (spec.unique && new Set(value).size !== value.length)
+    throw new GenerationValidationError(`${label} must not contain duplicate items`);
+  value.forEach((item, index) => {
+    validateSpecValue(`${label}[${index}]`, spec.items, item);
+  });
 }
 
 export function resolveGenerationMeta(

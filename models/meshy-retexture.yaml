@@ -1,0 +1,105 @@
+schema: neta.generation.model.v1
+model: meshy-retexture
+title: Meshy Retexture
+category: 3d
+description: Applies a new texture to a 3D model, guided by a style prompt or by style images.
+adapter:
+  type: meshy.tasks
+  operation: retexture
+content:
+  input:
+    - type: 3d
+      required: true
+      min: 1
+      max: 1
+      sources:
+        - url
+      description: Model file (GLB, GLTF, OBJ, FBX, or STL, up to 100 MB). A block with meta.task_id from a Meshy task that
+        this model accepts references the task instead of the file.
+    - type: text
+      required: false
+      max: 16
+      merge: newline
+      description: Style prompt, up to 800 characters. Use either this or style images.
+    - type: image
+      required: false
+      max: 4
+      sources:
+        - url
+      description: One style image, or 2 to 4 views of the object, front view first, which require ai_model meshy-7.
+parameters:
+  ai_model:
+    type: string
+    optional: true
+    enum:
+      - latest
+      - meshy-7
+      - meshy-6
+      - meshy-6-lite
+    description: Meshy model. Meshy defaults to latest (Meshy 7).
+  enable_original_uv:
+    type: boolean
+    optional: true
+    description: Keep the existing UV layout of the model. Recommended for models that Meshy generated.
+  enable_pbr:
+    type: boolean
+    optional: true
+    description: Generate metallic, roughness, and normal maps in addition to the base color.
+  texture_resolution:
+    type: string
+    optional: true
+    enum:
+      - 2k
+      - 4k
+      - 8k
+    description: Base color texture resolution. Meshy defaults to 2k; 4k and 8k are not available with meshy-6-lite.
+  remove_lighting:
+    type: boolean
+    optional: true
+    description: Remove highlights and shadows from the base color texture. Takes effect with meshy-6 at 2k or 4k.
+  target_formats:
+    type: array
+    optional: true
+    items:
+      type: string
+      enum:
+        - glb
+        - obj
+        - fbx
+        - stl
+        - usdz
+        - 3mf
+    min: 1
+    unique: true
+    description: 3D file formats to generate. Meshy generates every format except 3mf when omitted.
+  alpha_thumbnail:
+    type: boolean
+    optional: true
+    description: Also render a transparent-background thumbnail.
+  poll_interval:
+    type: integer
+    optional: true
+    default: 5
+    min: 1
+    max: 60
+    description: Seconds between task status checks.
+  max_wait:
+    type: integer
+    optional: true
+    default: 3600
+    min: 60
+    max: 7200
+    description: Maximum seconds to wait for the task. Meshy recommends waiting at least 60 minutes.
+examples:
+  - title: Retexture from a style prompt
+    request:
+      model: meshy-retexture
+      content:
+        - type: 3d
+          source:
+            type: url
+            url: https://example.com/model.glb
+        - type: text
+          text: polished marble with gold trim
+      parameters:
+        enable_original_uv: true

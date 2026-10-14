@@ -22,6 +22,10 @@ function isPositiveInteger(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value > 0;
 }
 
+function isNonNegativeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
 function isDimensionsSpec(value: unknown): boolean {
   if (!isRecord(value)) return false;
   if (value.separator !== undefined && value.separator !== "x" && value.separator !== "*") return false;
@@ -31,9 +35,33 @@ function isDimensionsSpec(value: unknown): boolean {
   return value.min === undefined || value.max === undefined || value.min <= value.max;
 }
 
+function isPositiveNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0;
+}
+
+function isArrayItemSpec(value: unknown): boolean {
+  if (!isRecord(value)) return false;
+  if (value.type === "string") {
+    return (
+      value.enum === undefined || (Array.isArray(value.enum) && value.enum.every((item) => typeof item === "string"))
+    );
+  }
+  return value.type === "integer";
+}
+
 function isParameterSpec(value: unknown): boolean {
   if (!isRecord(value)) return false;
+  if (value.type === "array") {
+    return (
+      isArrayItemSpec(value.items) &&
+      (value.min === undefined || isNonNegativeInteger(value.min)) &&
+      (value.max === undefined || isNonNegativeInteger(value.max)) &&
+      (value.min === undefined || value.max === undefined || value.min <= value.max) &&
+      (value.unique === undefined || typeof value.unique === "boolean")
+    );
+  }
   if (!["string", "number", "integer", "boolean"].includes(String(value.type))) return false;
+  if (value.multipleOf !== undefined && !isPositiveNumber(value.multipleOf)) return false;
   return value.type !== "string" || value.dimensions === undefined || isDimensionsSpec(value.dimensions);
 }
 

@@ -109,6 +109,53 @@ describe("validation", () => {
     ).toThrow("audio role is required by seedance-2-0-fast");
   });
 
+  it("validates array items and stepped numbers, and copies array defaults", () => {
+    const model: GenerationModelDeclaration = {
+      ...customModel("custom.arrays"),
+      parameters: {
+        formats: {
+          type: "array",
+          optional: true,
+          default: ["glb"],
+          items: { type: "string", enum: ["glb", "fbx"] },
+          min: 1,
+          max: 2,
+          unique: true,
+        },
+        ids: { type: "array", optional: true, items: { type: "integer", min: 0, max: 9 } },
+        duration: { type: "number", optional: true, min: 2, max: 10, multipleOf: 0.5 },
+      },
+    };
+    const client = createGenerationClient({ apiKey: "test", models: [model], includeBuiltinModels: false });
+    const validate = (parameters: Record<string, unknown>) =>
+      client.validate({ model: model.model, content: [{ type: "text", text: "hello" }], parameters });
+
+    const first = validate({});
+    expect(first.parameters).toEqual({ formats: ["glb"] });
+    (first.parameters.formats as string[]).push("fbx");
+    expect(validate({}).parameters).toEqual({ formats: ["glb"] });
+    expect(client.getModel(model.model)?.parameters?.formats?.default).toEqual(["glb"]);
+    expect(validate({ formats: ["fbx", "glb"], ids: [0, 9], duration: 2.5 }).parameters).toEqual({
+      formats: ["fbx", "glb"],
+      ids: [0, 9],
+      duration: 2.5,
+    });
+
+    for (const [parameters, message] of [
+      [{ formats: "glb" }, "Parameter formats must be an array"],
+      [{ formats: [] }, "Parameter formats must contain at least 1 item(s)"],
+      [{ formats: ["glb", "fbx", "glb"] }, "Parameter formats must contain at most 2 item(s)"],
+      [{ formats: ["glb", "glb"] }, "Parameter formats must not contain duplicate items"],
+      [{ formats: ["obj"] }, "Parameter formats[0] must be one of: glb, fbx"],
+      [{ ids: [1, "2"] }, "Parameter ids[1] must be an integer"],
+      [{ ids: [10] }, "Parameter ids[0] must be <= 9"],
+      [{ duration: 2.25 }, "Parameter duration must be a multiple of 0.5"],
+      [{ duration: 1.5 }, "Parameter duration must be >= 2"],
+    ] as const) {
+      expect(() => validate(parameters), message).toThrow(message);
+    }
+  });
+
   it("runs a custom adapter validation hook exactly once per validate or generate call", async () => {
     let validationCalls = 0;
     let adapterCalls = 0;

@@ -15,6 +15,18 @@ type Reply = { status: number; body: unknown; cut?: true };
 
 const SUBMIT_COST = 0.4;
 const SETTLED_COST = 0.3;
+const MESHY_OPERATIONS = [
+  "text-to-3d",
+  "text-to-3d-refine",
+  "image-to-3d",
+  "multi-image-to-3d",
+  "retexture",
+  "remesh",
+  "rigging",
+  "text-to-motion",
+  "animation",
+];
+const UNKNOWN_OPERATION = `Parameter operation must be one of: ${MESHY_OPERATIONS.join(", ")}`;
 
 function sendJson(response: ServerResponse, reply: Reply): void {
   const text = JSON.stringify(reply.body);
@@ -140,21 +152,8 @@ describe("meshy.tasks adapter", () => {
       ["meshy", "3d", { type: "meshy.tasks" }],
     ]);
     const [meshy] = models;
-    const operations = [
-      "text-to-image",
-      "image-to-image",
-      "text-to-3d",
-      "text-to-3d-refine",
-      "image-to-3d",
-      "multi-image-to-3d",
-      "retexture",
-      "remesh",
-      "rigging",
-      "text-to-motion",
-      "animation",
-    ];
-    expect(Object.keys(meshy?.operations ?? {})).toEqual(operations);
-    expect(meshy?.parameters?.operation).toMatchObject({ type: "string", enum: operations });
+    expect(Object.keys(meshy?.operations ?? {})).toEqual(MESHY_OPERATIONS);
+    expect(meshy?.parameters?.operation).toMatchObject({ type: "string", enum: MESHY_OPERATIONS });
     expect(meshy?.parameters?.operation).not.toHaveProperty("optional");
     expect(Object.keys(meshy?.parameters ?? {})).toEqual(["operation", "poll_interval", "max_wait"]);
     expect(meshy?.content.input).toEqual([]);
@@ -472,78 +471,31 @@ describe("meshy.tasks adapter", () => {
     });
   });
 
-  it("generates motion clips and images", async () => {
-    const tasks: Record<string, unknown> = {
-      "text-to-motion": {
-        id: "task_motion",
-        type: "text-to-motion",
-        status: "SUCCEEDED",
-        expires_at: 1787573705881,
-        result: { motion_url: asset("m", "clip.bvh"), motion_format: "bvh", duration_ms: 2500, mode: "swift" },
-      },
-      "text-to-image": {
-        id: "task_t2i",
-        type: "text-to-image",
-        status: "SUCCEEDED",
-        image_urls: [asset("t", "image_0.png"), asset("t", "image_1.png")],
-      },
-      "image-to-image": {
-        id: "task_i2i",
-        type: "image-to-image",
-        status: "SUCCEEDED",
-        image_urls: [asset("e", "image_0.png")],
-      },
+  it("generates motion clips", async () => {
+    const motionTask = {
+      id: "task_motion",
+      type: "text-to-motion",
+      status: "SUCCEEDED",
+      expires_at: 1787573705881,
+      result: { motion_url: asset("m", "clip.bvh"), motion_format: "bvh", duration_ms: 2500, mode: "swift" },
     };
-    const respond = (entry: Received): Reply => {
-      const action = entry.path.split("/")[4] ?? "";
-      if (entry.method === "POST") return { status: 200, body: { result: `task_${action}` } };
-      return { status: 200, body: tasks[action] };
-    };
-    await withGateway(respond, async (baseUrl, received) => {
-      const generation = client(baseUrl);
-      const motion = await generation.generate({
+    await withGateway(taskGateway("task_motion", [motionTask]), async (baseUrl, received) => {
+      const motion = await client(baseUrl).generate({
         model: "meshy",
         content: [textBlock("a person jumps forward")],
         parameters: { operation: "text-to-motion", duration: 2.5, mode: "swift" },
       });
-      const images = await generation.generate({
-        model: "meshy",
-        content: [textBlock("a cartoon knight")],
-        parameters: { operation: "text-to-image", ai_model: "nano-banana-2", generate_multi_view: true },
-      });
-      await generation.generate({
-        model: "meshy",
-        content: [textBlock("silver armor"), imageBlock("https://example.com/knight.png")],
-        parameters: { operation: "image-to-image", ai_model: "gpt-image-2", aspect_ratio: "3:2" },
-      });
 
       expect(received.filter((entry) => entry.method === "POST").map((entry) => [entry.path, entry.body])).toEqual([
         ["/meshy/openapi/v1/text-to-motion", { prompt: "a person jumps forward", duration: 2.5, mode: "swift" }],
-        [
-          "/meshy/openapi/v1/text-to-image",
-          { prompt: "a cartoon knight", ai_model: "nano-banana-2", generate_multi_view: true },
-        ],
-        [
-          "/meshy/openapi/v1/image-to-image",
-          {
-            prompt: "silver armor",
-            reference_image_urls: ["https://example.com/knight.png"],
-            ai_model: "gpt-image-2",
-            aspect_ratio: "3:2",
-          },
-        ],
       ]);
       expect(motion).toEqual([
-        meshyOutput("task_text-to-motion", "text-to-motion", "3d", asset("m", "clip.bvh"), {
+        meshyOutput("task_motion", "text-to-motion", "3d", asset("m", "clip.bvh"), {
           field: "result.motion_url",
           format: "bvh",
           duration_ms: 2500,
           task_expires_at: "2026-08-24T12:15:05.881Z",
         }),
-      ]);
-      expect(images.map((block) => [block.type, block.meta?.field])).toEqual([
-        ["image", "image_urls[0]"],
-        ["image", "image_urls[1]"],
       ]);
     });
   });
@@ -562,11 +514,13 @@ describe("meshy.tasks adapter", () => {
     const cases: Array<[unknown, GenerationContentBlock[], Record<string, unknown>, string]> = [
       [undefined, [textBlock("chest")], {}, "Missing required parameter: operation"],
       [3, [textBlock("chest")], {}, "Parameter operation must be a string"],
+      ["text-to-3d-preview", [textBlock("chest")], {}, UNKNOWN_OPERATION],
+      ["text-to-image", [textBlock("knight")], { ai_model: "nano-banana-2" }, UNKNOWN_OPERATION],
       [
-        "text-to-3d-preview",
-        [textBlock("chest")],
-        {},
-        "Parameter operation must be one of: text-to-image, image-to-image, text-to-3d, text-to-3d-refine,",
+        "image-to-image",
+        [textBlock("silver armor"), imageBlock("https://example.com/knight.png")],
+        { ai_model: "gpt-image-2" },
+        UNKNOWN_OPERATION,
       ],
       ["remesh", [modelBlock("https://example.com/m.glb")], { duration: 3 }, "Unknown parameter: duration"],
       [
@@ -689,7 +643,6 @@ describe("meshy.tasks adapter", () => {
       ],
       ["text-to-motion", [textBlock("jump")], {}, "Missing required parameter: duration"],
       ["text-to-motion", [textBlock("jump")], { duration: 2.3 }, "Parameter duration must be a multiple of 0.5"],
-      ["text-to-image", [textBlock("knight")], {}, "Missing required parameter: ai_model"],
       ["remesh", [base64Model], {}, "3d source is not supported by meshy: base64"],
       ["image-to-3d", [base64Image], {}, "image source is not supported by meshy: base64"],
     ];

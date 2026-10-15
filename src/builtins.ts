@@ -1056,38 +1056,6 @@ const meshySizeParameters = {
   },
 } satisfies GenerationModelDeclaration["parameters"];
 
-const meshyImageModelParameters = {
-  ai_model: {
-    type: "string",
-    enum: [
-      "nano-banana",
-      "nano-banana-2",
-      "nano-banana-2-lite",
-      "nano-banana-pro",
-      "gpt-image-2",
-      "gpt-image-2-5-flare",
-      "gpt-image-2-5-sunburst",
-    ],
-    description: "Image model. Meshy charges different credits per image for each model.",
-  },
-  generate_multi_view: {
-    type: "boolean",
-    optional: true,
-    description: "Generate one image that shows the subject from several angles. aspect_ratio cannot be set with it.",
-  },
-  aspect_ratio: {
-    type: "string",
-    optional: true,
-    enum: ["1:1", "16:9", "9:16", "4:3", "3:4", "3:2", "2:3"],
-    description: "Output aspect ratio. Meshy defaults to 1:1; 3:2 and 2:3 require a GPT Image model.",
-  },
-  remove_background: {
-    type: "boolean",
-    optional: true,
-    description: "Return a transparent PNG with the background removed.",
-  },
-} satisfies GenerationModelDeclaration["parameters"];
-
 const meshyModelFileInput = {
   type: "3d",
   required: true,
@@ -1110,37 +1078,6 @@ function meshyTextInput(required: boolean, description: string) {
 }
 
 const meshyOperations = {
-  "text-to-image": {
-    title: "Text To Image",
-    description: "Generates an image from a text prompt, for use as input to the 3D operations.",
-    content: {
-      input: [meshyTextInput(true, "Image prompt.")],
-    },
-    parameters: {
-      ...meshyImageModelParameters,
-      ...meshyPoseParameters,
-    },
-  },
-  "image-to-image": {
-    title: "Image To Image",
-    description: "Edits 1 to 5 reference images with a text prompt.",
-    content: {
-      input: [
-        meshyTextInput(true, "Edit prompt."),
-        {
-          type: "image",
-          required: true,
-          min: 1,
-          max: 5,
-          sources: ["url"],
-          description: "1 to 5 reference images (JPG, PNG, or WebP, up to 20 MB each).",
-        },
-      ],
-    },
-    parameters: {
-      ...meshyImageModelParameters,
-    },
-  },
   "text-to-3d": {
     title: "Text To 3D",
     description:
@@ -1438,7 +1375,7 @@ const meshyModel = {
   title: "Meshy",
   category: "3d",
   description:
-    "Generates, textures, remeshes, rigs, and animates 3D models, and generates the images they start from. parameters.operation selects the function.",
+    "Generates, textures, remeshes, rigs, and animates 3D models. parameters.operation selects the function.",
   adapter: { type: "meshy.tasks" },
   content: { input: [] },
   parameters: {
@@ -1451,25 +1388,6 @@ const meshyModel = {
   },
   operations: meshyOperations,
   examples: [
-    {
-      title: "Character concept",
-      request: {
-        model: "meshy",
-        content: [{ type: "text", text: "a cartoon knight, full body, plain background" }],
-        parameters: { operation: "text-to-image", ai_model: "nano-banana-2", pose_mode: "a-pose" },
-      },
-    },
-    {
-      title: "Edit a reference image",
-      request: {
-        model: "meshy",
-        content: [
-          { type: "text", text: "turn the knight's armor silver" },
-          { type: "image", source: { type: "url", url: "https://example.com/knight.png" } },
-        ],
-        parameters: { operation: "image-to-image", ai_model: "nano-banana-2" },
-      },
-    },
     {
       title: "Text to 3D preview",
       request: {

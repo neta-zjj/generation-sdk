@@ -62,8 +62,6 @@ type MeshyOperation = {
   path: string;
   /** Validates the content and returns the request body; media fields hold PendingSource values. */
   plan(content: MeshyContent, parameters: BodyFields): BodyFields;
-  /** The task returns generated images in `image_urls`; other tasks may echo input images under that key. */
-  returnsImages?: true;
 };
 
 class PendingSource {
@@ -184,20 +182,6 @@ const OPERATIONS: Record<string, MeshyOperation> = {
   "text-to-motion": {
     path: "/meshy/openapi/v1/text-to-motion",
     plan: (content, parameters) => ({ ...parameters, prompt: requirePrompt(content) }),
-  },
-  "text-to-image": {
-    path: "/meshy/openapi/v1/text-to-image",
-    plan: (content, parameters) => ({ ...parameters, prompt: requirePrompt(content) }),
-    returnsImages: true,
-  },
-  "image-to-image": {
-    path: "/meshy/openapi/v1/image-to-image",
-    plan: (content, parameters) => ({
-      ...parameters,
-      prompt: requirePrompt(content),
-      reference_image_urls: between(content.images, 1, 5, "reference image").map(pending),
-    }),
-    returnsImages: true,
   },
 };
 
@@ -446,16 +430,8 @@ function urlEntries(
   });
 }
 
-function listEntries(type: FileEntry["type"], field: string, value: unknown): FileEntry[] {
-  return (Array.isArray(value) ? value : []).flatMap((item, index) => {
-    const itemField = `${field}[${index}]`;
-    const url = fileUrl(itemField, item);
-    return url ? [{ type, field: itemField, url }] : [];
-  });
-}
-
-// 结果文件依次是 3D 文件（主要的 GLB 在最前）、图片和预览视频；texture_image_url 等输入的回显不属于结果。
-function taskFiles(task: BodyFields, operation: MeshyOperation): FileEntry[] {
+// 结果文件依次是 3D 文件（主要的 GLB 在最前）、图片和预览视频；image_urls、texture_image_url 等输入的回显不属于结果。
+function taskFiles(task: BodyFields): FileEntry[] {
   const result = asRecord(task.result);
   const textures = Array.isArray(task.texture_urls) ? task.texture_urls : [];
   return [
@@ -469,7 +445,6 @@ function taskFiles(task: BodyFields, operation: MeshyOperation): FileEntry[] {
       alpha_thumbnail_url: task.alpha_thumbnail_url,
     }),
     ...urlEntries("image", "thumbnail_urls", asRecord(task.thumbnail_urls), VIEW_ORDER),
-    ...(operation.returnsImages ? listEntries("image", "image_urls", task.image_urls) : []),
     ...textures.flatMap((value, index) =>
       urlEntries("image", `texture_urls[${index}]`, asRecord(value), TEXTURE_ORDER),
     ),
@@ -489,9 +464,9 @@ function fileMeta(field: string, task: BodyFields): BodyFields {
   return {};
 }
 
-function outputBlocks(taskId: string, task: BodyFields, operation: MeshyOperation): GenerationContentBlock[] {
+function outputBlocks(taskId: string, task: BodyFields): GenerationContentBlock[] {
   const expiresAt = typeof task.expires_at === "number" && task.expires_at > 0 ? task.expires_at : undefined;
-  return taskFiles(task, operation).map(
+  return taskFiles(task).map(
     (file): GenerationContentBlock => ({
       type: file.type,
       source: { type: "url", url: file.url },
@@ -508,10 +483,10 @@ function outputBlocks(taskId: string, task: BodyFields, operation: MeshyOperatio
 }
 
 // 任务已经成功并且扣除积分：结果无法读取时的错误同样带上任务 ID。
-function succeededBlocks(taskId: string, task: BodyFields, operation: MeshyOperation): GenerationContentBlock[] {
+function succeededBlocks(taskId: string, task: BodyFields): GenerationContentBlock[] {
   let blocks: GenerationContentBlock[];
   try {
-    blocks = outputBlocks(taskId, task, operation);
+    blocks = outputBlocks(taskId, task);
   } catch (error) {
     throw taskFailure(error, taskId, "returned a result that cannot be read");
   }
@@ -542,7 +517,7 @@ async function pollTask(
     }
     failures = 0;
     const status = asString(task.status);
-    if (status === "SUCCEEDED") return succeededBlocks(taskId, task, operation);
+    if (status === "SUCCEEDED") return succeededBlocks(taskId, task);
     if (status === "FAILED" || status === "CANCELED") {
       const reason = asString(asRecord(task.task_error).message);
       throw new GenerationProviderError(`Meshy task ${status.toLowerCase()}${reason ? `: ${reason}` : ""}`, {

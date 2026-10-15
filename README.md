@@ -631,7 +631,7 @@ await client.generate({
 ```
 
 `image-to-3d` and `multi-image-to-3d` take texture guide images as `image` blocks with `meta.role: "texture"`. Image
-and 3D inputs use URL sources. To model an object from a picture, generate the picture with an image model such as
+and 3D inputs use URL sources. When there is no input picture yet, generate one with an image model such as
 `gemini-3.1-flash-image-preview` or `gpt-image-2`; neta-router archives the generated image and returns its URL, so the
 output block can be passed on as is:
 

@@ -1,7 +1,7 @@
 import { expect, it } from "vitest";
 import { createGenerationClient, type GenerationContentBlock, type GenerationResult } from "../../src/index.js";
 
-// 真实调用会消耗 Meshy 积分；NETA_ROUTER_API_KEY 需要能使用 meshy-3d 模型。
+// 真实调用会消耗 Meshy 积分和一次图片生成的费用；NETA_ROUTER_API_KEY 需要能使用 meshy-3d 和 gemini-3.1-flash-lite-image 模型。
 function createLiveClient() {
   const apiKey = process.env.NETA_ROUTER_API_KEY;
   if (!apiKey) throw new Error("NETA_ROUTER_API_KEY is required");
@@ -44,16 +44,18 @@ function expectTask(result: GenerationResult, taskType: string): void {
 
 it("generates, rigs, and animates a character from a text prompt", async () => {
   const client = createLiveClient();
-  const image = await client.generateResult({
-    model: "meshy",
+  // 输入图片由图片模型生成，neta-router 返回它归档的图片链接。
+  const images = await client.generate({
+    model: "gemini-3.1-flash-lite-image",
     content: [{ type: "text", text: "a cartoon knight standing in an A pose, full body, plain white background" }],
-    parameters: { operation: "text-to-image", ai_model: "nano-banana-2-lite", pose_mode: "a-pose" },
   });
-  expectTask(image, "text-to-image");
+  const knight = images.find((block) => block.type === "image");
+  if (!knight) throw new Error("No image block");
+  expect(blockUrl(knight)).toMatch(/^https:\/\//);
 
   const model = await client.generateResult({
     model: "meshy",
-    content: [blockWithField(image, "image_urls[0]")],
+    content: [knight],
     parameters: {
       operation: "image-to-3d",
       ai_model: "meshy-6-lite",

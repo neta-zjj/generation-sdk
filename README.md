@@ -574,8 +574,6 @@ Meshy is one model, `meshy`, with category `3d`. The required `parameters.operat
 
 | `operation` | Function |
 | --- | --- |
-| `text-to-image` | Generate an image from a text prompt |
-| `image-to-image` | Edit 1 to 5 reference images with a text prompt |
 | `text-to-3d` | Generate an untextured model from a text prompt |
 | `text-to-3d-refine` | Texture a `text-to-3d` model |
 | `image-to-3d` | Generate a textured model from one image |
@@ -592,8 +590,8 @@ Meshy request fields such as `ai_model`, `target_formats`, and `enable_pbr` go i
 `operation`, `poll_interval`, or `max_wait` to Meshy.
 
 The result has one content block per file: `3d` blocks first, starting with the main GLB, then `image` blocks for
-thumbnails, texture maps, and generated images, then a `video` block when Meshy returns a preview video. Every block
-carries `meta.task_id`, `meta.task_type`, and `meta.field`, the Meshy response field the file came from, such as
+thumbnails and texture maps, then a `video` block when Meshy returns a preview video. Every block carries
+`meta.task_id`, `meta.task_type`, and `meta.field`, the Meshy response field the file came from, such as
 `model_urls.glb` or `texture_urls[0].normal`. `3d` blocks also carry `meta.format`. An OBJ block carries `meta.mtl_url`,
 a motion clip carries `meta.duration_ms`, and `meta.task_expires_at` is set when Meshy reports when the task expires.
 
@@ -633,7 +631,23 @@ await client.generate({
 ```
 
 `image-to-3d` and `multi-image-to-3d` take texture guide images as `image` blocks with `meta.role: "texture"`. Image
-and 3D inputs use URL sources.
+and 3D inputs use URL sources. When there is no input picture yet, generate one with an image model such as
+`gemini-3.1-flash-image-preview` or `gpt-image-2`; neta-router archives the generated image and returns its URL, so the
+output block can be passed on as is:
+
+```ts
+const images = await client.generate({
+  model: "gemini-3.1-flash-image-preview",
+  content: [{ type: "text", text: "a cartoon knight standing in an A pose, full body, plain white background" }],
+});
+const concept = images.find((block) => block.type === "image");
+if (!concept) throw new Error("No image");
+const knight = await client.generate({
+  model: "meshy",
+  content: [concept],
+  parameters: { operation: "image-to-3d", pose_mode: "a-pose", target_formats: ["glb"] },
+});
+```
 
 Meshy recommends waiting at least 60 minutes for a task, so `max_wait` defaults to 3600 seconds. A status check that
 fails with a network error, a timeout, 408, 429, or 5xx, or that breaks off while its body is read, is retried at the
@@ -645,9 +659,10 @@ gateway response that has one. While the task runs, the gateway reports the esti
 it reports the cost settled from the credits Meshy consumed, except for a status check that arrives between recording
 the success and settling the cost.
 
-For a real gateway check, export `NETA_ROUTER_API_KEY` for a key that can use Meshy, optionally `NETA_ROUTER_BASE_URL`,
-and run `pnpm test:live:meshy`. The check spends Meshy credits on a short chain of text-to-image, image-to-3D,
-rigging, text-to-motion, animation, text-to-3D, refine, and remesh tasks.
+For a real gateway check, export `NETA_ROUTER_API_KEY` for a key that can use Meshy and
+`gemini-3.1-flash-lite-image`, optionally `NETA_ROUTER_BASE_URL`, and run `pnpm test:live:meshy`. The check generates
+one input image with `gemini-3.1-flash-lite-image`, then spends Meshy credits on a short chain of image-to-3D, rigging,
+text-to-motion, animation, text-to-3D, refine, and remesh tasks.
 
 ## Load model declarations from files
 

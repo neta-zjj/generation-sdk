@@ -79,7 +79,7 @@ export function resolveGenerationParameters(
 
   for (const [key, spec] of Object.entries(specs)) {
     const value = parameters?.[key];
-    if (value === undefined) {
+    if (value === undefined || (value === null && spec.type === "object")) {
       if (spec.default !== undefined) resolved[key] = Array.isArray(spec.default) ? [...spec.default] : spec.default;
       else if (!spec.optional) throw new GenerationValidationError(`Missing required parameter: ${key}`);
       continue;

@@ -513,11 +513,21 @@ describe("song2 generation", () => {
     it("declares every parameter as optional without a default", () => {
       const parameters = settlingClient([]).getModel("song2")?.parameters ?? {};
 
-      expect(Object.keys(parameters)).toEqual(["abc_mode", "seed", "return_abc"]);
+      expect(Object.keys(parameters)).toEqual([
+        "abc_mode",
+        "seed",
+        "return_abc",
+        "abc_continue",
+        "harmony",
+        "lyric_schedule",
+      ]);
       for (const spec of Object.values(parameters)) {
         expect(spec.optional).toBe(true);
         expect(spec).not.toHaveProperty("default");
       }
+      expect(parameters.abc_continue).toMatchObject({ type: "boolean" });
+      expect(parameters.harmony).toMatchObject({ type: "object" });
+      expect(parameters.lyric_schedule).toMatchObject({ type: "object" });
     });
 
     it("tells agents that melody mode rejects a score with chord marks", () => {
@@ -526,6 +536,462 @@ describe("song2 generation", () => {
       const rule = description.split(". ").find((s) => /melody/.test(s) && /chord/.test(s) && /reject/.test(s));
 
       expect(rule).toBeDefined();
+    });
+  });
+
+  describe("continuation, section order and lyric schedule", () => {
+    const abcContent = [styleBlock, lyricsBlock, textBlock("abc", ABC)];
+    const schedule = (overrides: Record<string, unknown> = {}) => ({
+      sections: [{ start_sec: 0, lyric: [0, 3] }],
+      ...overrides,
+    });
+
+    it.each([
+      ["abc_continue false", { abc_continue: false }],
+      ["no new parameter", {}],
+      ["harmony null", { harmony: null }],
+      ["harmony empty", { harmony: {} }],
+      ["harmony empty follow", { harmony: { follow: [] } }],
+      ["harmony null follow", { harmony: { follow: null } }],
+      ["lyric_schedule null", { lyric_schedule: null }],
+    ])("leaves the old body unchanged when there is %s", async (_name, parameters) => {
+      const calls: FetchCall[] = [];
+
+      await settlingClient(calls).generateResult({ ...songRequest, parameters });
+
+      expect(calls[0]?.init.body).toBe(OLD_REQUEST_BODY);
+    });
+
+    it("adds abc_continue only when it is true", async () => {
+      const calls: FetchCall[] = [];
+
+      await settlingClient(calls).generateResult({
+        model: "song2",
+        content: abcContent,
+        parameters: { abc_continue: true },
+      });
+
+      const body = JSON.parse(String(calls[0]?.init.body));
+      expect(body).toEqual({
+        model: "song2",
+        prompt: "bright J-pop, female vocal, piano",
+        lyrics: "[verse]\nla la la",
+        abc: ABC,
+        abc_continue: true,
+      });
+      expect(Object.keys(body)).toEqual(["model", "prompt", "lyrics", "abc", "abc_continue"]);
+    });
+
+    it("adds harmony with lowercased section names", async () => {
+      const calls: FetchCall[] = [];
+
+      await settlingClient(calls).generateResult({
+        model: "song2",
+        content: abcContent,
+        parameters: { abc_continue: true, harmony: { follow: ["Verse", "CHORUS 2"] } },
+      });
+
+      expect(JSON.parse(String(calls[0]?.init.body)).harmony).toEqual({ follow: ["verse", "chorus 2"] });
+    });
+
+    it("adds the lyric schedule with only the fields given", async () => {
+      const calls: FetchCall[] = [];
+
+      await settlingClient(calls).generateResult({
+        ...songRequest,
+        parameters: {
+          lyric_schedule: {
+            sections: [
+              { start_sec: 0, lyric: [0, 3] },
+              { start_sec: 12.5, lyric: [3, 9] },
+            ],
+            lead_sec: 1.5,
+            behind: 2,
+            mode: "mask",
+          },
+        },
+      });
+
+      expect(JSON.parse(String(calls[0]?.init.body)).lyric_schedule).toEqual({
+        sections: [
+          { start_sec: 0, lyric: [0, 3] },
+          { start_sec: 12.5, lyric: [3, 9] },
+        ],
+        lead_sec: 1.5,
+        behind: 2,
+        mode: "mask",
+      });
+    });
+
+    it("does not add defaults inside the lyric schedule", async () => {
+      const calls: FetchCall[] = [];
+
+      await settlingClient(calls).generateResult({
+        ...songRequest,
+        parameters: { lyric_schedule: schedule() },
+      });
+
+      expect(JSON.parse(String(calls[0]?.init.body)).lyric_schedule).toEqual({
+        sections: [{ start_sec: 0, lyric: [0, 3] }],
+      });
+    });
+
+    it("treats null optional schedule fields as absent", async () => {
+      const calls: FetchCall[] = [];
+
+      await settlingClient(calls).generateResult({
+        ...songRequest,
+        parameters: {
+          lyric_schedule: {
+            sections: [{ start_sec: 0, lyric: [0, 3] }],
+            lead_sec: null,
+            behind: null,
+            mode: null,
+          },
+        },
+      });
+
+      expect(JSON.parse(String(calls[0]?.init.body)).lyric_schedule).toEqual({
+        sections: [{ start_sec: 0, lyric: [0, 3] }],
+      });
+    });
+
+    it("adds all three after the existing parameters in a fixed order", async () => {
+      const calls: FetchCall[] = [];
+
+      await settlingClient(calls).generateResult({
+        model: "song2",
+        content: abcContent,
+        parameters: {
+          return_abc: true,
+          abc_continue: true,
+          harmony: { follow: ["Verse"] },
+          lyric_schedule: schedule(),
+        },
+      });
+
+      const body = JSON.parse(String(calls[0]?.init.body));
+      expect(body).toEqual({
+        model: "song2",
+        prompt: "bright J-pop, female vocal, piano",
+        lyrics: "[verse]\nla la la",
+        abc: ABC,
+        return_abc: true,
+        abc_continue: true,
+        harmony: { follow: ["verse"] },
+        lyric_schedule: { sections: [{ start_sec: 0, lyric: [0, 3] }] },
+      });
+      expect(Object.keys(body)).toEqual([
+        "model",
+        "prompt",
+        "lyrics",
+        "abc",
+        "return_abc",
+        "abc_continue",
+        "harmony",
+        "lyric_schedule",
+      ]);
+    });
+
+    it("counts lyric spans in code points, not UTF-16 units", async () => {
+      const calls: FetchCall[] = [];
+      const content = [styleBlock, textBlock("lyrics", "😀ab")];
+
+      await settlingClient(calls).generateResult({
+        model: "song2",
+        content,
+        parameters: { lyric_schedule: { sections: [{ start_sec: 0, lyric: [0, 3] }] } },
+      });
+      expect(JSON.parse(String(calls[0]?.init.body)).lyric_schedule).toEqual({
+        sections: [{ start_sec: 0, lyric: [0, 3] }],
+      });
+
+      const rejected: FetchCall[] = [];
+      await expect(
+        settlingClient(rejected).generateResult({
+          model: "song2",
+          content,
+          parameters: { lyric_schedule: { sections: [{ start_sec: 0, lyric: [0, 4] }] } },
+        }),
+      ).rejects.toThrow("must satisfy 0 <= c0 < c1 <= 3");
+      expect(rejected).toHaveLength(0);
+    });
+
+    it("sends the caller's untrimmed lyrics and original spans when the schedule is on", async () => {
+      const calls: FetchCall[] = [];
+      const rawLyrics = "  😀ab  ";
+      const sections = [
+        { start_sec: 0, lyric: [2, 5] },
+        { start_sec: 1, lyric: [5, 7] },
+      ];
+
+      await settlingClient(calls).generateResult({
+        model: "song2",
+        content: [styleBlock, textBlock("lyrics", rawLyrics)],
+        parameters: { lyric_schedule: { sections } },
+      });
+
+      const body = JSON.parse(String(calls[0]?.init.body));
+      expect(body.lyrics).toBe(rawLyrics);
+      expect(body.lyric_schedule).toEqual({ sections });
+    });
+
+    it("accepts a span ending at the original code-point length, whitespace included", async () => {
+      const calls: FetchCall[] = [];
+      const content = [styleBlock, textBlock("lyrics", "  abc  ")];
+
+      await settlingClient(calls).generateResult({
+        model: "song2",
+        content,
+        parameters: { lyric_schedule: { sections: [{ start_sec: 0, lyric: [0, 7] }] } },
+      });
+      expect(JSON.parse(String(calls[0]?.init.body)).lyric_schedule).toEqual({
+        sections: [{ start_sec: 0, lyric: [0, 7] }],
+      });
+
+      const rejected: FetchCall[] = [];
+      await expect(
+        settlingClient(rejected).generateResult({
+          model: "song2",
+          content,
+          parameters: { lyric_schedule: { sections: [{ start_sec: 0, lyric: [0, 8] }] } },
+        }),
+      ).rejects.toThrow("must satisfy 0 <= c0 < c1 <= 7");
+      expect(rejected).toHaveLength(0);
+    });
+
+    it("counts the original lyrics in code points for non-ASCII text", async () => {
+      const calls: FetchCall[] = [];
+      const content = [styleBlock, textBlock("lyrics", " 😀ab ")];
+
+      await settlingClient(calls).generateResult({
+        model: "song2",
+        content,
+        parameters: { lyric_schedule: { sections: [{ start_sec: 0, lyric: [0, 5] }] } },
+      });
+      expect(JSON.parse(String(calls[0]?.init.body)).lyrics).toBe(" 😀ab ");
+
+      const rejected: FetchCall[] = [];
+      await expect(
+        settlingClient(rejected).generateResult({
+          model: "song2",
+          content,
+          parameters: { lyric_schedule: { sections: [{ start_sec: 0, lyric: [0, 6] }] } },
+        }),
+      ).rejects.toThrow("must satisfy 0 <= c0 < c1 <= 5");
+      expect(rejected).toHaveLength(0);
+    });
+
+    it("keeps trimming the lyrics when no schedule is given", async () => {
+      const calls: FetchCall[] = [];
+
+      await settlingClient(calls).generateResult({
+        model: "song2",
+        content: [styleBlock, textBlock("lyrics", "  abc  ")],
+      });
+
+      expect(JSON.parse(String(calls[0]?.init.body)).lyrics).toBe("abc");
+    });
+
+    it.each([
+      [
+        "abc_continue without abc",
+        { ...songRequest, parameters: { abc_continue: true } },
+        "abc_continue requires an abc text block",
+      ],
+      [
+        "abc_continue that is not a boolean",
+        { ...songRequest, parameters: { abc_continue: "yes" } },
+        "Parameter abc_continue must be a boolean",
+      ],
+      [
+        "harmony that is not an object",
+        { ...songRequest, parameters: { harmony: [] } },
+        "Parameter harmony must be an object",
+      ],
+      [
+        "lyric_schedule that is not an object",
+        { ...songRequest, parameters: { lyric_schedule: [] } },
+        "Parameter lyric_schedule must be an object",
+      ],
+      [
+        "harmony with abc and no continuation",
+        { model: "song2", content: abcContent, parameters: { harmony: { follow: ["verse"] } } },
+        "harmony requires abc_continue true",
+      ],
+      [
+        "harmony with melody",
+        { ...songRequest, parameters: { harmony: { follow: ["verse"] }, abc_mode: "melody" } },
+        "melody score has no chords",
+      ],
+      [
+        "harmony with an unknown key",
+        { ...songRequest, parameters: { harmony: { follow: ["verse"], strength: 1 } } },
+        "harmony.strength is not supported",
+      ],
+      [
+        "harmony with a non-array follow",
+        { ...songRequest, parameters: { harmony: { follow: "verse" } } },
+        "harmony.follow must be an array",
+      ],
+      [
+        "harmony with a non-string name",
+        { ...songRequest, parameters: { harmony: { follow: [1] } } },
+        "harmony.follow[0] must be a string",
+      ],
+      [
+        "harmony with a null name",
+        { ...songRequest, parameters: { harmony: { follow: [null] } } },
+        "harmony.follow[0] must be a string",
+      ],
+      [
+        "harmony with an invalid name",
+        { ...songRequest, parameters: { harmony: { follow: ["1verse"] } } },
+        "must start with a letter",
+      ],
+      [
+        "lyric_schedule with bias",
+        { ...songRequest, parameters: { lyric_schedule: schedule({ bias: 1 }) } },
+        "lyric_schedule.bias is not supported",
+      ],
+      [
+        "lyric_schedule with a bad mode",
+        { ...songRequest, parameters: { lyric_schedule: schedule({ mode: "all" }) } },
+        "lyric_schedule.mode must be mask",
+      ],
+      [
+        "lyric_schedule with empty sections",
+        { ...songRequest, parameters: { lyric_schedule: { sections: [] } } },
+        "lyric_schedule.sections must be a non-empty array",
+      ],
+      [
+        "lyric_schedule with null sections",
+        { ...songRequest, parameters: { lyric_schedule: { sections: null } } },
+        "lyric_schedule.sections must be a non-empty array",
+      ],
+      [
+        "lyric_schedule with a section that is not an object",
+        { ...songRequest, parameters: { lyric_schedule: { sections: [1] } } },
+        "lyric_schedule.sections[0] must be an object",
+      ],
+      [
+        "lyric_schedule with an unknown section key",
+        {
+          ...songRequest,
+          parameters: { lyric_schedule: { sections: [{ start_sec: 0, lyric: [0, 3], extra: true }] } },
+        },
+        "lyric_schedule.sections[0].extra is not supported",
+      ],
+      [
+        "lyric_schedule with a negative start",
+        {
+          ...songRequest,
+          parameters: { lyric_schedule: { sections: [{ start_sec: -1, lyric: [0, 3] }] } },
+        },
+        "start_sec must be a finite non-negative number",
+      ],
+      [
+        "lyric_schedule with a null start",
+        {
+          ...songRequest,
+          parameters: { lyric_schedule: { sections: [{ start_sec: null, lyric: [0, 3] }] } },
+        },
+        "start_sec must be a finite non-negative number",
+      ],
+      [
+        "lyric_schedule with decreasing starts",
+        {
+          ...songRequest,
+          parameters: {
+            lyric_schedule: {
+              sections: [
+                { start_sec: 2, lyric: [0, 1] },
+                { start_sec: 1, lyric: [1, 2] },
+              ],
+            },
+          },
+        },
+        "start_sec must not decrease",
+      ],
+      [
+        "lyric_schedule with a malformed lyric pair",
+        {
+          ...songRequest,
+          parameters: { lyric_schedule: { sections: [{ start_sec: 0, lyric: [0] }] } },
+        },
+        "lyric must be a [c0, c1] pair",
+      ],
+      [
+        "lyric_schedule with a null lyric pair",
+        {
+          ...songRequest,
+          parameters: { lyric_schedule: { sections: [{ start_sec: 0, lyric: null }] } },
+        },
+        "lyric must be a [c0, c1] pair",
+      ],
+      [
+        "lyric_schedule with non-integer offsets",
+        {
+          ...songRequest,
+          parameters: { lyric_schedule: { sections: [{ start_sec: 0, lyric: [0.5, 1] }] } },
+        },
+        "lyric must contain two integers",
+      ],
+      [
+        "lyric_schedule with a null offset",
+        {
+          ...songRequest,
+          parameters: { lyric_schedule: { sections: [{ start_sec: 0, lyric: [null, 1] }] } },
+        },
+        "lyric must contain two integers",
+      ],
+      [
+        "lyric_schedule outside the lyrics",
+        {
+          ...songRequest,
+          parameters: { lyric_schedule: { sections: [{ start_sec: 0, lyric: [0, 99] }] } },
+        },
+        "lyric must satisfy 0 <= c0 < c1 <=",
+      ],
+      [
+        "lyric_schedule with a negative lead",
+        { ...songRequest, parameters: { lyric_schedule: schedule({ lead_sec: -1 }) } },
+        "lyric_schedule.lead_sec must be a finite non-negative number",
+      ],
+      [
+        "lyric_schedule with a fractional behind",
+        { ...songRequest, parameters: { lyric_schedule: schedule({ behind: 1.5 }) } },
+        "lyric_schedule.behind must be a non-negative integer",
+      ],
+    ])("rejects %s before any request", async (_name, request, message) => {
+      const calls: FetchCall[] = [];
+      const client = settlingClient(calls);
+
+      expect(() => client.validate(request)).toThrow(message);
+      await expect(client.generateResult(request)).rejects.toBeInstanceOf(GenerationValidationError);
+      expect(calls).toHaveLength(0);
+    });
+
+    it("rejects abc_continue and harmony with abc_mode off once off is offered", async () => {
+      const calls: FetchCall[] = [];
+      const client = heldBackClient(calls);
+      const content = [styleBlock, lyricsBlock, textBlock("abc", ABC)];
+
+      await expect(
+        client.generateResult({
+          model: "song2",
+          content,
+          parameters: { abc_continue: true, abc_mode: "off" },
+        }),
+      ).rejects.toThrow("abc_continue cannot be used with abc_mode off");
+      await expect(
+        client.generateResult({
+          model: "song2",
+          content: [styleBlock, lyricsBlock],
+          parameters: { harmony: { follow: ["verse"] }, abc_mode: "off" },
+        }),
+      ).rejects.toThrow("harmony cannot be used with abc_mode off");
+      expect(calls).toHaveLength(0);
     });
   });
 

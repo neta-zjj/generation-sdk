@@ -3,6 +3,7 @@ import { GenerationValidationError } from "../../src/errors.js";
 import {
   createGenerationClient,
   type GenerationContentBlock,
+  GenerationTimeoutError,
   parseGenerationModelDeclaration,
 } from "../../src/index.js";
 
@@ -11,9 +12,9 @@ type FetchCall = { url: string; init: RequestInit };
 const SUBMIT_URL = "https://router.neta.art/v1/audio/generations";
 const AUDIO_URL = "https://example.com/song.mp3";
 const POLL_INTERVAL_MS = 5_000;
-const MAX_WAIT_MS = 21 * 60 * 1000;
-// new-api settles and refunds a song2 task at 20 minutes, so the SDK must still be waiting then.
-const SERVER_TIMEOUT_MS = 20 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 60_000;
+// The server ends a song task when it finishes, not on a client deadline; 30 minutes is past the old 21-minute wait.
+const SERVER_FINISH_MS = 30 * 60 * 1000;
 
 const styleBlock: GenerationContentBlock = {
   type: "text",
@@ -849,28 +850,23 @@ examples:
       expect(calls).toHaveLength(settled);
     });
 
-    it("throws a timeout error with the task id when the task never settles", async () => {
+    it("keeps the 60 second timeout on each request", async () => {
       vi.useFakeTimers();
-      const calls: FetchCall[] = [];
-      const client = clientWith(
-        calls,
-        json({ id: "task-1", status: "queued" }),
-        json({ id: "task-1", status: "in_progress" }),
-      );
+      const client = createGenerationClient({
+        apiKey: "key",
+        fetch: ((_url: string | URL | Request, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+          })) as typeof fetch,
+      });
 
       const promise = client.generateResult(songRequest);
-      const rejection = expect(promise).rejects.toMatchObject({
-        name: "GenerationTimeoutError",
-        details: { taskId: "task-1" },
-      });
-      const outcome = watch(promise);
-      await vi.advanceTimersByTimeAsync(MAX_WAIT_MS);
-      expect(outcome.settled()).toBe(false);
-      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+      const rejection = expect(promise).rejects.toBeInstanceOf(GenerationTimeoutError);
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
       await rejection;
     });
 
-    it("is still polling after the server-side 20 minute timeout and delivers a late song", async () => {
+    it("delivers a song that finishes after 30 minutes", async () => {
       vi.useFakeTimers();
       const calls: FetchCall[] = [];
       let done = false;
@@ -887,11 +883,9 @@ examples:
 
       const promise = client.generateResult(songRequest);
       const outcome = watch(promise);
-      await vi.advanceTimersByTimeAsync(SERVER_TIMEOUT_MS + POLL_INTERVAL_MS);
+      await vi.advanceTimersByTimeAsync(SERVER_FINISH_MS);
       expect(outcome.settled()).toBe(false);
-      const polled = calls.length;
-      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
-      expect(calls.length).toBeGreaterThan(polled);
+      expect(calls.length).toBeGreaterThan(SERVER_FINISH_MS / POLL_INTERVAL_MS);
 
       done = true;
       await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);

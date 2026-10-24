@@ -1,4 +1,4 @@
-import { GenerationProviderError, GenerationTimeoutError, GenerationValidationError } from "../errors.js";
+import { GenerationProviderError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
 import { taskPollTicks } from "../task-poll.js";
 import type {
@@ -11,8 +11,7 @@ import { compactObject } from "../utils.js";
 
 const REQUEST_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_SEC = 5;
-// Must outlast the server's 20-minute song2 task timeout, or the SDK gives up before the task is settled and refunded.
-const MAX_WAIT_SEC = 21 * 60;
+// The server ends a song task; the SDK waits for that terminal state, and each request keeps its own 60 s timeout.
 // The server rejects lyrics over 4000 code points with a 400. It counts code points after trimming and the SDK sends
 // the trimmed text, so this limit is never looser than the server's. The style description and score have no limit.
 const MAX_LYRICS_CHARS = 4000;
@@ -90,7 +89,7 @@ async function generateSong(input: GenerationAdapterInput): Promise<GenerationCo
     throw new GenerationProviderError("Song generation did not return a task id", { details: { task: submitted } });
   }
 
-  for await (const _ of taskPollTicks(MAX_WAIT_SEC * 1000, POLL_INTERVAL_SEC * 1000)) {
+  for await (const _ of taskPollTicks(undefined, POLL_INTERVAL_SEC * 1000)) {
     const raw = await requestJson(input, `/v1/audio/generations/${encodeURIComponent(taskId)}`, { method: "GET" });
     const task = isRecord(raw) ? raw : {};
     switch (task.status) {
@@ -119,11 +118,11 @@ async function generateSong(input: GenerationAdapterInput): Promise<GenerationCo
         });
       }
       default:
-        // queued, in_progress, and any status the server adds later: keep polling until the deadline.
+        // queued, in_progress, and any status the server adds later: keep polling until the server ends the task.
         break;
     }
   }
-  throw new GenerationTimeoutError("Timed out waiting for song generation", { taskId });
+  throw new GenerationProviderError("Song generation polling ended without a terminal state", { details: { taskId } });
 }
 
 export const audioGenerationsAdapter: GenerationAdapter = Object.assign(generateSong, {

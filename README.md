@@ -554,9 +554,9 @@ Suno uses one shared adapter with a small public model set: `suno_music_chirp_fe
 `suno_music` is removed in this release. Migrate to a concrete model name and stop sending `parameters.operation` or `meta.task`.
 
 `song2` generates a full song with vocals through `newapi.audioGenerations`. Send a style description and lyrics as
-text blocks and mark them with `meta.role`: `prompt` for the style description and `lyrics` for the words to sing. Each
-text is trimmed and must be 1 to 2000 characters. The call polls the task for up to 21 minutes and returns one audio
-block.
+text blocks and mark them with `meta.role`: `prompt` for the style description and `lyrics` for the words to sing. Both
+are trimmed and must not be blank, and lyrics are limited to 4000 characters. The call polls until the task reaches a
+terminal state and returns one audio block.
 
 ```ts
 const result = await client.generateResult({
@@ -571,7 +571,7 @@ console.log(result.content, result.cost);
 ```
 
 To make the song follow a melody, add a third text block with `meta.role` `abc` that holds an ABC notation score. It is
-trimmed and must be 1 to 64000 characters, and at most one is allowed. Write it in the notation `song2` returns: a score
+trimmed and must not be blank, and at most one is allowed. Write it in the notation `song2` returns: a score
 in another ABC dialect is rejected when the task runs, and the failed task's error message says what is wrong. Three
 optional parameters shape the song. Each is sent only when you set it, and none has a default, so a request without them
 is the same as before.
@@ -582,8 +582,8 @@ is the same as before.
 | `seed` | integer, 0 to 9007199254740991 | Fixes the random seed. Omitted, every request uses a different one |
 | `return_abc` | boolean | `true` returns the score the song used |
 
-A blank or over-long `abc`, a second `abc` block, and out-of-range parameter values are rejected with
-`GenerationValidationError` before anything is submitted, so no cost is incurred.
+A blank `prompt`, `lyrics`, or `abc`, lyrics over 4000 characters, a second `abc` block, and out-of-range parameter
+values are rejected with `GenerationValidationError` before anything is submitted, so no cost is incurred.
 
 With `return_abc: true` the result carries a second block after the audio: a `text` block with `meta.role` `abc` and the
 `task_id`. Its text is the score exactly as received, so you can edit it and send it back as the `abc` block of the next

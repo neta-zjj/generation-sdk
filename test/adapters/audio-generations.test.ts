@@ -3,6 +3,7 @@ import { GenerationValidationError } from "../../src/errors.js";
 import {
   createGenerationClient,
   type GenerationContentBlock,
+  GenerationTimeoutError,
   parseGenerationModelDeclaration,
 } from "../../src/index.js";
 
@@ -11,9 +12,9 @@ type FetchCall = { url: string; init: RequestInit };
 const SUBMIT_URL = "https://router.neta.art/v1/audio/generations";
 const AUDIO_URL = "https://example.com/song.mp3";
 const POLL_INTERVAL_MS = 5_000;
-const MAX_WAIT_MS = 21 * 60 * 1000;
-// new-api settles and refunds a song2 task at 20 minutes, so the SDK must still be waiting then.
-const SERVER_TIMEOUT_MS = 20 * 60 * 1000;
+const REQUEST_TIMEOUT_MS = 60_000;
+// The server ends a song task when it finishes, not on a client deadline; 30 minutes is past the old 21-minute wait.
+const SERVER_FINISH_MS = 30 * 60 * 1000;
 
 const styleBlock: GenerationContentBlock = {
   type: "text",
@@ -24,7 +25,7 @@ const lyricsBlock: GenerationContentBlock = { type: "text", text: "[verse]\nla l
 const songRequest = { model: "song2", content: [styleBlock, lyricsBlock] };
 const OLD_REQUEST_BODY = '{"model":"song2","prompt":"bright J-pop, female vocal, piano","lyrics":"[verse]\\nla la la"}';
 const ABC = "X:1\nT:Sunrise\nM:4/4\nK:C\n|:CDEF GABc:|\nw:la la la la";
-const MAX_ABC_CHARS = 64_000;
+const MAX_LYRICS_CHARS = 4000;
 
 function textBlock(role: "prompt" | "lyrics" | "abc", text: string): GenerationContentBlock {
   return { type: "text", text, meta: { role } };
@@ -173,43 +174,44 @@ describe("song2 generation", () => {
   });
 
   describe("input checks before any request", () => {
-    it.each(["lyrics", "prompt"] as const)("rejects %s longer than 2000 characters", async (role) => {
+    it("rejects lyrics longer than 4000 characters with a public reason", async () => {
       const calls: FetchCall[] = [];
       const client = settlingClient(calls);
-      const long = "a".repeat(2001);
-      const content =
-        role === "lyrics" ? [styleBlock, textBlock("lyrics", long)] : [textBlock("prompt", long), lyricsBlock];
+      const content = [styleBlock, textBlock("lyrics", "a".repeat(MAX_LYRICS_CHARS + 1))];
 
-      await expect(client.generateResult({ model: "song2", content })).rejects.toBeInstanceOf(
-        GenerationValidationError,
+      await expect(client.generateResult({ model: "song2", content })).rejects.toThrow(
+        "lyrics must be at most 4000 characters for song2",
       );
       expect(calls).toHaveLength(0);
     });
 
-    it("accepts lyrics of exactly 2000 characters", async () => {
+    it("accepts lyrics of exactly 4000 characters", async () => {
       const calls: FetchCall[] = [];
       const client = settlingClient(calls);
 
-      await client.generateResult({ model: "song2", content: [styleBlock, textBlock("lyrics", "a".repeat(2000))] });
+      await client.generateResult({
+        model: "song2",
+        content: [styleBlock, textBlock("lyrics", "a".repeat(MAX_LYRICS_CHARS))],
+      });
 
-      expect(JSON.parse(String(calls[0]?.init.body)).lyrics).toHaveLength(2000);
+      expect(JSON.parse(String(calls[0]?.init.body)).lyrics).toHaveLength(MAX_LYRICS_CHARS);
     });
 
     it("trims before counting", async () => {
       const calls: FetchCall[] = [];
       const client = settlingClient(calls);
-      const padded = `  \n${"a".repeat(2000)}\n  `;
+      const padded = `  \n${"a".repeat(MAX_LYRICS_CHARS)}\n  `;
 
       await client.generateResult({ model: "song2", content: [styleBlock, textBlock("lyrics", padded)] });
 
-      expect(JSON.parse(String(calls[0]?.init.body)).lyrics).toBe("a".repeat(2000));
+      expect(JSON.parse(String(calls[0]?.init.body)).lyrics).toBe("a".repeat(MAX_LYRICS_CHARS));
     });
 
     it("counts code points, not UTF-16 units", async () => {
       const accepted: FetchCall[] = [];
       await settlingClient(accepted).generateResult({
         model: "song2",
-        content: [styleBlock, textBlock("lyrics", "😀".repeat(2000))],
+        content: [styleBlock, textBlock("lyrics", "😀".repeat(MAX_LYRICS_CHARS))],
       });
       expect(accepted).toHaveLength(2);
 
@@ -217,10 +219,22 @@ describe("song2 generation", () => {
       await expect(
         settlingClient(rejected).generateResult({
           model: "song2",
-          content: [styleBlock, textBlock("lyrics", "😀".repeat(2001))],
+          content: [styleBlock, textBlock("lyrics", "😀".repeat(MAX_LYRICS_CHARS + 1))],
         }),
       ).rejects.toBeInstanceOf(GenerationValidationError);
       expect(rejected).toHaveLength(0);
+    });
+
+    it("accepts a style description over the old 2000 character limit", async () => {
+      const calls: FetchCall[] = [];
+      const longStyle = "a".repeat(10_000);
+
+      await settlingClient(calls).generateResult({
+        model: "song2",
+        content: [textBlock("prompt", longStyle), lyricsBlock],
+      });
+
+      expect(JSON.parse(String(calls[0]?.init.body)).prompt).toBe(longStyle);
     });
 
     it.each([
@@ -239,8 +253,7 @@ describe("song2 generation", () => {
     });
 
     it.each([
-      ["lyrics over 2000 characters", [styleBlock, textBlock("lyrics", "a".repeat(2001))]],
-      ["prompt over 2000 characters", [textBlock("prompt", "a".repeat(2001)), lyricsBlock]],
+      ["lyrics over 4000 characters", [styleBlock, textBlock("lyrics", "a".repeat(MAX_LYRICS_CHARS + 1))]],
       ["empty lyrics", [styleBlock, textBlock("lyrics", "  ")]],
       ["two prompts and no lyrics", [styleBlock, textBlock("prompt", "second style")]],
     ])("client.validate rejects %s", (_name, content) => {
@@ -248,6 +261,23 @@ describe("song2 generation", () => {
       const client = settlingClient(calls);
 
       expect(() => client.validate({ model: "song2", content })).toThrow(GenerationValidationError);
+      expect(calls).toHaveLength(0);
+    });
+
+    it("client.validate accepts a long style description and a long score without sending a request", () => {
+      const calls: FetchCall[] = [];
+      const client = settlingClient(calls);
+
+      expect(() =>
+        client.validate({
+          model: "song2",
+          content: [
+            textBlock("prompt", "a".repeat(10_000)),
+            lyricsBlock,
+            textBlock("abc", `X:1\n${"a".repeat(70_000)}`),
+          ],
+        }),
+      ).not.toThrow();
       expect(calls).toHaveLength(0);
     });
 
@@ -340,22 +370,16 @@ describe("song2 generation", () => {
       expect(JSON.parse(String(calls[0]?.init.body)).abc).toBe(ABC);
     });
 
-    it("accepts an abc of exactly 64000 code points and rejects one more", async () => {
-      const accepted: FetchCall[] = [];
-      await settlingClient(accepted).generateResult({
-        model: "song2",
-        content: [styleBlock, lyricsBlock, textBlock("abc", "😀".repeat(MAX_ABC_CHARS))],
-      });
-      expect(accepted).toHaveLength(2);
+    it("accepts a score longer than the old 64000 character limit", async () => {
+      const calls: FetchCall[] = [];
+      const longAbc = `X:1\n${"a".repeat(70_000)}`;
 
-      const rejected: FetchCall[] = [];
-      await expect(
-        settlingClient(rejected).generateResult({
-          model: "song2",
-          content: [styleBlock, lyricsBlock, textBlock("abc", "😀".repeat(MAX_ABC_CHARS + 1))],
-        }),
-      ).rejects.toBeInstanceOf(GenerationValidationError);
-      expect(rejected).toHaveLength(0);
+      await settlingClient(calls).generateResult({
+        model: "song2",
+        content: [styleBlock, lyricsBlock, textBlock("abc", longAbc)],
+      });
+
+      expect(JSON.parse(String(calls[0]?.init.body)).abc).toBe(longAbc);
     });
 
     it.each([
@@ -826,28 +850,23 @@ examples:
       expect(calls).toHaveLength(settled);
     });
 
-    it("throws a timeout error with the task id when the task never settles", async () => {
+    it("keeps the 60 second timeout on each request", async () => {
       vi.useFakeTimers();
-      const calls: FetchCall[] = [];
-      const client = clientWith(
-        calls,
-        json({ id: "task-1", status: "queued" }),
-        json({ id: "task-1", status: "in_progress" }),
-      );
+      const client = createGenerationClient({
+        apiKey: "key",
+        fetch: ((_url: string | URL | Request, init?: RequestInit) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+          })) as typeof fetch,
+      });
 
       const promise = client.generateResult(songRequest);
-      const rejection = expect(promise).rejects.toMatchObject({
-        name: "GenerationTimeoutError",
-        details: { taskId: "task-1" },
-      });
-      const outcome = watch(promise);
-      await vi.advanceTimersByTimeAsync(MAX_WAIT_MS);
-      expect(outcome.settled()).toBe(false);
-      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
+      const rejection = expect(promise).rejects.toBeInstanceOf(GenerationTimeoutError);
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
       await rejection;
     });
 
-    it("is still polling after the server-side 20 minute timeout and delivers a late song", async () => {
+    it("delivers a song that finishes after 30 minutes", async () => {
       vi.useFakeTimers();
       const calls: FetchCall[] = [];
       let done = false;
@@ -864,11 +883,9 @@ examples:
 
       const promise = client.generateResult(songRequest);
       const outcome = watch(promise);
-      await vi.advanceTimersByTimeAsync(SERVER_TIMEOUT_MS + POLL_INTERVAL_MS);
+      await vi.advanceTimersByTimeAsync(SERVER_FINISH_MS);
       expect(outcome.settled()).toBe(false);
-      const polled = calls.length;
-      await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);
-      expect(calls.length).toBeGreaterThan(polled);
+      expect(calls.length).toBeGreaterThan(SERVER_FINISH_MS / POLL_INTERVAL_MS);
 
       done = true;
       await vi.advanceTimersByTimeAsync(POLL_INTERVAL_MS);

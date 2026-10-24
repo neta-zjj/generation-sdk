@@ -719,6 +719,31 @@ describe("config", () => {
     expect(raw).not.toMatch(/cfg_scale|\boff\b/);
   });
 
+  it("declares song2's lyrics limit without a style or score limit", async () => {
+    const raw = await readFile(join(process.cwd(), "models", "song2.yaml"), "utf8");
+    const published = parseGenerationModelDeclaration(raw, "song2.yaml");
+    const builtin = createGenerationClient().getModel("song2");
+    const declarations = [published, builtin].filter(
+      (declaration): declaration is GenerationModelDeclaration => declaration !== undefined,
+    );
+
+    for (const declaration of declarations) {
+      const description = contentInputs(declaration).find((input) => input.type === "text")?.description ?? "";
+      expect(description).toContain("up to 4000 characters");
+      expect(description).not.toMatch(/2000|64000|64,000/);
+    }
+  });
+
+  it("documents song2's input limits and wait for a terminal state", async () => {
+    const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
+    const section = readme.slice(readme.indexOf("`song2` generates"), readme.indexOf("## 3D generation"));
+
+    expect(section).toContain("lyrics are limited to 4000 characters");
+    expect(section).toContain("terminal state");
+    expect(section).not.toContain("21 minutes");
+    expect(section).not.toMatch(/1 to 2000|64000|64,000/);
+  });
+
   it("loads models/song2.yaml on its own and enforces what it declares", async () => {
     const raw = await readFile(join(process.cwd(), "models", "song2.yaml"), "utf8");
     const client = createGenerationClient({

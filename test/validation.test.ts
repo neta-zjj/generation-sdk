@@ -162,6 +162,21 @@ describe("validation", () => {
     }
   });
 
+  it("treats null object parameters as off and rejects wrong object shapes", () => {
+    const model: GenerationModelDeclaration = {
+      ...customModel("custom.objects"),
+      parameters: { extra: { type: "object", optional: true } },
+    };
+    const client = createGenerationClient({ apiKey: "test", models: [model], includeBuiltinModels: false });
+    const validate = (parameters: Record<string, unknown>) =>
+      client.validate({ model: model.model, content: [{ type: "text", text: "hello" }], parameters });
+
+    expect(validate({ extra: null }).parameters).toEqual({});
+    expect(validate({ extra: {} }).parameters).toEqual({ extra: {} });
+    expect(() => validate({ extra: [] })).toThrow("Parameter extra must be an object");
+    expect(() => validate({ extra: "x" })).toThrow("Parameter extra must be an object");
+  });
+
   it("validates a request against the model and the operation that parameters.operation selects", async () => {
     const model = operationsModel("custom.operations");
     const received: GenerationAdapterInput[] = [];

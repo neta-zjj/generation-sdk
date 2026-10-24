@@ -1607,6 +1607,23 @@ const builtinModels = [
         optional: true,
         description: "Also return the score the song used, as a text block with meta.role abc.",
       },
+      abc_continue: {
+        type: "boolean",
+        optional: true,
+        description: "Continue the given abc as a score opening, then sing it. Requires abc.",
+      },
+      harmony: {
+        type: "object",
+        optional: true,
+        description:
+          "Section order to follow: an object with follow, a list of % section names. Only follow is supported.",
+      },
+      lyric_schedule: {
+        type: "object",
+        optional: true,
+        description:
+          "When lyric sections become visible: sections of start_sec and lyric [c0, c1] code point offsets, optional lead_sec, behind and mode mask.",
+      },
     },
     examples: [
       {

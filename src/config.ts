@@ -51,6 +51,7 @@ function isArrayItemSpec(value: unknown): boolean {
 
 function isParameterSpec(value: unknown): boolean {
   if (!isRecord(value)) return false;
+  if (value.type === "object") return true;
   if (value.type === "array") {
     return (
       isArrayItemSpec(value.items) &&

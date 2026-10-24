@@ -555,8 +555,8 @@ Suno uses one shared adapter with a small public model set: `suno_music_chirp_fe
 
 `song2` generates a full song with vocals through `newapi.audioGenerations`. Send a style description and lyrics as
 text blocks and mark them with `meta.role`: `prompt` for the style description and `lyrics` for the words to sing. Both
-are trimmed and must not be blank, and lyrics are limited to 4000 characters. The call polls the task for up to 21
-minutes and returns one audio block.
+are trimmed and must not be blank, and lyrics are limited to 4000 characters. The call polls until the task reaches a
+terminal state and returns one audio block.
 
 ```ts
 const result = await client.generateResult({

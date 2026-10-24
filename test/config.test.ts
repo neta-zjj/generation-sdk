@@ -734,11 +734,13 @@ describe("config", () => {
     }
   });
 
-  it("documents song2's lyrics limit without a style or score limit", async () => {
+  it("documents song2's input limits and wait for a terminal state", async () => {
     const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
     const section = readme.slice(readme.indexOf("`song2` generates"), readme.indexOf("## 3D generation"));
 
     expect(section).toContain("lyrics are limited to 4000 characters");
+    expect(section).toContain("terminal state");
+    expect(section).not.toContain("21 minutes");
     expect(section).not.toMatch(/1 to 2000|64000|64,000/);
   });
 

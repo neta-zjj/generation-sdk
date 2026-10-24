@@ -1583,7 +1583,7 @@ const builtinModels = [
           roles: ["prompt", "lyrics", "abc"],
           roleRequired: true,
           description:
-            "Text blocks by meta.role: prompt is the style description and lyrics the words to sing, up to 2000 characters each; optional abc is a score in the model's own ABC dialect, such as one returned with return_abc, up to 64000 characters.",
+            "Text blocks by meta.role: prompt is the style description, lyrics the words to sing (up to 4000 characters), and optional abc is a score in the model's own ABC dialect, such as one returned with return_abc.",
         },
       ],
     },

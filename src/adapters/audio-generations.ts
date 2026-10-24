@@ -13,10 +13,9 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_SEC = 5;
 // Must outlast the server's 20-minute song2 task timeout, or the SDK gives up before the task is settled and refunded.
 const MAX_WAIT_SEC = 21 * 60;
-// The server rejects a longer prompt, lyrics or score with a 400. It counts runes after trimming prompt and lyrics but
-// counts the score as received; the SDK sends the trimmed text, so its limits are never looser than the server's.
-const MAX_TEXT_CHARS = 2000;
-const MAX_ABC_CHARS = 64_000;
+// The server rejects lyrics over 4000 code points with a 400. It counts code points after trimming and the SDK sends
+// the trimmed text, so this limit is never looser than the server's. The style description and score have no limit.
+const MAX_LYRICS_CHARS = 4000;
 
 type TextBlock = Extract<GenerationContentBlock, { type: "text" }>;
 
@@ -32,7 +31,7 @@ function asString(value: unknown): string | undefined {
 function songBody(input: ResolvedGenerationRequest): Record<string, unknown> {
   const model = input.declaration.model;
   const texts = input.request.content.filter((block): block is TextBlock => block.type === "text");
-  const pick = (role: "prompt" | "lyrics" | "abc", maxChars: number, required: boolean): string | undefined => {
+  const pick = (role: "prompt" | "lyrics" | "abc", required: boolean, maxChars?: number): string | undefined => {
     const [block, extra] = texts.filter((candidate) => candidate.meta?.role === role);
     if (extra || (!block && required)) {
       const rule = required ? "requires exactly" : "accepts at most";
@@ -41,14 +40,14 @@ function songBody(input: ResolvedGenerationRequest): Record<string, unknown> {
     if (!block) return undefined;
     const text = block.text.trim();
     if (!text) throw new GenerationValidationError(`${role} must not be empty for ${model}`);
-    if ([...text].length > maxChars) {
+    if (maxChars !== undefined && [...text].length > maxChars) {
       throw new GenerationValidationError(`${role} must be at most ${maxChars} characters for ${model}`);
     }
     return text;
   };
-  const prompt = pick("prompt", MAX_TEXT_CHARS, true);
-  const lyrics = pick("lyrics", MAX_TEXT_CHARS, true);
-  const abc = pick("abc", MAX_ABC_CHARS, false);
+  const prompt = pick("prompt", true);
+  const lyrics = pick("lyrics", true, MAX_LYRICS_CHARS);
+  const abc = pick("abc", false);
   const { abc_mode, seed, cfg_scale, return_abc } = input.parameters;
   if (abc_mode === "off" && (abc !== undefined || return_abc === true)) {
     throw new GenerationValidationError(`${model} cannot use abc_mode off with an abc text block or return_abc true`);

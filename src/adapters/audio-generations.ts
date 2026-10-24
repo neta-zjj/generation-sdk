@@ -12,9 +12,10 @@ import { compactObject } from "../utils.js";
 const REQUEST_TIMEOUT_MS = 60_000;
 const POLL_INTERVAL_SEC = 5;
 // The server ends a song task; the SDK waits for that terminal state, and each request keeps its own 60 s timeout.
-// The server rejects lyrics over 4000 code points with a 400. It counts code points after trimming and the SDK sends
-// the trimmed text, so this limit is never looser than the server's. The style description and score have no limit.
-const MAX_LYRICS_CHARS = 4000;
+// The server rejects lyrics over 4000 code points with a 400. It counts code points after trimming, and the SDK
+// validates the trimmed text. Without a schedule it sends the trimmed text too; with one it sends the raw text so the
+// schedule offsets keep their code points. The style description and score have no limit.
+const MAX_LYRICS_CODE_POINTS = 4000;
 
 type TextBlock = Extract<GenerationContentBlock, { type: "text" }>;
 
@@ -144,7 +145,7 @@ function songBody(input: ResolvedGenerationRequest): Record<string, unknown> {
     return text;
   };
   const prompt = pick("prompt", true);
-  const lyrics = pick("lyrics", true, MAX_LYRICS_CHARS);
+  const lyrics = pick("lyrics", true, MAX_LYRICS_CODE_POINTS);
   // The server trims the lyrics and shifts the spans; send the caller's text so the spans keep their code points.
   const rawLyrics = texts.find((candidate) => candidate.meta?.role === "lyrics")?.text ?? "";
   const abc = pick("abc", false);

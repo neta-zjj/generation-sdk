@@ -555,8 +555,9 @@ Suno uses one shared adapter with a small public model set: `suno_music_chirp_fe
 
 `song2` generates a full song with vocals through `newapi.audioGenerations`. Send a style description and lyrics as
 text blocks and mark them with `meta.role`: `prompt` for the style description and `lyrics` for the words to sing. Both
-are trimmed and must not be blank, and lyrics are limited to 4000 characters. The call polls until the task reaches a
-terminal state and returns one audio block.
+are trimmed and must not be blank, and lyrics are limited to 4000 characters. The exception is `lyric_schedule`: the
+lyrics are then sent exactly as given, because its offsets count the code points of the text you send. The call polls
+until the task reaches a terminal state and returns one audio block.
 
 ```ts
 const result = await client.generateResult({
@@ -572,7 +573,7 @@ console.log(result.content, result.cost);
 
 To make the song follow a melody, add a third text block with `meta.role` `abc` that holds an ABC notation score. It is
 trimmed and must not be blank, and at most one is allowed. Write it in the notation `song2` returns: a score
-in another ABC dialect is rejected when the task runs, and the failed task's error message says what is wrong. Three
+in another ABC dialect is rejected when the task runs, and the failed task's error message says what is wrong. Six
 optional parameters shape the song. Each is sent only when you set it, and none has a default, so a request without them
 is the same as before.
 
@@ -581,6 +582,9 @@ is the same as before.
 | `abc_mode` | `full`, `melody` | `full` follows a score with chords, `melody` follows only the melody. A score with chord marks is rejected in `melody` mode when the task runs; remove the chords or use `full`. Omitted, a given score is read for chord marks to pick `full` or `melody`, and without a score `full` is used |
 | `seed` | integer, 0 to 9007199254740991 | Fixes the random seed. Omitted, every request uses a different one |
 | `return_abc` | boolean | `true` returns the score the song used |
+| `abc_continue` | boolean | Continue the given abc as a score opening, then sing it. Requires `abc` |
+| `harmony` | object with `follow` | Section order to follow: an object with `follow`, a list of `%` section names. Only `follow` is supported |
+| `lyric_schedule` | object | When lyric sections become visible: sections of `start_sec` and `lyric` `[c0, c1]` code point offsets, optional `lead_sec`, `behind` and `mode` `mask` |
 
 A blank `prompt`, `lyrics`, or `abc`, lyrics over 4000 characters, a second `abc` block, and out-of-range parameter
 values are rejected with `GenerationValidationError` before anything is submitted, so no cost is incurred.

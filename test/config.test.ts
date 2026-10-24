@@ -726,6 +726,7 @@ describe("config", () => {
       expect(declaration?.parameters?.abc_mode).toMatchObject({ enum: ["full", "melody"] });
       expect(declaration?.parameters).not.toHaveProperty("cfg_scale");
     }
+    expect(raw).not.toMatch(/cfg_scale|\boff\b/);
   });
 
   it("declares song2's lyrics limit without a style or score limit", async () => {

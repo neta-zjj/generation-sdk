@@ -36,7 +36,7 @@ parameters:
   abc_continue:
     type: boolean
     optional: true
-    description: "Continue the given abc as a score opening, then sing it. Requires abc and abc_mode not off."
+    description: "Continue the given abc as a score opening, then sing it. Requires abc."
   harmony:
     type: object
     optional: true

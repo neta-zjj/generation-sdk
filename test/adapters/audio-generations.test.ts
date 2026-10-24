@@ -13,7 +13,7 @@ const SUBMIT_URL = "https://router.neta.art/v1/audio/generations";
 const AUDIO_URL = "https://example.com/song.mp3";
 const POLL_INTERVAL_MS = 5_000;
 const REQUEST_TIMEOUT_MS = 60_000;
-// The server ends a song task when it finishes, not on a client deadline; 30 minutes is past the old 21-minute wait.
+// The server ends a song task when it finishes, not on a client deadline; a 30-minute song exercises that.
 const SERVER_FINISH_MS = 30 * 60 * 1000;
 
 const styleBlock: GenerationContentBlock = {
@@ -25,7 +25,7 @@ const lyricsBlock: GenerationContentBlock = { type: "text", text: "[verse]\nla l
 const songRequest = { model: "song2", content: [styleBlock, lyricsBlock] };
 const OLD_REQUEST_BODY = '{"model":"song2","prompt":"bright J-pop, female vocal, piano","lyrics":"[verse]\\nla la la"}';
 const ABC = "X:1\nT:Sunrise\nM:4/4\nK:C\n|:CDEF GABc:|\nw:la la la la";
-const MAX_LYRICS_CHARS = 4000;
+const MAX_LYRICS_CODE_POINTS = 4000;
 
 function textBlock(role: "prompt" | "lyrics" | "abc", text: string): GenerationContentBlock {
   return { type: "text", text, meta: { role } };
@@ -177,7 +177,7 @@ describe("song2 generation", () => {
     it("rejects lyrics longer than 4000 characters with a public reason", async () => {
       const calls: FetchCall[] = [];
       const client = settlingClient(calls);
-      const content = [styleBlock, textBlock("lyrics", "a".repeat(MAX_LYRICS_CHARS + 1))];
+      const content = [styleBlock, textBlock("lyrics", "a".repeat(MAX_LYRICS_CODE_POINTS + 1))];
 
       await expect(client.generateResult({ model: "song2", content })).rejects.toThrow(
         "lyrics must be at most 4000 characters for song2",
@@ -191,27 +191,27 @@ describe("song2 generation", () => {
 
       await client.generateResult({
         model: "song2",
-        content: [styleBlock, textBlock("lyrics", "a".repeat(MAX_LYRICS_CHARS))],
+        content: [styleBlock, textBlock("lyrics", "a".repeat(MAX_LYRICS_CODE_POINTS))],
       });
 
-      expect(JSON.parse(String(calls[0]?.init.body)).lyrics).toHaveLength(MAX_LYRICS_CHARS);
+      expect(JSON.parse(String(calls[0]?.init.body)).lyrics).toHaveLength(MAX_LYRICS_CODE_POINTS);
     });
 
     it("trims before counting", async () => {
       const calls: FetchCall[] = [];
       const client = settlingClient(calls);
-      const padded = `  \n${"a".repeat(MAX_LYRICS_CHARS)}\n  `;
+      const padded = `  \n${"a".repeat(MAX_LYRICS_CODE_POINTS)}\n  `;
 
       await client.generateResult({ model: "song2", content: [styleBlock, textBlock("lyrics", padded)] });
 
-      expect(JSON.parse(String(calls[0]?.init.body)).lyrics).toBe("a".repeat(MAX_LYRICS_CHARS));
+      expect(JSON.parse(String(calls[0]?.init.body)).lyrics).toBe("a".repeat(MAX_LYRICS_CODE_POINTS));
     });
 
     it("counts code points, not UTF-16 units", async () => {
       const accepted: FetchCall[] = [];
       await settlingClient(accepted).generateResult({
         model: "song2",
-        content: [styleBlock, textBlock("lyrics", "😀".repeat(MAX_LYRICS_CHARS))],
+        content: [styleBlock, textBlock("lyrics", "😀".repeat(MAX_LYRICS_CODE_POINTS))],
       });
       expect(accepted).toHaveLength(2);
 
@@ -219,7 +219,7 @@ describe("song2 generation", () => {
       await expect(
         settlingClient(rejected).generateResult({
           model: "song2",
-          content: [styleBlock, textBlock("lyrics", "😀".repeat(MAX_LYRICS_CHARS + 1))],
+          content: [styleBlock, textBlock("lyrics", "😀".repeat(MAX_LYRICS_CODE_POINTS + 1))],
         }),
       ).rejects.toBeInstanceOf(GenerationValidationError);
       expect(rejected).toHaveLength(0);
@@ -253,7 +253,7 @@ describe("song2 generation", () => {
     });
 
     it.each([
-      ["lyrics over 4000 characters", [styleBlock, textBlock("lyrics", "a".repeat(MAX_LYRICS_CHARS + 1))]],
+      ["lyrics over 4000 characters", [styleBlock, textBlock("lyrics", "a".repeat(MAX_LYRICS_CODE_POINTS + 1))]],
       ["empty lyrics", [styleBlock, textBlock("lyrics", "  ")]],
       ["two prompts and no lyrics", [styleBlock, textBlock("prompt", "second style")]],
     ])("client.validate rejects %s", (_name, content) => {

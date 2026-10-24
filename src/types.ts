@@ -121,6 +121,12 @@ export type GenerationParameterSpec =
       examples?: boolean[];
     }
   | {
+      type: "object";
+      optional?: boolean;
+      default?: Record<string, unknown>;
+      description?: string;
+    }
+  | {
       type: "array";
       optional?: boolean;
       default?: Array<string | number>;
@@ -139,9 +145,7 @@ export type GenerationArrayItemSpec =
   | { type: "string"; enum?: string[] }
   | { type: "integer"; min?: number; max?: number };
 
-export type GenerationMetaFieldSpec =
-  | GenerationParameterSpec
-  | { type: "object"; optional?: boolean; description?: string };
+export type GenerationMetaFieldSpec = GenerationParameterSpec;
 
 export type GenerationMetaTaskVariantSpec = {
   description?: string;

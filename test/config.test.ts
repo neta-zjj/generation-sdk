@@ -207,7 +207,7 @@ describe("config", () => {
     }
   });
 
-  it("accepts array and stepped number parameter specs and rejects malformed ones", () => {
+  it("accepts array, object and stepped number parameter specs and rejects malformed ones", () => {
     const parsed = JSON.parse(stringifyBuiltinModelConfig("gpt-image-2", { format: "json" })) as Record<
       string,
       unknown
@@ -227,6 +227,8 @@ describe("config", () => {
       { type: "array", optional: true, items: { type: "integer", min: 0, max: 9 }, min: 0 },
       { type: "number", min: 2, max: 10, multipleOf: 0.5 },
       { type: "integer", multipleOf: 2 },
+      { type: "object", optional: true, description: "A nested payload." },
+      { type: "object" },
     ]) {
       expect(parseGenerationModelDeclaration(withParameter(spec), "gpt-image-2.json").parameters?.extra).toEqual(spec);
     }
@@ -713,10 +715,17 @@ describe("config", () => {
     const builtin = createGenerationClient().getModel("song2");
 
     for (const declaration of [published, builtin]) {
-      expect(Object.keys(declaration?.parameters ?? {})).toEqual(["abc_mode", "seed", "return_abc"]);
+      expect(Object.keys(declaration?.parameters ?? {})).toEqual([
+        "abc_mode",
+        "seed",
+        "return_abc",
+        "abc_continue",
+        "harmony",
+        "lyric_schedule",
+      ]);
       expect(declaration?.parameters?.abc_mode).toMatchObject({ enum: ["full", "melody"] });
+      expect(declaration?.parameters).not.toHaveProperty("cfg_scale");
     }
-    expect(raw).not.toMatch(/cfg_scale|\boff\b/);
   });
 
   it("declares song2's lyrics limit without a style or score limit", async () => {

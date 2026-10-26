@@ -58,7 +58,9 @@ export class GenerationProviderError extends GenerationError {
 }
 
 /** 请求或任务被内容审核拦截。 */
-export function isGenerationSafetyError(error: unknown): error is GenerationProviderError {
+export function isGenerationSafetyError(
+  error: unknown,
+): error is GenerationProviderError & { readonly category: "safety" } {
   return error instanceof GenerationProviderError && error.category === "safety";
 }
 

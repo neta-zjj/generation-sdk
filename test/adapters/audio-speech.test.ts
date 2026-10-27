@@ -3,6 +3,8 @@ import {
   createGenerationClient,
   type GenerateRequest,
   type GenerationContentBlock,
+  type GenerationModelDeclaration,
+  GenerationConfigError,
   GenerationProviderError,
   GenerationTimeoutError,
   GenerationValidationError,
@@ -127,51 +129,18 @@ describe("openai.audioSpeech adapter requests", () => {
     });
   });
 
-  it("maps all Higgs reference modes", async () => {
-    const { client, calls } = recordingClient();
+  it("rejects a higgs-tts request before fetch", async () => {
+    const fetchMock = vi.fn(async () => routerSuccess());
+    const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
 
-    await client.generate({ model: "higgs-tts", content: [{ type: "text", text: "默认音色" }] });
-    await client.generate({
-      model: "higgs-tts",
-      content: [{ type: "text", text: "单参考" }, audio()],
-    });
-    await client.generate({
-      model: "higgs-tts",
-      content: [{ type: "text", text: "显式 undefined 权重" }, audio(REFERENCE_URL, { weight: undefined })],
-    });
-    await client.generate({
-      model: "higgs-tts",
-      content: [{ type: "text", text: "带权重单参考" }, audio(REFERENCE_URL, { weight: 1 })],
-    });
-    await client.generate({
-      model: "higgs-tts",
-      content: [
-        { type: "text", text: "多参考" },
-        audio(` ${REFERENCE_URL} `, { weight: 0.4 }),
-        audio(SECOND_REFERENCE_URL, { weight: 0.6 }),
-      ],
-    });
-
-    expect(calls.map((call) => requestBody(call))).toEqual([
-      { model: "higgs-tts", input: "默认音色" },
-      { model: "higgs-tts", input: "单参考", ref_audio: REFERENCE_URL },
-      { model: "higgs-tts", input: "显式 undefined 权重", ref_audio: REFERENCE_URL },
-      {
-        model: "higgs-tts",
-        input: "带权重单参考",
-        metadata: { references: [{ url: REFERENCE_URL, weight: 1 }] },
-      },
-      {
-        model: "higgs-tts",
-        input: "多参考",
-        metadata: {
-          references: [
-            { url: REFERENCE_URL, weight: 0.4 },
-            { url: SECOND_REFERENCE_URL, weight: 0.6 },
-          ],
-        },
-      },
-    ]);
+    try {
+      await client.generate({ model: "higgs-tts", content: [{ type: "text", text: "文本" }] });
+      throw new Error("expected config error");
+    } catch (error) {
+      expect(error).toBeInstanceOf(GenerationConfigError);
+      expect((error as Error).message).toBe("Generation model is unavailable: higgs-tts");
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 
@@ -190,7 +159,7 @@ describe("openai.audioSpeech adapter validation", () => {
   ])("rejects $name before fetch", async ({ content }) => {
     const fetchMock = vi.fn(async () => routerSuccess());
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    await expect(client.generate({ model: "higgs-tts", content })).rejects.toBeInstanceOf(GenerationValidationError);
+    await expect(client.generate({ model: "qwen-tts", content })).rejects.toBeInstanceOf(GenerationValidationError);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
@@ -248,25 +217,23 @@ describe("openai.audioSpeech adapter validation", () => {
     ).toThrow("supports at most one reference audio");
   });
 
-  it("enforces Higgs reference limits inside the adapter hook when a declaration is overridden", () => {
-    const declaration = getBuiltinGenerationModel("higgs-tts");
-    if (!declaration) throw new Error("higgs-tts declaration is unavailable");
-    const audioSpec = declaration.content.input.find((spec) => spec.type === "audio");
-    if (!audioSpec) throw new Error("higgs-tts audio spec is unavailable");
-    audioSpec.max = 17;
+  it("rejects a higgs-tts declaration at the audio speech adapter", () => {
+    const declaration = {
+      schema: "neta.generation.model.v1",
+      model: "higgs-tts",
+      adapter: { type: "openai.audioSpeech" },
+      content: {
+        input: [
+          { type: "text", required: true, min: 1, max: 1 },
+          { type: "audio", required: false, max: 16, sources: ["url"] },
+        ],
+      },
+    } satisfies GenerationModelDeclaration;
     const client = createGenerationClient({ models: [declaration], includeBuiltinModels: false, apiKey: "key" });
 
-    expect(() =>
-      client.validate({
-        model: "higgs-tts",
-        content: [
-          { type: "text", text: "文本" },
-          ...Array.from({ length: 17 }, (_, index) =>
-            audio(`https://example.com/reference-${index}.mp3`, { weight: 1 }),
-          ),
-        ],
-      }),
-    ).toThrow("supports at most 16 references");
+    expect(() => client.validate({ model: "higgs-tts", content: [{ type: "text", text: "文本" }] })).toThrow(
+      "Unsupported audio speech model: higgs-tts",
+    );
   });
 
   it.each([
@@ -296,66 +263,12 @@ describe("openai.audioSpeech adapter validation", () => {
       request: qwenDesignRequest({ meta: { voice_prompt: "声音", ref_audio: REFERENCE_URL } }),
     },
     {
-      label: "raw references",
-      request: {
-        model: "higgs-tts",
-        content: [{ type: "text", text: "文本" }],
-        meta: { references: [{ url: REFERENCE_URL, weight: 1 }] },
-      },
-    },
-    {
       label: "text block meta",
-      request: {
-        model: "higgs-tts",
-        content: [{ type: "text", text: "文本", meta: { weight: 1 } }],
-      },
-    },
-    {
-      label: "Higgs request voice prompt",
-      request: {
-        model: "higgs-tts",
-        content: [{ type: "text", text: "文本" }],
-        meta: { voice_prompt: "声音" },
-      },
+      request: qwenDesignRequest({ content: [{ type: "text", text: "文本", meta: { weight: 1 } }] }),
     },
   ])("rejects invalid meta scope: $label", ({ request }) => {
     const client = createGenerationClient({ apiKey: "key" });
     expect(() => client.validate(request)).toThrow(GenerationValidationError);
-  });
-
-  it.each([
-    null,
-    "1",
-    0,
-    -1,
-    Number.NaN,
-    Number.POSITIVE_INFINITY,
-  ])("rejects invalid single-reference Higgs weight %s", (weight) => {
-    const client = createGenerationClient({ apiKey: "key" });
-    expect(() =>
-      client.validate({
-        model: "higgs-tts",
-        content: [{ type: "text", text: "文本" }, audio(REFERENCE_URL, { weight })],
-      }),
-    ).toThrow("meta.weight must be a finite positive number");
-  });
-
-  it.each([
-    {},
-    { weight: undefined },
-    { weight: 0 },
-  ])("rejects missing or invalid multi-reference Higgs weights", (meta) => {
-    const client = createGenerationClient({ apiKey: "key" });
-    expect(() =>
-      client.validate({
-        model: "higgs-tts",
-        content: [
-          { type: "text", text: "文本" },
-          audio(REFERENCE_URL, meta),
-          audio(SECOND_REFERENCE_URL, { weight: 1 }),
-        ],
-      }),
-    ).toThrow("meta.weight must be a finite positive number");
   });
 
   it.each([
@@ -367,7 +280,7 @@ describe("openai.audioSpeech adapter validation", () => {
   ])("rejects unsupported reference URL %s", (url) => {
     const client = createGenerationClient({ apiKey: "key" });
     expect(() =>
-      client.validate({ model: "higgs-tts", content: [{ type: "text", text: "文本" }, audio(url)] }),
+      client.validate({ model: "qwen-tts", content: [{ type: "text", text: "文本" }, audio(url)] }),
     ).toThrow(GenerationValidationError);
   });
 
@@ -375,13 +288,13 @@ describe("openai.audioSpeech adapter validation", () => {
     const client = createGenerationClient({ apiKey: "key" });
     expect(() =>
       client.validate({
-        model: "higgs-tts",
+        model: "qwen-tts",
         content: [
           { type: "text", text: "文本" },
           { type: "audio", source: { type: "base64", mediaType: "audio/mpeg", data: "abc" } },
         ],
       }),
-    ).toThrow("audio source is not supported by higgs-tts: base64");
+    ).toThrow("audio source is not supported by qwen-tts: base64");
   });
 });
 
@@ -394,10 +307,7 @@ describe("openai.audioSpeech adapter success responses", () => {
       );
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
 
-    const result = await client.generateResult({
-      model: "higgs-tts",
-      content: [{ type: "text", text: "文本" }],
-    });
+    const result = await client.generateResult(qwenDesignRequest());
 
     expect(result.requestId).toBe("body-request-id");
     expect(result.cost).toBeUndefined();
@@ -407,10 +317,7 @@ describe("openai.audioSpeech adapter success responses", () => {
   it("uses x-oneapi-request-id when x-request-id is absent", async () => {
     const fetchMock = async () => routerSuccess({}, { headers: { "x-oneapi-request-id": "fallback-id" } });
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    const result = await client.generateResult({
-      model: "higgs-tts",
-      content: [{ type: "text", text: "文本" }],
-    });
+    const result = await client.generateResult(qwenDesignRequest());
     expect(result.requestId).toBe("fallback-id");
     expect(result.content[0]?.meta?.request_id).toBe("fallback-id");
   });
@@ -418,10 +325,7 @@ describe("openai.audioSpeech adapter success responses", () => {
   it("accepts other valid audio media types and an omitted size", async () => {
     const fetchMock = async () => routerSuccess({ content_type: "audio/ogg; codecs=opus", size: undefined });
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    const output = await client.generate({
-      model: "higgs-tts",
-      content: [{ type: "text", text: "文本" }],
-    });
+    const output = await client.generate(qwenDesignRequest());
     expect(output).toEqual([
       {
         type: "audio",
@@ -454,9 +358,7 @@ describe("openai.audioSpeech adapter success responses", () => {
       return result;
     };
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    await expect(
-      client.generate({ model: "higgs-tts", content: [{ type: "text", text: "文本" }] }),
-    ).rejects.toMatchObject({
+    await expect(client.generate(qwenDesignRequest())).rejects.toMatchObject({
       name: "GenerationProviderError",
       message: "Audio speech provider returned an unsupported success response",
       status: 200,
@@ -468,9 +370,7 @@ describe("openai.audioSpeech adapter success responses", () => {
     const fetchMock = async () =>
       new Response(null, { status: 204, statusText: "No Content", headers: { "x-oneapi-request-id": "request-204" } });
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    await expect(
-      client.generate({ model: "higgs-tts", content: [{ type: "text", text: "文本" }] }),
-    ).rejects.toMatchObject({
+    await expect(client.generate(qwenDesignRequest())).rejects.toMatchObject({
       name: "GenerationProviderError",
       message: "No Content",
       status: 204,
@@ -490,9 +390,7 @@ describe("openai.audioSpeech adapter errors and diagnostics", () => {
       });
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
 
-    await expect(
-      client.generate({ model: "higgs-tts", content: [{ type: "text", text: "文本" }] }),
-    ).rejects.toMatchObject({
+    await expect(client.generate(qwenDesignRequest())).rejects.toMatchObject({
       name: "GenerationProviderError",
       message: "reference audio is too short",
       status: 502,
@@ -508,9 +406,7 @@ describe("openai.audioSpeech adapter errors and diagnostics", () => {
       new Response(rawBody, { status: 400, headers: { "content-type": "application/problem+json" } });
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
 
-    await expect(
-      client.generate({ model: "higgs-tts", content: [{ type: "text", text: "文本" }] }),
-    ).rejects.toMatchObject({
+    await expect(client.generate(qwenDesignRequest())).rejects.toMatchObject({
       message: rawBody,
       status: 400,
       body: rawBody,
@@ -524,7 +420,7 @@ describe("openai.audioSpeech adapter errors and diagnostics", () => {
       new Response(JSON.stringify(body), { status: 500, headers: { "content-type": "application/json" } });
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
     try {
-      await client.generate({ model: "higgs-tts", content: [{ type: "text", text: "文本" }] });
+      await client.generate(qwenDesignRequest());
       throw new Error("expected provider error");
     } catch (error) {
       expect(error).toBeInstanceOf(GenerationProviderError);
@@ -539,9 +435,7 @@ describe("openai.audioSpeech adapter errors and diagnostics", () => {
         headers: { "content-type": "text/plain", "x-oneapi-request-id": "fallback-error-id" },
       });
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    await expect(
-      client.generate({ model: "higgs-tts", content: [{ type: "text", text: "文本" }] }),
-    ).rejects.toMatchObject({
+    await expect(client.generate(qwenDesignRequest())).rejects.toMatchObject({
       message: "plain text failure",
       body: "plain text failure",
       details: { requestId: "fallback-error-id", code: undefined },
@@ -555,7 +449,7 @@ describe("openai.audioSpeech adapter errors and diagnostics", () => {
     ];
     const fetchMock = async () => statuses.shift() as Response;
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-    const request = { model: "higgs-tts", content: [{ type: "text" as const, text: "文本" }] };
+    const request = qwenDesignRequest();
 
     await expect(client.generate(request)).rejects.toThrow("Provider Down");
     await expect(client.generate(request)).rejects.toThrow("Audio speech provider request failed");
@@ -569,7 +463,7 @@ describe("openai.audioSpeech adapter errors and diagnostics", () => {
           init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
         });
       const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
-      const pending = client.generate({ model: "higgs-tts", content: [{ type: "text", text: "文本" }] });
+      const pending = client.generate(qwenDesignRequest());
       const expectation = expect(pending).rejects.toBeInstanceOf(GenerationTimeoutError);
       await vi.advanceTimersByTimeAsync(210_000);
       await expectation;
@@ -590,8 +484,8 @@ describe("openai.audioSpeech adapter errors and diagnostics", () => {
     });
 
     await client.generate({
-      model: "higgs-tts",
-      content: [{ type: "text", text: "文本" }, audio(reference, { weight: 1 })],
+      model: "qwen-tts",
+      content: [{ type: "text", text: "文本" }, audio(reference)],
     });
 
     const serialized = JSON.stringify(events);

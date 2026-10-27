@@ -5,7 +5,6 @@ import { createGenerationClient, type GenerateRequest } from "../../src/index.js
 
 const KEY_FILE = "/tmp/neta-router-key";
 const REFERENCE_A = "https://oss.talesofai.cn/audio/d0bff78c-6577-4020-a5bf-a5ddd6970a50_0.mp3";
-const REFERENCE_B = "https://oss.talesofai.cn/audio/f35a8675-0385-4921-8528-186a70358db6_0.mp3";
 
 async function readApiKey(): Promise<string> {
   const envKey = (process.env.NETA_ROUTER_API_KEY ?? process.env.NETA_API_KEY)?.trim();
@@ -22,11 +21,10 @@ function text(value: string) {
   return { type: "text" as const, text: value };
 }
 
-function audio(url: string, weight?: number) {
+function audio(url: string) {
   return {
     type: "audio" as const,
     source: { type: "url" as const, url },
-    ...(weight === undefined ? {} : { meta: { weight } }),
   };
 }
 
@@ -73,31 +71,6 @@ liveDescribe("audio speech live router smoke", () => {
         request: {
           model: "qwen-audio-3.0-tts-flash",
           content: [text(`这是快速版本语音合成端到端测试文本，运行编号${runId}。`), audio(REFERENCE_A)],
-        },
-      },
-      {
-        name: "higgs default voice",
-        request: {
-          model: "higgs-tts",
-          content: [text(`这是默认音色端到端测试，运行编号${runId}。`)],
-        },
-      },
-      {
-        name: "higgs single reference",
-        request: {
-          model: "higgs-tts",
-          content: [text(`这是单参考音色端到端测试，运行编号${runId}。`), audio(REFERENCE_A)],
-        },
-      },
-      {
-        name: "higgs multiple references",
-        request: {
-          model: "higgs-tts",
-          content: [
-            text(`这是多参考融合音色端到端测试，运行编号${runId}。`),
-            audio(REFERENCE_A, 0.5),
-            audio(REFERENCE_B, 0.5),
-          ],
         },
       },
     ];

@@ -90,7 +90,6 @@ describe("config", () => {
     expect(byCategory["3d"].sort()).toEqual([...expected["3d"]]);
     expect(byCategory.decision.sort()).toEqual([...expected.decision]);
     for (const model of [
-      "higgs-tts",
       "qwen-tts",
       "qwen-audio-3.0-tts-plus",
       "qwen-audio-3.0-tts-flash",
@@ -290,7 +289,7 @@ describe("config", () => {
     for (const model of qwenModels) {
       const declaration = client.getModel(model);
       expect(declaration?.description).toContain("Modes: voice_prompt design OR one-reference clone");
-      expect(declaration?.description).not.toMatch(/Higgs|stronger|HTTP|URL/i);
+      expect(declaration?.description).not.toMatch(/stronger|HTTP|URL/i);
       expect(declaration?.content.input.find((input) => input.type === "text")?.description).toContain(
         "Exactly one non-empty text block",
       );
@@ -329,24 +328,7 @@ describe("config", () => {
       "at least 15 Unicode code points",
     );
 
-    const higgs = client.getModel("higgs-tts");
-    expect(higgs?.description).toBe(
-      "Modes: built-in; one-reference high-fidelity clone; weighted 2-16-reference blend. Default: delegated generic voice (natural/suitable). Blend: all references, full text, one request. Conflict: clone + redesign; ask user, do not reinterpret. Dependency: clone prior generated audio.",
-    );
-    expect(higgs?.description).not.toMatch(/Qwen|stronger|HTTP|URL/i);
-    expect(higgs?.content.input.find((input) => input.type === "audio")?.description).toContain(
-      "2-16 require positive finite weights",
-    );
-    expect(higgs?.content.input.find((input) => input.type === "audio")?.description).toContain(
-      "Dependency: use prior generated audio",
-    );
-    expect(higgs?.examples?.map((example) => example.title)).toEqual([
-      "Default voice",
-      "Single reference",
-      "Weighted single reference",
-      "Multiple references",
-    ]);
-    expect(JSON.parse(client.stringifyModelConfig("higgs-tts", { format: "json" }))).toEqual(higgs);
+    expect(client.getModel("higgs-tts")).toBeNull();
   });
 
   it("keeps model discovery on the existing package exports", async () => {
@@ -357,9 +339,8 @@ describe("config", () => {
     const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
     expect(readme).not.toContain("@neta-art/generation/models/");
     expect(readme).toContain("Qwen: `voice_prompt` design OR one-reference clone");
-    expect(readme).toContain("Higgs: delegated default voice, high-fidelity one-reference clone");
+    expect(readme).not.toMatch(/higgs/i);
     expect(readme).toContain("Conflict: reference + redesign requires user choice before generation");
-    expect(readme).toContain("Blend: all references, full text, one request");
     expect(readme).toContain("Dependency: clone prior generated audio");
     expect(readme).toContain("Ranking: no declared Qwen quality, latency, or cost order");
     expect(readme).not.toMatch(/quality prioritized over latency|latency prioritized over maximum quality/);

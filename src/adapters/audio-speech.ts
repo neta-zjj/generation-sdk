@@ -10,7 +10,6 @@ import type {
 const REQUEST_TIMEOUT_MS = 210_000;
 const QWEN_MODELS = new Set(["qwen-tts", "qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]);
 const QWEN_AUDIO_3_MODELS = new Set(["qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]);
-const HIGGS_MODEL = "higgs-tts";
 
 type TextBlock = Extract<GenerationContentBlock, { type: "text" }>;
 type AudioBlock = Extract<GenerationContentBlock, { type: "audio" }>;
@@ -97,39 +96,10 @@ function validateQwen(input: ResolvedGenerationRequest, text: TextBlock, audio: 
   }
 }
 
-function hasOwnWeight(block: AudioBlock): boolean {
-  return Object.hasOwn(block.meta ?? {}, "weight");
-}
-
-function isPositiveFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value > 0;
-}
-
-function validateHiggs(input: ResolvedGenerationRequest, text: TextBlock, audio: AudioBlock[]): void {
-  if (audio.length > 16)
-    throw new GenerationValidationError(`${input.declaration.model} supports at most 16 references`);
-  validateMetaKeys("request.metadata", input.request.metadata, new Set());
-  validateMetaKeys("request.meta", input.request.meta, new Set());
-  validateMetaKeys("text content meta", text.meta, new Set());
-
-  for (const [index, block] of audio.entries()) {
-    validateMetaKeys(`audio content block ${index} meta`, block.meta, new Set(["weight"]));
-    const weight = block.meta?.weight;
-    if (audio.length === 1 && (!hasOwnWeight(block) || weight === undefined)) continue;
-    if (!isPositiveFiniteNumber(weight)) {
-      throw new GenerationValidationError(`audio content block ${index} meta.weight must be a finite positive number`);
-    }
-  }
-}
-
 function validateAudioSpeechRequest(input: ResolvedGenerationRequest): void {
   const { text, audio } = validateCommonContent(input);
   if (QWEN_MODELS.has(input.declaration.model)) {
     validateQwen(input, text, audio);
-    return;
-  }
-  if (input.declaration.model === HIGGS_MODEL) {
-    validateHiggs(input, text, audio);
     return;
   }
   throw new GenerationValidationError(`Unsupported audio speech model: ${input.declaration.model}`);
@@ -151,21 +121,6 @@ function buildPayload(input: ResolvedGenerationRequest): Record<string, unknown>
   if (QWEN_MODELS.has(input.declaration.model)) {
     if (audio[0]?.source.type === "url") payload.ref_audio = audio[0].source.url.trim();
     else payload.metadata = { voice_prompt: input.meta.voice_prompt };
-    return payload;
-  }
-
-  const firstAudio = audio[0];
-  if (audio.length === 1 && firstAudio && (!hasOwnWeight(firstAudio) || firstAudio.meta?.weight === undefined)) {
-    if (firstAudio.source.type === "url") payload.ref_audio = firstAudio.source.url.trim();
-    return payload;
-  }
-  if (audio.length > 0) {
-    payload.metadata = {
-      references: audio.map((block) => ({
-        url: block.source.type === "url" ? block.source.url.trim() : "",
-        weight: block.meta?.weight,
-      })),
-    };
   }
   return payload;
 }

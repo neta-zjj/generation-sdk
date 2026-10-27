@@ -309,6 +309,7 @@ const client = createGenerationClient({
 - `z-image-turbo`
 - `qwen-image-edit`
 - `qwen-audio-3.1-tts-flash`
+- `qwen-audio-3.1-tts-plus`
 - `gemini-3.1-flash-image-preview`
 - `kling-text-to-video`
 - `kling-image-to-video`
@@ -401,7 +402,7 @@ await client.generate({
 
 ## Text to speech
 
-`qwen-tts`, `qwen-audio-3.0-tts-plus` and `qwen-audio-3.0-tts-flash` are removed in this release. Migrate to `qwen-audio-3.1-tts-flash`; its input must have at least 15 Unicode code points.
+`qwen-tts`, `qwen-audio-3.0-tts-plus` and `qwen-audio-3.0-tts-flash` are removed in this release. Migrate to `qwen-audio-3.1-tts-flash`, or to `qwen-audio-3.1-tts-plus`, which this release adds; both need input of at least 15 Unicode code points.
 
 Each TTS request accepts exactly one non-empty text block and returns one URL audio block. Choose the model from the requested voice mode and priority before constructing the request:
 
@@ -411,7 +412,8 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 | Clone a voice from one reference recording | `qwen-audio-3.1-tts-flash`; pass one HTTP(S) reference URL and no `voice_prompt` |
 | Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | `qwen-audio-3.1-tts-flash` with a short generic `voice_prompt`, such as a natural, neutral narrator |
 
-- Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash`; requires at least 15 Unicode code points.
+- Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash` (default) or `qwen-audio-3.1-tts-plus`; both require at least 15 Unicode code points.
+- Tier: use `qwen-audio-3.1-tts-plus` only when the user or an external policy selects it; otherwise use Flash. Alibaba describes Flash as its low-latency tier and Plus as its quality tier for audiobooks and dubbing; the SDK has not measured either.
 - Conflict: reference + redesign requires user choice before generation.
 - Dependency: clone prior generated audio.
 - Short text: input under 15 Unicode code points is rejected; ask the user to lengthen it.

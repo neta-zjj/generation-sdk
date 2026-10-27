@@ -8,7 +8,7 @@ import type {
 } from "../types.js";
 
 const REQUEST_TIMEOUT_MS = 210_000;
-const QWEN_MODEL = "qwen-audio-3.1-tts-flash";
+const QWEN_MODELS: ReadonlySet<string> = new Set(["qwen-audio-3.1-tts-flash", "qwen-audio-3.1-tts-plus"]);
 
 type TextBlock = Extract<GenerationContentBlock, { type: "text" }>;
 type AudioBlock = Extract<GenerationContentBlock, { type: "audio" }>;
@@ -97,7 +97,7 @@ function validateQwen(input: ResolvedGenerationRequest, text: TextBlock, audio: 
 
 function validateAudioSpeechRequest(input: ResolvedGenerationRequest): void {
   const { text, audio } = validateCommonContent(input);
-  if (input.declaration.model === QWEN_MODEL) {
+  if (QWEN_MODELS.has(input.declaration.model)) {
     validateQwen(input, text, audio);
     return;
   }

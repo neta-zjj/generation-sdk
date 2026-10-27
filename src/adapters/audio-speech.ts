@@ -8,8 +8,7 @@ import type {
 } from "../types.js";
 
 const REQUEST_TIMEOUT_MS = 210_000;
-const QWEN_MODELS = new Set(["qwen-tts", "qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]);
-const QWEN_AUDIO_3_MODELS = new Set(["qwen-audio-3.0-tts-plus", "qwen-audio-3.0-tts-flash"]);
+const QWEN_MODEL = "qwen-audio-3.1-tts-flash";
 
 type TextBlock = Extract<GenerationContentBlock, { type: "text" }>;
 type AudioBlock = Extract<GenerationContentBlock, { type: "audio" }>;
@@ -91,14 +90,14 @@ function validateQwen(input: ResolvedGenerationRequest, text: TextBlock, audio: 
     );
   }
 
-  if (QWEN_AUDIO_3_MODELS.has(input.declaration.model) && Array.from(text.text.trim()).length < 15) {
+  if (Array.from(text.text.trim()).length < 15) {
     throw new GenerationValidationError(`${input.declaration.model} requires input of at least 15 Unicode code points`);
   }
 }
 
 function validateAudioSpeechRequest(input: ResolvedGenerationRequest): void {
   const { text, audio } = validateCommonContent(input);
-  if (QWEN_MODELS.has(input.declaration.model)) {
+  if (input.declaration.model === QWEN_MODEL) {
     validateQwen(input, text, audio);
     return;
   }

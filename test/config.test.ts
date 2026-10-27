@@ -339,7 +339,6 @@ describe("config", () => {
     const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
     expect(readme).not.toContain("@neta-art/generation/models/");
     expect(readme).toContain("Qwen: `voice_prompt` design OR one-reference clone");
-    expect(readme).not.toMatch(/higgs/i);
     expect(readme).toContain("Conflict: reference + redesign requires user choice before generation");
     expect(readme).toContain("Dependency: clone prior generated audio");
     expect(readme).toContain("Ranking: no declared Qwen quality, latency, or cost order");

@@ -409,7 +409,7 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 | --- | --- |
 | Create a voice from a text-only description, without reference audio | Use an explicitly requested Qwen variant; otherwise use `qwen-tts` as the deterministic default |
 | Clone a voice from one reference recording | Use an explicitly requested Qwen variant, or `qwen-tts`; pass one HTTP(S) reference URL and no `voice_prompt` |
-| Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | Not available; pass a `voice_prompt` description or one reference audio |
+| Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | `qwen-tts` with a short generic `voice_prompt`, such as a natural, neutral narrator |
 
 - Qwen: `voice_prompt` design OR one-reference clone; `qwen-tts` is the unspecified-design default and accepts any text length; Plus / Flash require at least 15 Unicode code points.
 - Conflict: reference + redesign requires user choice before generation.

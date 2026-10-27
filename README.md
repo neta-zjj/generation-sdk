@@ -311,7 +311,6 @@ const client = createGenerationClient({
 - `qwen-tts`
 - `qwen-audio-3.0-tts-plus`
 - `qwen-audio-3.0-tts-flash`
-- `higgs-tts`
 - `gemini-3.1-flash-image-preview`
 - `kling-text-to-video`
 - `kling-image-to-video`
@@ -409,14 +408,11 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 | Requirement | Model choice |
 | --- | --- |
 | Create a voice from a text-only description, without reference audio | Use an explicitly requested Qwen variant; otherwise use `qwen-tts` as the deterministic default |
-| Maximize fidelity to one reference voice | `higgs-tts` |
-| Blend 2-16 weighted reference voices | `higgs-tts` |
-| Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | `higgs-tts` |
+| Clone a voice from one reference recording | Use an explicitly requested Qwen variant, or `qwen-tts`; pass one HTTP(S) reference URL and no `voice_prompt` |
+| Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | Not available; pass a `voice_prompt` description or one reference audio |
 
 - Qwen: `voice_prompt` design OR one-reference clone; `qwen-tts` is the unspecified-design default and accepts any text length; Plus / Flash require at least 15 Unicode code points.
-- Higgs: delegated default voice, high-fidelity one-reference clone, or weighted 2-16-reference blend.
 - Conflict: reference + redesign requires user choice before generation.
-- Blend: all references, full text, one request.
 - Dependency: clone prior generated audio.
 - Ranking: no declared Qwen quality, latency, or cost order.
 
@@ -434,25 +430,6 @@ await client.generate({
   content: [
     { type: "text", text: "这是一段长度足够并且表达清晰自然的语音合成文本。" },
     { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
-  ],
-});
-```
-
-```ts
-await client.generate({
-  model: "higgs-tts",
-  content: [
-    { type: "text", text: "使用多参考融合音色朗读这段文本。" },
-    {
-      type: "audio",
-      source: { type: "url", url: "https://example.com/reference-a.mp3" },
-      meta: { weight: 0.5 },
-    },
-    {
-      type: "audio",
-      source: { type: "url", url: "https://example.com/reference-b.mp3" },
-      meta: { weight: 0.5 },
-    },
   ],
 });
 ```

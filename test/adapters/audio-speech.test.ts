@@ -2,9 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createGenerationClient,
   type GenerateRequest,
+  GenerationConfigError,
   type GenerationContentBlock,
   type GenerationModelDeclaration,
-  GenerationConfigError,
   GenerationProviderError,
   GenerationTimeoutError,
   GenerationValidationError,
@@ -279,9 +279,9 @@ describe("openai.audioSpeech adapter validation", () => {
     "s3://bucket/file.mp3",
   ])("rejects unsupported reference URL %s", (url) => {
     const client = createGenerationClient({ apiKey: "key" });
-    expect(() =>
-      client.validate({ model: "qwen-tts", content: [{ type: "text", text: "文本" }, audio(url)] }),
-    ).toThrow(GenerationValidationError);
+    expect(() => client.validate({ model: "qwen-tts", content: [{ type: "text", text: "文本" }, audio(url)] })).toThrow(
+      GenerationValidationError,
+    );
   });
 
   it("rejects base64 reference audio through model validation", () => {

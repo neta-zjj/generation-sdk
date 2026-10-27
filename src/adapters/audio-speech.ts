@@ -118,10 +118,8 @@ function buildPayload(input: ResolvedGenerationRequest): Record<string, unknown>
     input: text.text,
   };
 
-  if (QWEN_MODELS.has(input.declaration.model)) {
-    if (audio[0]?.source.type === "url") payload.ref_audio = audio[0].source.url.trim();
-    else payload.metadata = { voice_prompt: input.meta.voice_prompt };
-  }
+  if (audio[0]?.source.type === "url") payload.ref_audio = audio[0].source.url.trim();
+  else payload.metadata = { voice_prompt: input.meta.voice_prompt };
   return payload;
 }
 

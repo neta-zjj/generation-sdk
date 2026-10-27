@@ -303,15 +303,14 @@ describe("config", () => {
       expect(JSON.parse(client.stringifyModelConfig(model, { format: "json" }))).toEqual(declaration);
     }
 
-    for (const [model, tier] of [
-      ["qwen-audio-3.1-tts-flash", "Tier: default Qwen TTS."],
-      ["qwen-audio-3.1-tts-plus", "Tier: only when user/policy selects Plus."],
-    ] as const) {
-      const declaration = client.getModel(model);
-      expect(declaration?.description).toBe(
-        `Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. ${tier} Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.`,
-      );
-      expect(declaration?.content.input.find((input) => input.type === "text")?.description).toContain(
+    expect(client.getModel("qwen-audio-3.1-tts-flash")?.description).toBe(
+      "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Tier: default; Alibaba's low-latency tier. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
+    );
+    expect(client.getModel("qwen-audio-3.1-tts-plus")?.description).toBe(
+      "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Tier: Alibaba's quality tier (audiobooks, dubbing); only when user or external policy selects it. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
+    );
+    for (const model of qwenModels) {
+      expect(client.getModel(model)?.content.input.find((input) => input.type === "text")?.description).toContain(
         "at least 15 Unicode code points",
       );
     }
@@ -330,7 +329,9 @@ describe("config", () => {
     expect(readme).toContain("Conflict: reference + redesign requires user choice before generation");
     expect(readme).toContain("Dependency: clone prior generated audio");
     expect(readme).toContain("Short text: input under 15 Unicode code points is rejected");
-    expect(readme).toContain("use `qwen-audio-3.1-tts-plus` only when the user or an external policy selects it");
+    expect(readme).toContain(
+      "In any row, use `qwen-audio-3.1-tts-plus` instead only when the user or an external policy selects it",
+    );
     expect(readme).not.toMatch(/quality prioritized over latency|latency prioritized over maximum quality/);
   });
 

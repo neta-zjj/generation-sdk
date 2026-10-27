@@ -68,7 +68,10 @@ function requestBody(call: { init: RequestInit } | undefined): Record<string, un
 }
 
 describe("openai.audioSpeech adapter requests", () => {
-  it("sends the fixed wire contract and preserves Qwen input and voice prompt", async () => {
+  it.each([
+    "qwen-audio-3.1-tts-flash",
+    "qwen-audio-3.1-tts-plus",
+  ])("sends the fixed wire contract for %s and preserves Qwen input and voice prompt", async (model) => {
     const { client, calls } = recordingClient(() =>
       routerSuccess({}, { headers: { "x-request-id": "request-primary", "x-oneapi-request-id": "request-fallback" } }),
     );
@@ -76,7 +79,7 @@ describe("openai.audioSpeech adapter requests", () => {
     const voicePrompt = "  沉稳清晰的声音。\n";
 
     const output = await client.generate({
-      model: "qwen-audio-3.1-tts-flash",
+      model,
       content: [{ type: "text", text: input }],
       meta: { voice_prompt: voicePrompt },
     });
@@ -88,7 +91,7 @@ describe("openai.audioSpeech adapter requests", () => {
       new Headers({ Authorization: "Bearer secret-key", "Content-Type": "application/json" }),
     );
     expect(requestBody(calls[0])).toEqual({
-      model: "qwen-audio-3.1-tts-flash",
+      model,
       input,
       metadata: { voice_prompt: voicePrompt },
     });
@@ -99,25 +102,6 @@ describe("openai.audioSpeech adapter requests", () => {
         meta: { content_type: "audio/mpeg", size: 74924, request_id: "request-primary" },
       },
     ]);
-  });
-
-  it("sends qwen-audio-3.1-tts-plus as given while preserving Qwen input and voice prompt", async () => {
-    const { client, calls } = recordingClient();
-    const input = "  原样保留的朗读文本内容，不应被修改。\n";
-    const voicePrompt = "  沉稳清晰的声音。\n";
-
-    await client.generate({
-      model: "qwen-audio-3.1-tts-plus",
-      content: [{ type: "text", text: input }],
-      meta: { voice_prompt: voicePrompt },
-    });
-
-    expect(calls).toHaveLength(1);
-    expect(requestBody(calls[0])).toEqual({
-      model: "qwen-audio-3.1-tts-plus",
-      input,
-      metadata: { voice_prompt: voicePrompt },
-    });
   });
 
   it("maps Qwen reference audio and trims only its URL", async () => {
@@ -268,34 +252,28 @@ describe("openai.audioSpeech adapter validation", () => {
     );
   });
 
-  it.each([
-    { text: "a".repeat(14) },
-    { text: "😀".repeat(14) },
-  ])("rejects qwen-audio-3.1-tts-flash input below 15 Unicode code points ($text)", ({ text }) => {
+  const QWEN_MODELS = ["qwen-audio-3.1-tts-flash", "qwen-audio-3.1-tts-plus"];
+
+  it.each(
+    QWEN_MODELS.flatMap((model) => [
+      { model, text: "a".repeat(14) },
+      { model, text: "😀".repeat(14) },
+    ]),
+  )("rejects $model input below 15 Unicode code points ($text)", ({ model, text }) => {
     const client = createGenerationClient({ apiKey: "key" });
-    expect(() =>
-      client.validate({ model: "qwen-audio-3.1-tts-flash", content: [{ type: "text", text }, audio()] }),
-    ).toThrow("requires input of at least 15 Unicode code points");
+    expect(() => client.validate({ model, content: [{ type: "text", text }, audio()] })).toThrow(
+      "requires input of at least 15 Unicode code points",
+    );
   });
 
-  it.each([
-    { text: "a".repeat(14) },
-    { text: "😀".repeat(14) },
-  ])("rejects qwen-audio-3.1-tts-plus input below 15 Unicode code points ($text)", ({ text }) => {
+  it.each(
+    QWEN_MODELS.flatMap((model) => [
+      { model, text: "a".repeat(15) },
+      { model, text: ` ${"😀".repeat(15)} ` },
+    ]),
+  )("accepts the $model input boundary ($text)", ({ model, text }) => {
     const client = createGenerationClient({ apiKey: "key" });
-    expect(() =>
-      client.validate({ model: "qwen-audio-3.1-tts-plus", content: [{ type: "text", text }, audio()] }),
-    ).toThrow("requires input of at least 15 Unicode code points");
-  });
-
-  it.each([
-    { text: "a".repeat(15) },
-    { text: ` ${"😀".repeat(15)} ` },
-  ])("accepts the qwen-audio-3.1-tts-flash input boundary ($text)", ({ text }) => {
-    const client = createGenerationClient({ apiKey: "key" });
-    expect(() =>
-      client.validate({ model: "qwen-audio-3.1-tts-flash", content: [{ type: "text", text }, audio()] }),
-    ).not.toThrow();
+    expect(() => client.validate({ model, content: [{ type: "text", text }, audio()] })).not.toThrow();
   });
 
   it.each<{ label: string; request: GenerateRequest }>([

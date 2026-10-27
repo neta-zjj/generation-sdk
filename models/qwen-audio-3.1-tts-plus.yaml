@@ -1,8 +1,9 @@
 schema: neta.generation.model.v1
 model: qwen-audio-3.1-tts-plus
 title: Qwen Audio 3.1 TTS Plus
-description: "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Tier: only when
-  user/policy selects Plus. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio."
+description: "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Tier: Alibaba's quality
+  tier (audiobooks, dubbing); only when user or external policy selects it. Conflict: ask user; never
+  combine/reinterpret. Dependency: clone prior generated audio."
 adapter:
   type: openai.audioSpeech
 content:

@@ -406,14 +406,14 @@ await client.generate({
 
 Each TTS request accepts exactly one non-empty text block and returns one URL audio block. Choose the model from the requested voice mode and priority before constructing the request:
 
-| Requirement | Model choice |
+| Requirement | Model choice (default tier) |
 | --- | --- |
 | Create a voice from a text-only description, without reference audio | `qwen-audio-3.1-tts-flash` with a `voice_prompt` |
 | Clone a voice from one reference recording | `qwen-audio-3.1-tts-flash`; pass one HTTP(S) reference URL and no `voice_prompt` |
 | Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | `qwen-audio-3.1-tts-flash` with a short generic `voice_prompt`, such as a natural, neutral narrator |
 
 - Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash` (default) or `qwen-audio-3.1-tts-plus`; both require at least 15 Unicode code points.
-- Tier: use `qwen-audio-3.1-tts-plus` only when the user or an external policy selects it; otherwise use Flash. Alibaba describes Flash as its low-latency tier and Plus as its quality tier for audiobooks and dubbing; the SDK has not measured either.
+- Tier: the table names `qwen-audio-3.1-tts-flash`, the default. In any row, use `qwen-audio-3.1-tts-plus` instead only when the user or an external policy selects it. Alibaba describes Flash as its low-latency tier and Plus as its quality tier for audiobooks and dubbing; the SDK has not measured either.
 - Conflict: reference + redesign requires user choice before generation.
 - Dependency: clone prior generated audio.
 - Short text: input under 15 Unicode code points is rejected; ask the user to lengthen it.

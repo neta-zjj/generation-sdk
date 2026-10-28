@@ -425,7 +425,7 @@ describe("openai.audioSpeech Qwen instructions and seed", () => {
       (candidate) => candidate.request.parameters?.instructions !== undefined,
     );
 
-    expect(example?.request.parameters).toEqual({ instructions: "语速放慢，声音压低，带一点疲惫" });
+    expect(example?.request.parameters).toEqual({ instructions: "请用非常缓慢的语速说话，每个字都慢慢说。" });
     expect(() => client.validate(example?.request as GenerateRequest)).not.toThrow();
   });
 
@@ -434,9 +434,9 @@ describe("openai.audioSpeech Qwen instructions and seed", () => {
     const section = readme.slice(readme.indexOf("## Text to speech"), readme.indexOf("`scene3` takes"));
 
     expect(section).toContain(
-      "- Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash`; requires at least 15 Unicode code points. Optional `parameters.instructions` directs how the whole text is spoken (tone, emotion, pace, dialect or role) for both kinds of voice; optional `parameters.seed` (0 to 65535) is passed to the model.",
+      "- Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash`; requires at least 15 Unicode code points. Optional `parameters.instructions` directs how the whole text is spoken; with a designed or cloned voice, pace directions are followed and emotion directions had no measurable effect in tests. Optional `parameters.seed` (0 to 65535) is passed to the model; the same seed does not reproduce the same audio.",
     );
-    expect(section).toContain('parameters: { instructions: "语速放慢，声音压低，带一点疲惫" }');
+    expect(section).toContain('parameters: { instructions: "请用非常缓慢的语速说话，每个字都慢慢说。" }');
   });
 
   it("sends the design body with instructions and seed together", async () => {
@@ -470,9 +470,15 @@ describe("openai.audioSpeech Qwen instructions and seed", () => {
         type: "string",
         optional: true,
         description:
-          "Natural-language direction for how the whole text is spoken: tone, emotion, pace, dialect or role. Works with a designed and a cloned voice.",
+          "Natural-language direction for how the whole text is spoken. With a designed or cloned voice, pace directions are followed; emotion directions had no measurable effect in tests.",
       },
-      seed: { type: "integer", optional: true, min: 0, max: 65535, description: "Random seed, passed to the model." },
+      seed: {
+        type: "integer",
+        optional: true,
+        min: 0,
+        max: 65535,
+        description: "Random seed, passed to the model. The same seed does not reproduce the same audio.",
+      },
     });
   });
 });

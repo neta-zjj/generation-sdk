@@ -402,7 +402,7 @@ await client.generate({
 
 ## Text to speech
 
-`qwen-tts`, `qwen-audio-3.0-tts-plus` and `qwen-audio-3.0-tts-flash` are removed in 0.2.0, and `qwen-audio-3.1-tts-plus`, declared in 0.2.0, is withdrawn in 0.2.1. Migrate to `qwen-audio-3.1-tts-flash`; its input must have at least 15 Unicode code points.
+The Qwen TTS model is `qwen-audio-3.1-tts-flash`; its input must have at least 15 Unicode code points.
 
 Each TTS request accepts exactly one non-empty text block and returns one URL audio block. Choose the model from the requested voice mode and priority before constructing the request:
 

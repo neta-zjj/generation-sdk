@@ -413,6 +413,7 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 | Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | `qwen-audio-3.1-tts-flash` with a short generic `voice_prompt`, such as a natural, neutral narrator |
 
 - Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash`; requires at least 15 Unicode code points.
+- Scene 3: built-in voice or one-reference clone, with inline `[bracketed]` delivery cues; use `scene3` when the user or an external policy names it.
 - Conflict: reference + redesign requires user choice before generation.
 - Dependency: clone prior generated audio.
 - Short text: input under 15 Unicode code points is rejected; ask the user to lengthen it.

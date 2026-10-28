@@ -9,13 +9,6 @@ import type {
 
 const REQUEST_TIMEOUT_MS = 210_000;
 const QWEN_MODEL = "qwen-audio-3.1-tts-flash";
-// A retired public id, accepted here and never declared (not in builtins.ts, not in models/).
-// Why it stays: Cohub's platform config still declares it with the QWEN_MODEL shape, and Voice Studio calls it through
-// that declaration; rejecting it would break Voice Studio the moment Cohub deploys this SDK. The gateway accepts it and
-// synthesises with the same model as QWEN_MODEL. The payload carries the declared id unchanged.
-// Delete it once Voice Studio sends QWEN_MODEL and the platform declaration for this id is gone.
-const QWEN_RETIRED_ALIAS = "qwen-audio-3.0-tts-plus";
-const QWEN_MODELS: ReadonlySet<string> = new Set([QWEN_MODEL, QWEN_RETIRED_ALIAS]);
 const SCENE3_MODEL = "scene3";
 const SCENE3_MAX_REFERENCES = 16;
 const SCENE3_MAX_INSTRUCTIONS = 300;
@@ -146,7 +139,7 @@ function scene3InstructionsLength(instructions: string): number {
 
 function validateAudioSpeechRequest(input: ResolvedGenerationRequest): void {
   const { text, audio } = validateCommonContent(input);
-  if (QWEN_MODELS.has(input.declaration.model)) {
+  if (input.declaration.model === QWEN_MODEL) {
     validateQwen(input, text, audio);
     return;
   }

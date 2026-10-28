@@ -131,6 +131,16 @@ function validateAudioInputs(audio: InputMedia[], visual: InputMedia[]): void {
   if (audio.length > 0 && visual.length === 0) {
     throw new GenerationValidationError("Seedance audio input requires at least one image or video");
   }
+  const referenceVisualCount = visual.filter(
+    (item) =>
+      (item.kind === "image" && item.role === "reference_image") ||
+      (item.kind === "video" && item.role === "reference_video"),
+  ).length;
+  if (referenceVisualCount > 1 && audio.length > 1) {
+    throw new GenerationValidationError(
+      "Seedance reference mode supports at most one reference_audio when multiple reference images or videos are provided",
+    );
+  }
 }
 
 function isFrameImage(item: InputMedia): boolean {

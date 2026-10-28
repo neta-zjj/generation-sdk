@@ -190,7 +190,7 @@ const seedanceContentInput = [
     roles: ["reference_audio"],
     roleRequired: true,
     description:
-      "Optional public URL reference audio. Use meta.role reference_audio. Audio cannot be the only media input; include at least one image or video.",
+      "Optional public URL reference audio. Use meta.role reference_audio. Audio cannot be the only media input; include at least one image or video. With multiple reference images or videos, provide at most one reference audio.",
   },
 ] satisfies GenerationModelDeclaration["content"]["input"];
 

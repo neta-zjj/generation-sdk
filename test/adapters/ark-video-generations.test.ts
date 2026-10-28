@@ -227,6 +227,35 @@ describe("ark.videoGenerations adapter", () => {
     ]);
   });
 
+  it("sends multiple reference audios with a single reference image", async () => {
+    const { calls } = await runSuccessfulVideoGeneration([
+      textBlock("animate the subject with these two audio references"),
+      imageBlock("https://example.com/subject.jpg", { role: "reference_image" }),
+      audioBlock("https://example.com/voice.mp3", { role: "reference_audio" }),
+      audioBlock("https://example.com/music.mp3", { role: "reference_audio" }),
+    ]);
+    const metadata = parseCreateBody(calls).metadata as Record<string, unknown>;
+
+    expect(metadata.content).toEqual([
+      { type: "image_url", image_url: { url: "https://example.com/subject.jpg" }, role: "reference_image" },
+      { type: "audio_url", audio_url: { url: "https://example.com/voice.mp3" }, role: "reference_audio" },
+      { type: "audio_url", audio_url: { url: "https://example.com/music.mp3" }, role: "reference_audio" },
+    ]);
+  });
+
+  it("rejects multiple reference audios with multiple reference images before resolving sources", async () => {
+    await expectVideoGenerationValidationError(
+      [
+        textBlock("animate these subjects with two audio references"),
+        imageBlock("https://example.com/subject-1.jpg", { role: "reference_image" }),
+        imageBlock("https://example.com/subject-2.jpg", { role: "reference_image" }),
+        audioBlock("https://example.com/voice.mp3", { role: "reference_audio" }),
+        audioBlock("https://example.com/music.mp3", { role: "reference_audio" }),
+      ],
+      "Seedance reference mode supports at most one reference_audio when multiple reference images or videos are provided",
+    );
+  });
+
   it("rejects audio-only Seedance requests before resolving sources", async () => {
     await expectVideoGenerationValidationError(
       [

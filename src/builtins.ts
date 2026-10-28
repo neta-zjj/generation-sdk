@@ -2101,7 +2101,7 @@ const builtinModels = [
     pricing: seedanceTokenPricing(3.3, 5.6),
     adapter: { type: "ark.videoGenerations" },
     content: { input: seedanceContentInput },
-    parameters: seedanceVideoParameters({ resolution: "720p", resolutions: ["480p", "720p"], maxWait: 600 }),
+    parameters: seedanceVideoParameters({ resolution: "720p", resolutions: ["480p", "720p"], maxWait: 1800 }),
     examples: [
       {
         title: "Text to video",

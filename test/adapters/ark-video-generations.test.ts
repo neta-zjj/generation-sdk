@@ -110,6 +110,47 @@ describe("ark.videoGenerations adapter", () => {
     });
   });
 
+  it("checks the final task status before reporting a timeout", async () => {
+    vi.useFakeTimers();
+    let statusCalls = 0;
+    const fetchMock = async (url: string | URL | Request) => {
+      if (String(url).endsWith("/v1/video/generations")) {
+        return new Response(JSON.stringify({ task_id: "task-1" }), { status: 200 });
+      }
+      statusCalls += 1;
+      if (statusCalls <= 31) {
+        return new Response(JSON.stringify({ data: { status: "RUNNING" } }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ data: { status: "SUCCESS", result_url: "https://example.com/out.mp4" } }), {
+        status: 200,
+      });
+    };
+
+    try {
+      const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
+      const promise = client.generate({
+        model: "seedance-2-0-fast",
+        content: [textBlock("a red cube rotating on a white table")],
+        parameters: { poll_interval: 1, max_wait: 30 },
+      });
+      await vi.advanceTimersByTimeAsync(31_000);
+      const output = await promise;
+
+      expect(statusCalls).toBe(32);
+      expect(output[0]).toMatchObject({
+        type: "video",
+        source: { type: "url", url: "https://example.com/out.mp4" },
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("defaults seedance-2-0-fast to a 30 minute wait", () => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(client.getModel("seedance-2-0-fast")?.parameters?.max_wait).toMatchObject({ default: 1800 });
+  });
+
   it("sends text-to-video prompts without metadata content", async () => {
     const { calls } = await runSuccessfulVideoGeneration([textBlock("a red cube rotating on a white table")], {
       ratio: "9:16",

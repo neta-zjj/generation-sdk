@@ -8,7 +8,7 @@ import { mergeTextBlocks } from "../validation.js";
 // Keep per-request timeout comfortably above max_wait so polling controls total wait time.
 const REQUEST_TIMEOUT_MS = 1_860_000;
 const DEFAULT_POLL_INTERVAL_SEC = 1;
-const DEFAULT_MAX_WAIT_SEC = 600;
+const DEFAULT_MAX_WAIT_SEC = 1800;
 
 type ArkCreateTaskResponse = { id?: unknown; task_id?: unknown; status?: unknown };
 
@@ -276,6 +276,41 @@ function normalizeTaskStatus(response: ArkTaskStatusResponse) {
   return { status: "unknown", videoUrl: undefined, firstFrameUrl: undefined, metadata: {} };
 }
 
+type NormalizedTaskStatus = ReturnType<typeof normalizeTaskStatus>;
+
+async function fetchTaskStatus(input: GenerationAdapterInput, taskId: string) {
+  const rawStatus = (await requestJson(input, `/v1/video/generations/${encodeURIComponent(taskId)}`, {
+    method: "GET",
+  })) as ArkTaskStatusResponse;
+  return { rawStatus, status: normalizeTaskStatus(rawStatus) };
+}
+
+function videoOutputForStatus(
+  status: NormalizedTaskStatus,
+  rawStatus: ArkTaskStatusResponse,
+  taskId: string,
+): GenerationContentBlock[] {
+  if (!status.videoUrl) {
+    throw new GenerationProviderError("Video generation succeeded but returned no video URL", {
+      details: compactObject({ taskId, rawStatus, metadata: status.metadata }),
+    });
+  }
+  const output: GenerationContentBlock[] = [
+    {
+      type: "video",
+      source: { type: "url", url: status.videoUrl },
+      meta: { task_id: taskId, status: status.status, ...status.metadata },
+    },
+  ];
+  if (status.firstFrameUrl)
+    output.push({
+      type: "image",
+      source: { type: "url", url: status.firstFrameUrl },
+      meta: { role: "first_frame", task_id: taskId },
+    });
+  return output;
+}
+
 async function requestJson(input: GenerationAdapterInput, path: string, init: RequestInit): Promise<unknown> {
   const response = await fetchWithTimeout(
     input.context.fetch,
@@ -355,36 +390,23 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
   const taskId = extractTaskId(task);
 
   for await (const _ of taskPollTicks(maxWaitSec * 1000, pollIntervalSec * 1000)) {
-    const rawStatus = (await requestJson(input, `/v1/video/generations/${encodeURIComponent(taskId)}`, {
-      method: "GET",
-    })) as ArkTaskStatusResponse;
-    const status = normalizeTaskStatus(rawStatus);
+    const { rawStatus, status } = await fetchTaskStatus(input, taskId);
 
     if (status.status === "succeeded") {
-      if (!status.videoUrl) {
-        throw new GenerationProviderError("Video generation succeeded but returned no video URL", {
-          details: compactObject({ taskId, rawStatus, metadata: status.metadata }),
-        });
-      }
-      const output: GenerationContentBlock[] = [
-        {
-          type: "video",
-          source: { type: "url", url: status.videoUrl },
-          meta: { task_id: taskId, status: status.status, ...status.metadata },
-        },
-      ];
-      if (status.firstFrameUrl)
-        output.push({
-          type: "image",
-          source: { type: "url", url: status.firstFrameUrl },
-          meta: { role: "first_frame", task_id: taskId },
-        });
-      return output;
+      return videoOutputForStatus(status, rawStatus, taskId);
     }
 
     if (["failed", "expired", "cancelled"].includes(status.status)) {
       throw new GenerationProviderError(`Video generation ${status.status}`, { details: { taskId, rawStatus } });
     }
+  }
+
+  const { rawStatus, status } = await fetchTaskStatus(input, taskId);
+  if (status.status === "succeeded") {
+    return videoOutputForStatus(status, rawStatus, taskId);
+  }
+  if (["failed", "expired", "cancelled"].includes(status.status)) {
+    throw new GenerationProviderError(`Video generation ${status.status}`, { details: { taskId, rawStatus } });
   }
 
   throw new GenerationTimeoutError("Timed out waiting for video generation", { taskId });

@@ -38,16 +38,16 @@ describe("config", () => {
 
     for (const model of ["seedance-2-5", "seedance-2-0", "seedance-2-0-fast"]) {
       const duration = client.getModel(model)?.parameters?.duration;
-      expect(duration?.optional).not.toBe(true);
-      expect(duration?.default).toBeUndefined();
+      expect(duration?.optional).toBe(true);
+      expect(duration?.default).toBe(5);
     }
-    expect(() =>
+    expect(
       client.validate({
         model: "seedance-2-0",
         content: [{ type: "text", text: "a slow push in" }],
         parameters: {},
-      }),
-    ).toThrow("Missing required parameter: duration");
+      }).parameters?.duration,
+    ).toBe(5);
 
     const shipped = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
     for (const model of ["seedance-2-5", "seedance-2-0", "seedance-2-0-fast"]) {

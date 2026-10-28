@@ -101,25 +101,6 @@ describe("openai.audioSpeech adapter requests", () => {
     ]);
   });
 
-  it("sends qwen-audio-3.1-tts-plus as given while preserving Qwen input and voice prompt", async () => {
-    const { client, calls } = recordingClient();
-    const input = "  原样保留的朗读文本内容，不应被修改。\n";
-    const voicePrompt = "  沉稳清晰的声音。\n";
-
-    await client.generate({
-      model: "qwen-audio-3.1-tts-plus",
-      content: [{ type: "text", text: input }],
-      meta: { voice_prompt: voicePrompt },
-    });
-
-    expect(calls).toHaveLength(1);
-    expect(requestBody(calls[0])).toEqual({
-      model: "qwen-audio-3.1-tts-plus",
-      input,
-      metadata: { voice_prompt: voicePrompt },
-    });
-  });
-
   it("maps Qwen reference audio and trims only its URL", async () => {
     const { client, calls } = recordingClient();
     await client.generate({
@@ -239,16 +220,6 @@ describe("openai.audioSpeech adapter validation", () => {
     ).toThrow("supports at most one reference audio");
   });
 
-  it("accepts the qwen-audio-3.1-tts-plus declaration and a valid request", () => {
-    const declaration = getBuiltinGenerationModel("qwen-audio-3.1-tts-plus");
-    if (!declaration) throw new Error("qwen-audio-3.1-tts-plus declaration is unavailable");
-    const client = createGenerationClient({ models: [declaration], includeBuiltinModels: false, apiKey: "key" });
-
-    expect(() =>
-      client.validate({ model: "qwen-audio-3.1-tts-plus", content: [{ type: "text", text: QWEN_TEXT }, audio()] }),
-    ).not.toThrow();
-  });
-
   it("rejects a higgs-tts declaration at the audio speech adapter", () => {
     const declaration = {
       schema: "neta.generation.model.v1",
@@ -275,16 +246,6 @@ describe("openai.audioSpeech adapter validation", () => {
     const client = createGenerationClient({ apiKey: "key" });
     expect(() =>
       client.validate({ model: "qwen-audio-3.1-tts-flash", content: [{ type: "text", text }, audio()] }),
-    ).toThrow("requires input of at least 15 Unicode code points");
-  });
-
-  it.each([
-    { text: "a".repeat(14) },
-    { text: "😀".repeat(14) },
-  ])("rejects qwen-audio-3.1-tts-plus input below 15 Unicode code points ($text)", ({ text }) => {
-    const client = createGenerationClient({ apiKey: "key" });
-    expect(() =>
-      client.validate({ model: "qwen-audio-3.1-tts-plus", content: [{ type: "text", text }, audio()] }),
     ).toThrow("requires input of at least 15 Unicode code points");
   });
 

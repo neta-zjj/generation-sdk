@@ -715,7 +715,7 @@ function qwenAudio31TtsModel(model: string, title: string, tier: string): Genera
     schema: MODEL_SCHEMA,
     model,
     title,
-    description: `Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Tier: ${tier}. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.`,
+    description: `Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. ${tier} Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.`,
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
@@ -768,11 +768,11 @@ function qwenAudio31TtsModel(model: string, title: string, tier: string): Genera
 }
 
 const audioSpeechModels = [
-  qwenAudio31TtsModel("qwen-audio-3.1-tts-flash", "Qwen Audio 3.1 TTS Flash", "default; Alibaba's low-latency tier"),
+  qwenAudio31TtsModel("qwen-audio-3.1-tts-flash", "Qwen Audio 3.1 TTS Flash", "Tier: default Qwen TTS."),
   qwenAudio31TtsModel(
     "qwen-audio-3.1-tts-plus",
     "Qwen Audio 3.1 TTS Plus",
-    "Alibaba's quality tier (audiobooks, dubbing); only when user or external policy selects it",
+    "Tier: only when user/policy selects Plus.",
   ),
 ] satisfies GenerationModelDeclaration[];
 

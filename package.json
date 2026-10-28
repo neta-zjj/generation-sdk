@@ -1,6 +1,6 @@
 {
   "name": "@neta-art/generation",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "A lightweight multimodal generation SDK with built-in model presets and adapter-based provider calls.",
   "keywords": [
     "ai",

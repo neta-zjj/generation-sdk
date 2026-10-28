@@ -708,14 +708,13 @@ function geminiImageModel(
   };
 }
 
-const QWEN_TTS_TEXT = "这是一段长度足够并且表达清晰自然的语音合成测试文本。";
-
-function qwenAudio31TtsModel(model: string, title: string, tier: string): GenerationModelDeclaration {
-  return {
+const audioSpeechModels = [
+  {
     schema: MODEL_SCHEMA,
-    model,
-    title,
-    description: `Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Tier: ${tier}. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.`,
+    model: "qwen-audio-3.1-tts-flash",
+    title: "Qwen Audio 3.1 TTS Flash",
+    description:
+      "Modes: voice_prompt design OR one-reference clone. Text: >=15 Unicode code points. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
@@ -748,32 +747,23 @@ function qwenAudio31TtsModel(model: string, title: string, tier: string): Genera
       {
         title: "Voice design",
         request: {
-          model,
-          content: [{ type: "text", text: QWEN_TTS_TEXT }],
+          model: "qwen-audio-3.1-tts-flash",
+          content: [{ type: "text", text: "这是一段长度足够并且表达清晰自然的语音合成测试文本。" }],
           meta: { voice_prompt: "一位沉稳干练的男性播音员声音，吐字清晰有力" },
         },
       },
       {
         title: "Voice clone",
         request: {
-          model,
+          model: "qwen-audio-3.1-tts-flash",
           content: [
-            { type: "text", text: QWEN_TTS_TEXT },
+            { type: "text", text: "这是一段长度足够并且表达清晰自然的语音合成测试文本。" },
             { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
           ],
         },
       },
     ],
-  };
-}
-
-const audioSpeechModels = [
-  qwenAudio31TtsModel("qwen-audio-3.1-tts-flash", "Qwen Audio 3.1 TTS Flash", "default; Alibaba's low-latency tier"),
-  qwenAudio31TtsModel(
-    "qwen-audio-3.1-tts-plus",
-    "Qwen Audio 3.1 TTS Plus",
-    "Alibaba's quality tier (audiobooks, dubbing); only when user or external policy selects it",
-  ),
+  },
 ] satisfies GenerationModelDeclaration[];
 
 const meshyTaskParameters = {

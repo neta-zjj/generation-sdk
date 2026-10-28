@@ -122,6 +122,8 @@ function seedanceVideoParameters(defaults: {
   return {
     duration: {
       type: "integer",
+      optional: true,
+      default: 5,
       min: 4,
       max: defaults.maxDuration ?? 15,
       description: "Video duration in seconds.",

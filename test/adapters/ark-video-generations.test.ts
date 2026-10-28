@@ -68,7 +68,7 @@ async function runSuccessfulVideoGeneration(
     const promise = client.generate({
       model,
       content,
-      parameters: { duration: 5, poll_interval: 1, max_wait: 30, ...parameters },
+      parameters: { poll_interval: 1, max_wait: 30, ...parameters },
     });
     await vi.advanceTimersByTimeAsync(1000);
     const output = await promise;
@@ -132,15 +132,9 @@ describe("ark.videoGenerations adapter", () => {
     expect(metadata.watermark).toBeUndefined();
   });
 
-  it("requires the caller to pass duration", async () => {
-    const client = createGenerationClient({ apiKey: "key" });
-
-    await expect(
-      client.generate({
-        model: "seedance-2-0-fast",
-        content: [textBlock("a slow push in")],
-      }),
-    ).rejects.toThrow("Missing required parameter: duration");
+  it("defaults duration to 5 when omitted", async () => {
+    const { calls } = await runSuccessfulVideoGeneration([textBlock("a slow push in")]);
+    expect(parseCreateBody(calls).duration).toBe(5);
   });
 
   it("rejects the removed aspect_ratio alias", async () => {

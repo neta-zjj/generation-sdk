@@ -19,6 +19,7 @@ describe("generation HTTP transport errors", () => {
       .generate({
         model: "seedance-2-0-fast",
         content: [{ type: "text", text: "hello" }],
+        parameters: { duration: 5 },
       })
       .catch((value: unknown) => value);
 
@@ -165,6 +166,7 @@ describe("generation HTTP transport errors", () => {
       .generate({
         model: "seedance-2-0-fast",
         content: [{ type: "text", text: "hello" }],
+        parameters: { duration: 5 },
       })
       .catch((value: unknown) => value);
 

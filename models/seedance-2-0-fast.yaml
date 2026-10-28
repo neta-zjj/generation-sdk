@@ -49,8 +49,6 @@ content:
 parameters:
   duration:
     type: integer
-    optional: true
-    default: 5
     min: 4
     max: 15
     description: Video duration in seconds.

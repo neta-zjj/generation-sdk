@@ -40,6 +40,7 @@ async function expectVideoGenerationValidationError(content: GenerationContentBl
     client.generate({
       model: "seedance-2-0-fast",
       content,
+      parameters: { duration: 5 },
     }),
   ).rejects.toThrow(message);
   expect(resolvedSources).toBe(0);
@@ -139,7 +140,7 @@ describe("ark.videoGenerations adapter", () => {
         model: "seedance-2-0-fast",
         content: [textBlock("a slow push in")],
       }),
-    ).rejects.toThrow("duration is required");
+    ).rejects.toThrow("Missing required parameter: duration");
   });
 
   it("rejects the removed aspect_ratio alias", async () => {
@@ -393,7 +394,7 @@ describe("ark.videoGenerations adapter", () => {
       client.generate({
         model: "seedance-2-5",
         content: [textBlock("animate the still"), imageBlock("https://example.com/first.jpg", { role: "first_frame" })],
-        parameters: { ratio: "9:16" },
+        parameters: { duration: 5, ratio: "9:16" },
       }),
     ).rejects.toThrow('Seedance 2.5 first/last-frame tasks require ratio=adaptive, got "9:16"');
   });
@@ -433,7 +434,7 @@ describe("ark.videoGenerations adapter", () => {
           textBlock("turn the clip into night rain"),
           videoBlock("https://example.com/source.mp4", { role: "reference_video" }),
         ],
-        parameters: { ratio: "16:9" },
+        parameters: { duration: 5, ratio: "16:9" },
         meta: { omni_reference_task_type: "edit" },
       }),
     ).rejects.toThrow('Seedance 2.5 edit tasks require ratio=adaptive, got "16:9"');

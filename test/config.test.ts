@@ -30,11 +30,24 @@ describe("config", () => {
     expect(declaration.category).toBe("image");
   });
 
-  it("declares the provider duration range for each Seedance generation", async () => {
+  it("requires duration and declares the provider range for each Seedance generation", async () => {
     const client = createGenerationClient({ apiKey: "test" });
     expect(client.getModel("seedance-2-5")?.parameters?.duration).toMatchObject({ min: 4, max: 30 });
     expect(client.getModel("seedance-2-0")?.parameters?.duration).toMatchObject({ min: 4, max: 15 });
     expect(client.getModel("seedance-2-0-fast")?.parameters?.duration).toMatchObject({ min: 4, max: 15 });
+
+    for (const model of ["seedance-2-5", "seedance-2-0", "seedance-2-0-fast"]) {
+      const duration = client.getModel(model)?.parameters?.duration;
+      expect(duration?.optional).not.toBe(true);
+      expect(duration?.default).toBeUndefined();
+    }
+    expect(() =>
+      client.validate({
+        model: "seedance-2-0",
+        content: [{ type: "text", text: "a slow push in" }],
+        parameters: {},
+      }),
+    ).toThrow("Missing required parameter: duration");
 
     const shipped = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
     for (const model of ["seedance-2-5", "seedance-2-0", "seedance-2-0-fast"]) {
@@ -538,21 +551,21 @@ describe("config", () => {
       client.validate({
         model: "seedance-2-0-fast",
         content: [{ type: "text", text: "a quick motion study" }],
-        parameters: { resolution: "1080p" },
+        parameters: { duration: 5, resolution: "1080p" },
       }),
     ).toThrow("Parameter resolution must be one of: 480p, 720p");
     expect(() =>
       client.validate({
         model: "seedance-2-5",
         content: [{ type: "text", text: "a quick motion study" }],
-        parameters: { resolution: "4k" },
+        parameters: { duration: 5, resolution: "4k" },
       }),
     ).toThrow("Parameter resolution must be one of: 480p, 720p, 1080p");
     expect(() =>
       client.validate({
         model: "seedance-2-0",
         content: [{ type: "text", text: "a quick motion study" }],
-        parameters: { resolution: "2K" },
+        parameters: { duration: 5, resolution: "2K" },
       }),
     ).toThrow("Parameter resolution must be one of: 480p, 720p, 1080p, 4k");
     for (const model of ["seedance-2-0", "seedance-2-0-fast", "seedance-2-5"]) {

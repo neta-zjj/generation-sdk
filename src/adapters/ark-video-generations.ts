@@ -321,7 +321,10 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
   const visual = media.filter(isVisualResolved);
   const audio = media.filter((item) => item.kind === "audio");
   const resolution = asString(input.parameters.resolution) ?? "720p";
-  const duration = getIntegerParameter(input.parameters, "duration", 5);
+  const duration = getIntegerParameter(input.request.parameters ?? {}, "duration", Number.NaN);
+  if (!Number.isInteger(duration) || duration <= 0) {
+    throw new GenerationValidationError("duration is required");
+  }
   const fps = getIntegerParameter(input.parameters, "fps", 24);
   const pollIntervalSec = getIntegerParameter(input.parameters, "poll_interval", DEFAULT_POLL_INTERVAL_SEC);
   const maxWaitSec = getIntegerParameter(input.parameters, "max_wait", DEFAULT_MAX_WAIT_SEC);
@@ -331,8 +334,8 @@ export async function arkVideoGenerationsAdapter(input: GenerationAdapterInput):
   const watermark = asBoolean(input.parameters.watermark) ?? false;
   const seed = asNumber(input.parameters.seed);
 
-  const payload: Record<string, unknown> = { model: input.declaration.model, prompt };
-  const metadata: Record<string, unknown> = { duration, fps, generate_audio: generateAudio, resolution, ratio };
+  const payload: Record<string, unknown> = { model: input.declaration.model, prompt, duration };
+  const metadata: Record<string, unknown> = { fps, generate_audio: generateAudio, resolution, ratio };
   if (seed !== undefined) metadata.seed = seed;
   if (returnLastFrame) metadata.return_last_frame = true;
   if (cameraFixed) metadata.camera_fixed = true;

@@ -67,7 +67,7 @@ async function runSuccessfulVideoGeneration(
     const promise = client.generate({
       model,
       content,
-      parameters: { poll_interval: 1, max_wait: 30, ...parameters },
+      parameters: { duration: 5, poll_interval: 1, max_wait: 30, ...parameters },
     });
     await vi.advanceTimersByTimeAsync(1000);
     const output = await promise;
@@ -95,7 +95,7 @@ describe("ark.videoGenerations adapter", () => {
     const promise = client.generate({
       model: "seedance-2-0-fast",
       content: [{ type: "text", text: "hello" }],
-      parameters: { poll_interval: 1, max_wait: 30 },
+      parameters: { duration: 5, poll_interval: 1, max_wait: 30 },
     });
     await vi.advanceTimersByTimeAsync(1000);
     const output = await promise;
@@ -118,6 +118,8 @@ describe("ark.videoGenerations adapter", () => {
     const metadata = body.metadata as Record<string, unknown>;
 
     expect(body.prompt).toBe("a red cube rotating on a white table");
+    expect(body.duration).toBe(5);
+    expect(metadata.duration).toBeUndefined();
     expect(body.width).toBeUndefined();
     expect(body.height).toBeUndefined();
     expect(metadata.content).toBeUndefined();
@@ -127,6 +129,17 @@ describe("ark.videoGenerations adapter", () => {
     expect(metadata.generate_audio).toBe(true);
     expect(metadata.return_last_frame).toBe(true);
     expect(metadata.watermark).toBeUndefined();
+  });
+
+  it("requires the caller to pass duration", async () => {
+    const client = createGenerationClient({ apiKey: "key" });
+
+    await expect(
+      client.generate({
+        model: "seedance-2-0-fast",
+        content: [textBlock("a slow push in")],
+      }),
+    ).rejects.toThrow("duration is required");
   });
 
   it("rejects the removed aspect_ratio alias", async () => {
@@ -282,6 +295,7 @@ describe("ark.videoGenerations adapter", () => {
       client.generate({
         model: "seedance-2-0-fast",
         content: [{ type: "text", text: "hello" }],
+        parameters: { duration: 5 },
       }),
     ).rejects.toMatchObject({
       name: "GenerationProviderError",
@@ -314,7 +328,7 @@ describe("ark.videoGenerations adapter", () => {
     const promise = client.generate({
       model: "seedance-2-0-fast",
       content: [{ type: "text", text: "hello" }],
-      parameters: { poll_interval: 1, max_wait: 30 },
+      parameters: { duration: 5, poll_interval: 1, max_wait: 30 },
     });
     await vi.advanceTimersByTimeAsync(1000);
     const output = await promise;
@@ -350,7 +364,7 @@ describe("ark.videoGenerations adapter", () => {
       client.generate({
         model: "seedance-2-0-fast",
         content: [{ type: "text", text: "hello" }],
-        parameters: { poll_interval: 1, max_wait: 30 },
+        parameters: { duration: 5, poll_interval: 1, max_wait: 30 },
       }),
     ).rejects.toMatchObject({
       name: "GenerationProviderError",

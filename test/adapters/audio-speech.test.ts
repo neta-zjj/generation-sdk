@@ -695,11 +695,7 @@ describe("openai.audioSpeech scene3 validation", () => {
     "square brackets",
     "about 21.5 per second of audio",
   ];
-  const REFERENCE_FACTS = [
-    "1 to 20 s",
-    "over 20 s is cut at a quiet point",
-    "only the part before the cut is kept",
-  ];
+  const REFERENCE_FACTS = ["1 to 20 s", "over 20 s is cut at a quiet point", "only the part before the cut is kept"];
 
   it("declares drama_value from 0 to 1 with 0.5 as default, and up to 16 references", () => {
     const declaration = getBuiltinGenerationModel("scene3");

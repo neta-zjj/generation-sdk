@@ -402,7 +402,7 @@ await client.generate({
 
 ## Text to speech
 
-The Qwen TTS model is `qwen-audio-3.1-tts-flash`; its input must have at least 15 Unicode code points.
+The Qwen TTS model is `qwen-audio-3.1-tts-flash`.
 
 Each TTS request accepts exactly one non-empty text block and returns one URL audio block. Choose the model from the requested voice mode and priority before constructing the request:
 
@@ -410,13 +410,12 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 | --- | --- |
 | Create a voice from a text-only description, without reference audio | `qwen-audio-3.1-tts-flash` with a `voice_prompt` |
 | Clone a voice from one reference recording | `qwen-audio-3.1-tts-flash`; pass one HTTP(S) reference URL and no `voice_prompt` |
-| Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | `qwen-audio-3.1-tts-flash` with a short generic `voice_prompt`, such as a natural, neutral narrator |
+| Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | `qwen-audio-3.1-tts-flash` with no reference audio and no `voice_prompt` |
 
-- Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash`; requires at least 15 Unicode code points. Optional `parameters.instructions` directs how the whole text is spoken; with a designed or cloned voice, pace directions are followed and emotion directions had no measurable effect in tests. Optional `parameters.seed` (0 to 65535) is passed to the model; the same seed does not reproduce the same audio.
+- Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash`; with neither, a default voice speaks the text. Optional `parameters.instructions` directs how the whole text is spoken; with a designed or cloned voice, pace directions are followed and emotion directions had no measurable effect in tests. Optional `parameters.seed` (0 to 65535) is passed to the model; the same seed does not reproduce the same audio.
 - Scene 3: built-in voice or clone from up to 16 references, with delivery controls written in the text; use `scene3` when the user or an external policy names it.
 - Conflict: reference + redesign requires user choice before generation.
 - Dependency: clone prior generated audio.
-- Short text: input under 15 Unicode code points is rejected; ask the user to lengthen it.
 
 ```ts
 await client.generate({
@@ -439,11 +438,9 @@ await client.generate({
 
 TTS reference audio only supports HTTP(S) URLs. Qwen always uses the single text block as the speech input.
 
-`scene3` takes exactly one non-empty text block, in any of about 80 languages, and up to 16 HTTP(S) reference recordings. The text is at most 900 characters, not counting leading and trailing white space; every other character counts, tags and spaces included. Without a reference it speaks in a built-in voice; with references it clones them. `meta.text` on an audio block carries the transcript of that recording; when it is omitted, the recording is transcribed downstream.
+`scene3` takes exactly one non-empty text block, in any of about 80 languages, and up to 16 HTTP(S) reference recordings. There is no fixed character limit: one request speaks at most about 14.7 minutes of audio. The limit is lower with longer reference recordings or after the request waited in the queue, and at least about 11 minutes when it did not wait. A text whose speech does not fit is refused with a 400 error whose message names this request's limit; split a long text into several requests. Without a reference it speaks in a built-in voice; with references it clones them. `meta.text` on an audio block carries the transcript of that recording; when it is omitted, the recording is transcribed downstream.
 
-Each reference recording works best at 1 to 20 s. A recording under 1 s is rejected; one over 20 s is cut at a quiet point before the 20 s mark, and only the part before the cut is kept.
-
-One speaker is reliable up to the 900-character cap. Several speakers in one request come out right less often as speakers and length grow. In testing, about 3 in 5 two-speaker results came out right, and 1 in 6 four-speaker results; four speakers mostly failed even at 300 characters. A failed result stops after one line, runs on, or gets lines wrong. For a long scene or more than two speakers, request each turn on its own, with one speaker and that speaker's reference recording, and join the audio. A speaker without a recording can get one first: generate a line for them on its own and use it as their reference.
+Each reference recording works best at 1 to 20 s. One over 20 s is cut at a quiet point before the 20 s mark, and only the part before the cut is kept.
 
 Controls are written in the text:
 

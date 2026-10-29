@@ -117,6 +117,13 @@ describe("openai.audioSpeech adapter requests", () => {
     });
   });
 
+  it("sends Qwen text with neither reference audio nor voice_prompt as plain text", async () => {
+    const { client, calls } = recordingClient();
+    await client.generate({ model: "qwen-audio-3.1-tts-flash", content: [{ type: "text", text: QWEN_TEXT }] });
+
+    expect(requestBody(calls[0])).toEqual({ model: "qwen-audio-3.1-tts-flash", input: QWEN_TEXT });
+  });
+
   it("rejects the retired preview_text as an unknown request.meta field before fetch", async () => {
     const fetchMock = vi.fn(async () => routerSuccess());
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
@@ -181,10 +188,6 @@ describe("openai.audioSpeech adapter validation", () => {
 
   it.each([
     {
-      name: "neither voice source",
-      request: qwenDesignRequest({ meta: {} }),
-    },
-    {
       name: "both voice sources",
       request: qwenDesignRequest({
         content: [{ type: "text", text: QWEN_TEXT }, audio()],
@@ -242,13 +245,21 @@ describe("openai.audioSpeech adapter validation", () => {
   });
 
   it.each([
+    { text: "你好" },
+    { text: "😀".repeat(8) },
     { text: "a".repeat(14) },
     { text: "😀".repeat(14) },
-  ])("rejects qwen-audio-3.1-tts-flash input below 15 Unicode code points ($text)", ({ text }) => {
+  ])("sends qwen-audio-3.1-tts-flash input below 15 Unicode code points as written ($text)", async ({ text }) => {
+    const { client, calls } = recordingClient();
+    await client.generate({ model: "qwen-audio-3.1-tts-flash", content: [{ type: "text", text }, audio()] });
+    expect(requestBody(calls[0]).input).toBe(text);
+  });
+
+  it("accepts a Qwen request with neither reference audio nor voice_prompt", () => {
     const client = createGenerationClient({ apiKey: "key" });
     expect(() =>
-      client.validate({ model: "qwen-audio-3.1-tts-flash", content: [{ type: "text", text }, audio()] }),
-    ).toThrow("requires input of at least 15 Unicode code points");
+      client.validate({ model: "qwen-audio-3.1-tts-flash", content: [{ type: "text", text: QWEN_TEXT }] }),
+    ).not.toThrow();
   });
 
   it.each([
@@ -434,7 +445,7 @@ describe("openai.audioSpeech Qwen instructions and seed", () => {
     const section = readme.slice(readme.indexOf("## Text to speech"), readme.indexOf("`scene3` takes"));
 
     expect(section).toContain(
-      "- Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash`; requires at least 15 Unicode code points. Optional `parameters.instructions` directs how the whole text is spoken; with a designed or cloned voice, pace directions are followed and emotion directions had no measurable effect in tests. Optional `parameters.seed` (0 to 65535) is passed to the model; the same seed does not reproduce the same audio.",
+      "- Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash`; with neither, a default voice speaks the text. Optional `parameters.instructions` directs how the whole text is spoken; with a designed or cloned voice, pace directions are followed and emotion directions had no measurable effect in tests. Optional `parameters.seed` (0 to 65535) is passed to the model; the same seed does not reproduce the same audio.",
     );
     expect(section).toContain('parameters: { instructions: "请用非常缓慢的语速说话，每个字都慢慢说。" }');
   });
@@ -585,9 +596,9 @@ describe("openai.audioSpeech scene3 requests", () => {
     for (const call of calls) expect(requestBody(call)).not.toHaveProperty("instructions");
   });
 
-  it("does not refuse a text of 2000 characters: the speech service enforces the 900-character cap", async () => {
+  it("does not refuse a long text: the speech service refuses speech that does not fit one request", async () => {
     const { client, calls } = recordingClient();
-    const input = "字".repeat(2000);
+    const input = "字".repeat(20000);
 
     await client.generate({ model: "scene3", content: [{ type: "text", text: input }] });
 
@@ -669,8 +680,9 @@ describe("openai.audioSpeech scene3 validation", () => {
   // What the text input and the reference recordings must tell a caller.
   const TEXT_FACTS = [
     "about 80 languages",
-    "900 characters",
-    "tags and spaces included",
+    "about 14.7 minutes of audio",
+    "at least about 11 minutes",
+    "split a long text into several requests",
     "<whisper>…</whisper>",
     "<slow>…</slow>",
     "<emphasis>…</emphasis>",
@@ -683,12 +695,7 @@ describe("openai.audioSpeech scene3 validation", () => {
     "square brackets",
     "about 21.5 per second of audio",
   ];
-  const REFERENCE_FACTS = [
-    "1 to 20 s",
-    "under 1 s is rejected",
-    "over 20 s is cut at a quiet point",
-    "only the part before the cut is kept",
-  ];
+  const REFERENCE_FACTS = ["1 to 20 s", "over 20 s is cut at a quiet point", "only the part before the cut is kept"];
 
   it("declares drama_value from 0 to 1 with 0.5 as default, and up to 16 references", () => {
     const declaration = getBuiltinGenerationModel("scene3");

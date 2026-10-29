@@ -719,7 +719,7 @@ const audioSpeechModels = [
     model: "qwen-audio-3.1-tts-flash",
     title: "Qwen Audio 3.1 TTS Flash",
     description:
-      "Modes: voice_prompt design OR one-reference clone, each with the optional instructions parameter for how the whole text is spoken. Text: >=15 Unicode code points. Not supported: speed, response_format, voice, stream, or a separate language parameter. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
+      "Modes: voice_prompt design OR one-reference clone, each with the optional instructions parameter for how the whole text is spoken. With neither, a default voice speaks the text. Not supported: speed, response_format, voice, stream, or a separate language parameter. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
@@ -728,7 +728,7 @@ const audioSpeechModels = [
           required: true,
           min: 1,
           max: 1,
-          description: "Exactly one non-empty text block to speak, with at least 15 Unicode code points.",
+          description: "Exactly one non-empty text block to speak.",
         },
         {
           type: "audio",
@@ -799,7 +799,7 @@ const audioSpeechModels = [
     title: "Scene 3",
     category: "audio",
     description:
-      "Modes: built-in voice, or clone from up to 16 reference recordings. Direction: controls written in the text (see the text input). Speakers: one speaker is reliable up to the 900-character cap. Several speakers in one request come out right less often as speakers and length grow (in testing, about 3 in 5 two-speaker results and 1 in 6 four-speaker results); for a long scene or more than two speakers, request each turn on its own, with that speaker's reference recording, and join the audio. Not supported: speed, response_format, voice, voice_prompt, stream, or a separate language parameter (write the language in the text, e.g. [language: ja]). Dependency: clone prior generated audio.",
+      "Modes: built-in voice, or clone from up to 16 reference recordings. Direction: controls written in the text (see the text input). Not supported: speed, response_format, voice, voice_prompt, stream, or a separate language parameter (write the language in the text, e.g. [language: ja]). Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
@@ -809,7 +809,7 @@ const audioSpeechModels = [
           min: 1,
           max: 1,
           description:
-            "Exactly one non-empty text block to speak, in any of about 80 languages. At most 900 characters, not counting leading and trailing white space; every other character counts, tags and spaces included. Controls written in the text: a cue such as [sighs], [laughs] or [pause] acts where it stands; a scoped tag such as <whisper>…</whisper>, <slow>…</slow> or <emphasis>…</emphasis> sets the delivery of the enclosed words; a director's note, either a [style] prefix such as [with bright eager excitement] or `Direction: … Line: …`, sets the delivery of its line; <|speaker:N|> starts the turn of speaker N, from 0 to 15; [language: xx] at the end of a line names the main language; [audio tokens: N] at the end of a line hints its length, about 21.5 per second of audio. Cues, scoped tags and director's notes are free natural language; the ones named here are only examples. [language: xx] and [audio tokens: N] are hints and are not spoken. Text in round parentheses ( ) is spoken as written, so put delivery in square brackets.",
+            "Exactly one non-empty text block to speak, in any of about 80 languages. No fixed character limit: one request speaks at most about 14.7 minutes of audio. The limit is lower with longer reference recordings or after the request waited in the queue, and at least about 11 minutes when it did not wait. A text whose speech does not fit is refused with a 400 error whose message names this request's limit; split a long text into several requests. Controls written in the text: a cue such as [sighs], [laughs] or [pause] acts where it stands; a scoped tag such as <whisper>…</whisper>, <slow>…</slow> or <emphasis>…</emphasis> sets the delivery of the enclosed words; a director's note, either a [style] prefix such as [with bright eager excitement] or `Direction: … Line: …`, sets the delivery of its line; <|speaker:N|> starts the turn of speaker N, from 0 to 15; [language: xx] at the end of a line names the main language; [audio tokens: N] at the end of a line hints its length, about 21.5 per second of audio. Cues, scoped tags and director's notes are free natural language; the ones named here are only examples. [language: xx] and [audio tokens: N] are hints and are not spoken. Text in round parentheses ( ) is spoken as written, so put delivery in square brackets.",
         },
         {
           type: "audio",
@@ -817,7 +817,7 @@ const audioSpeechModels = [
           max: 16,
           sources: ["url"],
           description:
-            "Clone: up to 16 reference recording URLs. Each works best at 1 to 20 s: one under 1 s is rejected, and one over 20 s is cut at a quiet point before the 20 s mark, and only the part before the cut is kept. With `<|speaker:N|>` tags in the text, the N-th recording (from 0) is that speaker's voice; without tags they are joined into one voice. meta.text: optional transcript of that recording, transcribed downstream when omitted. Dependency: use prior generated audio.",
+            "Clone: up to 16 reference recording URLs. Each works best at 1 to 20 s; one over 20 s is cut at a quiet point before the 20 s mark, and only the part before the cut is kept. With `<|speaker:N|>` tags in the text, the N-th recording (from 0) is that speaker's voice; without tags they are joined into one voice. meta.text: optional transcript of that recording, transcribed downstream when omitted. Dependency: use prior generated audio.",
         },
       ],
     },

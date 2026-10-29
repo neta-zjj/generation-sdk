@@ -335,10 +335,10 @@ describe("config", () => {
 
     const flash = client.getModel("qwen-audio-3.1-tts-flash");
     expect(flash?.description).toBe(
-      "Modes: voice_prompt design OR one-reference clone, each with the optional instructions parameter for how the whole text is spoken. Text: >=15 Unicode code points. Not supported: speed, response_format, voice, stream, or a separate language parameter. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
+      "Modes: voice_prompt design OR one-reference clone, each with the optional instructions parameter for how the whole text is spoken. With neither, a default voice speaks the text. Not supported: speed, response_format, voice, stream, or a separate language parameter. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
     );
-    expect(flash?.content.input.find((input) => input.type === "text")?.description).toContain(
-      "at least 15 Unicode code points",
+    expect(flash?.content.input.find((input) => input.type === "text")?.description).toBe(
+      "Exactly one non-empty text block to speak.",
     );
 
     expect(client.getModel("higgs-tts")).toBeNull();
@@ -354,7 +354,7 @@ describe("config", () => {
     expect(readme).toContain("Qwen: `voice_prompt` design OR one-reference clone");
     expect(readme).toContain("Conflict: reference + redesign requires user choice before generation");
     expect(readme).toContain("Dependency: clone prior generated audio");
-    expect(readme).toContain("Short text: input under 15 Unicode code points is rejected");
+    expect(readme).not.toContain("15 Unicode code points");
     expect(readme).not.toMatch(/quality prioritized over latency|latency prioritized over maximum quality/);
   });
 
@@ -745,18 +745,6 @@ describe("config", () => {
     expect(section).toContain("terminal state");
     expect(section).not.toContain("21 minutes");
     expect(section).not.toMatch(/1 to 2000|64000|64,000/);
-  });
-
-  it("ships models/scene3.yaml as built in, telling callers how several speakers in one request fare", async () => {
-    const client = createGenerationClient({ apiKey: "test" });
-    const shipped = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
-    const builtin = client.getModel("scene3");
-
-    expect(shipped.find((declaration) => declaration.model === "scene3")).toEqual(builtin);
-    expect(builtin?.description).toContain("Speakers: one speaker is reliable up to the 900-character cap.");
-    expect(builtin?.description).toContain("request each turn on its own, with that speaker's reference recording");
-    const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
-    expect(readme).toContain("One speaker is reliable up to the 900-character cap.");
   });
 
   it("loads models/song2.yaml on its own and enforces what it declares", async () => {

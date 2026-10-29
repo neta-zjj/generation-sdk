@@ -102,10 +102,6 @@ function validateQwen(input: ResolvedGenerationRequest, text: TextBlock, audio: 
       `${input.declaration.model} reference audio and meta.voice_prompt are mutually exclusive`,
     );
   }
-
-  if (Array.from(text.text.trim()).length < 15) {
-    throw new GenerationValidationError(`${input.declaration.model} requires input of at least 15 Unicode code points`);
-  }
 }
 
 function validateScene3(input: ResolvedGenerationRequest, text: TextBlock, audio: AudioBlock[]): void {

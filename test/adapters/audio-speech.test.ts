@@ -242,13 +242,14 @@ describe("openai.audioSpeech adapter validation", () => {
   });
 
   it.each([
+    { text: "你好" },
+    { text: "😀".repeat(8) },
     { text: "a".repeat(14) },
     { text: "😀".repeat(14) },
-  ])("rejects qwen-audio-3.1-tts-flash input below 15 Unicode code points ($text)", ({ text }) => {
-    const client = createGenerationClient({ apiKey: "key" });
-    expect(() =>
-      client.validate({ model: "qwen-audio-3.1-tts-flash", content: [{ type: "text", text }, audio()] }),
-    ).toThrow("requires input of at least 15 Unicode code points");
+  ])("sends qwen-audio-3.1-tts-flash input below 15 Unicode code points as written ($text)", async ({ text }) => {
+    const { client, calls } = recordingClient();
+    await client.generate({ model: "qwen-audio-3.1-tts-flash", content: [{ type: "text", text }, audio()] });
+    expect(requestBody(calls[0]).input).toBe(text);
   });
 
   it.each([

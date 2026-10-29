@@ -439,7 +439,7 @@ await client.generate({
 
 TTS reference audio only supports HTTP(S) URLs. Qwen always uses the single text block as the speech input.
 
-`scene3` takes exactly one non-empty text block, in any of about 80 languages, and up to 16 HTTP(S) reference recordings. Without a reference it speaks in a built-in voice; with references it clones them. `meta.text` on an audio block carries the transcript of that recording; when it is omitted, the recording is transcribed downstream.
+`scene3` takes exactly one non-empty text block, in any of about 80 languages, and up to 16 HTTP(S) reference recordings. The text is at most 900 characters, not counting leading and trailing white space; every other character counts, tags and spaces included. Without a reference it speaks in a built-in voice; with references it clones them. `meta.text` on an audio block carries the transcript of that recording; when it is omitted, the recording is transcribed downstream.
 
 Each reference recording works best at 1 to 20 s. A recording under 1 s is rejected; one over 20 s is cut at a quiet point before the 20 s mark, and only the part before the cut is kept.
 
@@ -456,9 +456,8 @@ Cues, scoped tags and director's notes are free natural language; the ones above
 
 Parameters:
 
-- `drama_value` (number, 0 to 1, default 0.5): How lively the delivery is, from 0 to 1 (default 0.5, the recommended setting). Higher values give more varied intonation and fewer pauses; lower values are steadier. The effect is subtle: for a clear change of tone, use `instructions` or direction cues in the text. With the same `seed`, `drama_value` and input, the audio is the same.
+- `drama_value` (number, 0 to 1, default 0.5): How lively the delivery is, from 0 to 1 (default 0.5, the recommended setting). Higher values give more varied intonation and fewer pauses; lower values are steadier. The effect is subtle: for a clear change of tone, use direction cues in the text. With the same `seed`, `drama_value` and input, the audio is the same.
 - `seed` (integer, 0 to 9007199254740991, optional): random seed for reproducibility.
-- `instructions` (string, optional): a director's note applied to every sentence. At most 300 characters after `[ ] < > |` are removed; a longer note is rejected before the request is sent.
 
 Not supported: `speed`, `response_format`, `voice`, `voice_prompt`, `stream`, or a separate `language` parameter. Write the language in the text instead, e.g. `[language: ja]`.
 
@@ -499,16 +498,6 @@ await client.generate({
   model: "scene3",
   content: [{ type: "text", text: "Welcome back to the show. [language: en]" }],
   parameters: { seed: 42 },
-});
-```
-
-A director's note for every sentence:
-
-```ts
-await client.generate({
-  model: "scene3",
-  content: [{ type: "text", text: "今晚的风很温柔。我们慢慢走回家吧。" }],
-  parameters: { instructions: "Calm and warm, like a bedtime story." },
 });
 ```
 

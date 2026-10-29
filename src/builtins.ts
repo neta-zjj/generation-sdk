@@ -799,7 +799,7 @@ const audioSpeechModels = [
     title: "Scene 3",
     category: "audio",
     description:
-      "Modes: built-in voice, or clone from up to 16 reference recordings. Direction: controls written in the text (see the text input), and the instructions parameter for a note on every sentence. Not supported: speed, response_format, voice, voice_prompt, stream, or a separate language parameter (write the language in the text, e.g. [language: ja]). Dependency: clone prior generated audio.",
+      "Modes: built-in voice, or clone from up to 16 reference recordings. Direction: controls written in the text (see the text input). Not supported: speed, response_format, voice, voice_prompt, stream, or a separate language parameter (write the language in the text, e.g. [language: ja]). Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
@@ -809,7 +809,7 @@ const audioSpeechModels = [
           min: 1,
           max: 1,
           description:
-            "Exactly one non-empty text block to speak, in any of about 80 languages. Controls written in the text: a cue such as [sighs], [laughs] or [pause] acts where it stands; a scoped tag such as <whisper>…</whisper>, <slow>…</slow> or <emphasis>…</emphasis> sets the delivery of the enclosed words; a director's note, either a [style] prefix such as [with bright eager excitement] or `Direction: … Line: …`, sets the delivery of its line; <|speaker:N|> starts the turn of speaker N, from 0 to 15; [language: xx] at the end of a line names the main language; [audio tokens: N] at the end of a line hints its length, about 21.5 per second of audio. Cues, scoped tags and director's notes are free natural language; the ones named here are only examples. [language: xx] and [audio tokens: N] are hints and are not spoken. Text in round parentheses ( ) is spoken as written, so put delivery in square brackets.",
+            "Exactly one non-empty text block to speak, in any of about 80 languages. At most 900 characters, not counting leading and trailing white space; every other character counts, tags and spaces included. Controls written in the text: a cue such as [sighs], [laughs] or [pause] acts where it stands; a scoped tag such as <whisper>…</whisper>, <slow>…</slow> or <emphasis>…</emphasis> sets the delivery of the enclosed words; a director's note, either a [style] prefix such as [with bright eager excitement] or `Direction: … Line: …`, sets the delivery of its line; <|speaker:N|> starts the turn of speaker N, from 0 to 15; [language: xx] at the end of a line names the main language; [audio tokens: N] at the end of a line hints its length, about 21.5 per second of audio. Cues, scoped tags and director's notes are free natural language; the ones named here are only examples. [language: xx] and [audio tokens: N] are hints and are not spoken. Text in round parentheses ( ) is spoken as written, so put delivery in square brackets.",
         },
         {
           type: "audio",
@@ -829,7 +829,7 @@ const audioSpeechModels = [
         min: 0,
         max: 1,
         description:
-          "How lively the delivery is, from 0 to 1 (default 0.5, the recommended setting). Higher values give more varied intonation and fewer pauses; lower values are steadier. The effect is subtle: for a clear change of tone, use `instructions` or direction cues in the text. With the same `seed`, `drama_value` and input, the audio is the same.",
+          "How lively the delivery is, from 0 to 1 (default 0.5, the recommended setting). Higher values give more varied intonation and fewer pauses; lower values are steadier. The effect is subtle: for a clear change of tone, use direction cues in the text. With the same `seed`, `drama_value` and input, the audio is the same.",
       },
       seed: {
         type: "integer",
@@ -838,11 +838,6 @@ const audioSpeechModels = [
         // 2^53 - 1: a larger seed would not survive the gateway's float64 round trip, and the gateway rejects it.
         max: Number.MAX_SAFE_INTEGER,
         description: "Random seed for reproducibility.",
-      },
-      instructions: {
-        type: "string",
-        optional: true,
-        description: "Director's note applied to every sentence. At most 300 characters; [ ] < > | are removed.",
       },
     },
     examples: [

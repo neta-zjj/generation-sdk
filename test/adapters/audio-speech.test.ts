@@ -575,40 +575,23 @@ describe("openai.audioSpeech scene3 requests", () => {
     expect(requestBody(calls[0])).toEqual({ model: "scene3", input: "文本", metadata });
   });
 
-  it.each<{ name: string; parameters?: Record<string, unknown>; instructions?: string }>([
-    {
-      name: "given",
-      parameters: { instructions: "Calm and warm, like a bedtime story." },
-      instructions: "Calm and warm, like a bedtime story.",
-    },
-    { name: "not given" },
-  ])("sends instructions at the top level only when they are $name", async ({ parameters, instructions }) => {
+  it("never sends an instructions key, since scene3 does not take the parameter", async () => {
     const { client, calls } = recordingClient();
 
-    await client.generate({
-      model: "scene3",
-      content: [{ type: "text", text: "文本" }],
-      ...(parameters ? { parameters } : {}),
-    });
+    await client.generate({ model: "scene3", content: [{ type: "text", text: "文本" }], parameters: { seed: 7 } });
+    await client.generate({ model: "scene3", content: [{ type: "text", text: "文本" }, audio()] });
 
-    expect(requestBody(calls[0])).toEqual({
-      model: "scene3",
-      input: "文本",
-      metadata: { drama_value: 0.5 },
-      ...(instructions === undefined ? {} : { instructions }),
-    });
+    expect(calls).toHaveLength(2);
+    for (const call of calls) expect(requestBody(call)).not.toHaveProperty("instructions");
   });
 
-  it.each([
-    { name: "300 characters", instructions: "字".repeat(300) },
-    { name: "300 characters outside the BMP", instructions: "😀".repeat(300) },
-    { name: "300 characters besides [ ] < > | and surrounding spaces", instructions: ` [${"字".repeat(300)}] <|> \n` },
-  ])("accepts instructions of $name and sends them as given", async ({ instructions }) => {
+  it("does not refuse a text of 2000 characters: the speech service enforces the 900-character cap", async () => {
     const { client, calls } = recordingClient();
+    const input = "字".repeat(2000);
 
-    await client.generate({ model: "scene3", content: [{ type: "text", text: "文本" }], parameters: { instructions } });
+    await client.generate({ model: "scene3", content: [{ type: "text", text: input }] });
 
-    expect(requestBody(calls[0])?.instructions).toBe(instructions);
+    expect(requestBody(calls[0])).toEqual({ model: "scene3", input, metadata: { drama_value: 0.5 } });
   });
 
   it("sends one clone reference as a trimmed URL without a transcript", async () => {
@@ -674,18 +657,20 @@ describe("openai.audioSpeech scene3 validation", () => {
     return Array.from({ length: count }, (_, index) => audio(`https://example.com/speaker-${index}.mp3`));
   }
 
-  // The wording drama3-launch agreed for drama_value (ticket 02a); the declaration and the README carry it as is.
-  const DRAMA_VALUE_DESCRIPTION =
-    "How lively the delivery is, from 0 to 1 (default 0.5, the recommended setting). Higher values give more varied intonation and fewer pauses; lower values are steadier. The effect is subtle: for a clear change of tone, use `instructions` or direction cues in the text. With the same `seed`, `drama_value` and input, the audio is the same.";
+  // The agreed wording for drama_value; the declaration and the README carry it as is.
+  const LIVELINESS_DESCRIPTION =
+    "How lively the delivery is, from 0 to 1 (default 0.5, the recommended setting). Higher values give more varied intonation and fewer pauses; lower values are steadier. The effect is subtle: for a clear change of tone, use direction cues in the text. With the same `seed`, `drama_value` and input, the audio is the same.";
 
   async function readmeScene3Section(): Promise<string> {
     const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
     return readme.slice(readme.indexOf("`scene3` takes"), readme.indexOf("## Video generation"));
   }
 
-  // What the text input and the reference recordings must tell a caller (drama3-launch, after the parameter table).
+  // What the text input and the reference recordings must tell a caller.
   const TEXT_FACTS = [
     "about 80 languages",
+    "900 characters",
+    "tags and spaces included",
     "<whisper>…</whisper>",
     "<slow>…</slow>",
     "<emphasis>…</emphasis>",
@@ -712,8 +697,15 @@ describe("openai.audioSpeech scene3 validation", () => {
     expect(declaration?.content.input.find((spec) => spec.type === "audio")?.max).toBe(16);
   });
 
+  it("does not declare instructions, which the model does not take", () => {
+    const declaration = getBuiltinGenerationModel("scene3");
+
+    expect(declaration?.parameters).not.toHaveProperty("instructions");
+    expect(JSON.stringify(declaration)).not.toContain("instructions");
+  });
+
   it("describes drama_value in the agreed words", () => {
-    expect(getBuiltinGenerationModel("scene3")?.parameters?.drama_value?.description).toBe(DRAMA_VALUE_DESCRIPTION);
+    expect(getBuiltinGenerationModel("scene3")?.parameters?.drama_value?.description).toBe(LIVELINESS_DESCRIPTION);
   });
 
   it("names the inputs it does not take and the controls the text can carry", () => {
@@ -754,7 +746,7 @@ describe("openai.audioSpeech scene3 validation", () => {
   it("documents every scene3 input and parameter in the README, each with an example", async () => {
     const section = await readmeScene3Section();
 
-    expect(section).toContain(DRAMA_VALUE_DESCRIPTION);
+    expect(section).toContain(LIVELINESS_DESCRIPTION);
     expect(section).toContain("up to 16");
     expect(section).toContain(
       "Not supported: `speed`, `response_format`, `voice`, `voice_prompt`, `stream`, or a separate `language` parameter",
@@ -762,9 +754,10 @@ describe("openai.audioSpeech scene3 validation", () => {
     for (const control of ["[sighs]", "<whisper>", "[style]", "<|speaker:N|>", "[language: xx]", "[audio tokens: N]"]) {
       expect(section, control).toContain(control);
     }
-    for (const example of ["meta: { text:", "drama_value: 0.8", "seed: 42", 'instructions: "']) {
+    for (const example of ["meta: { text:", "drama_value: 0.8", "seed: 42"]) {
       expect(section, example).toContain(example);
     }
+    expect(section).not.toContain("instructions");
     for (const fact of [...TEXT_FACTS, ...REFERENCE_FACTS]) expect(section, fact).toContain(fact);
   });
 
@@ -846,14 +839,9 @@ describe("openai.audioSpeech scene3 validation", () => {
       message: "Parameter seed must be <= 9007199254740991",
     },
     {
-      name: "301-character instructions",
-      request: scene3Request([{ type: "text", text: "文本" }], { parameters: { instructions: "字".repeat(301) } }),
-      message: "Parameter instructions must be at most 300 characters",
-    },
-    {
-      name: "numeric instructions",
-      request: scene3Request([{ type: "text", text: "文本" }], { parameters: { instructions: 5 } }),
-      message: "Parameter instructions must be a string",
+      name: "instructions",
+      request: scene3Request([{ type: "text", text: "文本" }], { parameters: { instructions: "Calm and warm." } }),
+      message: "Unknown parameter: instructions",
     },
     {
       name: "base64 audio source",

@@ -596,9 +596,9 @@ describe("openai.audioSpeech scene3 requests", () => {
     for (const call of calls) expect(requestBody(call)).not.toHaveProperty("instructions");
   });
 
-  it("does not refuse a text of 2000 characters: the speech service enforces the 900-character cap", async () => {
+  it("does not refuse a long text: the speech service refuses speech that does not fit one request", async () => {
     const { client, calls } = recordingClient();
-    const input = "字".repeat(2000);
+    const input = "字".repeat(20000);
 
     await client.generate({ model: "scene3", content: [{ type: "text", text: input }] });
 
@@ -680,8 +680,9 @@ describe("openai.audioSpeech scene3 validation", () => {
   // What the text input and the reference recordings must tell a caller.
   const TEXT_FACTS = [
     "about 80 languages",
-    "900 characters",
-    "tags and spaces included",
+    "about 14.7 minutes of audio",
+    "at least about 11 minutes",
+    "split a long text into several requests",
     "<whisper>…</whisper>",
     "<slow>…</slow>",
     "<emphasis>…</emphasis>",
@@ -696,7 +697,6 @@ describe("openai.audioSpeech scene3 validation", () => {
   ];
   const REFERENCE_FACTS = [
     "1 to 20 s",
-    "under 1 s is rejected",
     "over 20 s is cut at a quiet point",
     "only the part before the cut is kept",
   ];

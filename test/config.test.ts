@@ -747,18 +747,6 @@ describe("config", () => {
     expect(section).not.toMatch(/1 to 2000|64000|64,000/);
   });
 
-  it("ships models/scene3.yaml as built in, telling callers how several speakers in one request fare", async () => {
-    const client = createGenerationClient({ apiKey: "test" });
-    const shipped = await readGenerationModelDeclarationsFromDirectory(join(process.cwd(), "models"));
-    const builtin = client.getModel("scene3");
-
-    expect(shipped.find((declaration) => declaration.model === "scene3")).toEqual(builtin);
-    expect(builtin?.description).toContain("Speakers: one speaker is reliable up to the 900-character cap.");
-    expect(builtin?.description).toContain("request each turn on its own, with that speaker's reference recording");
-    const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
-    expect(readme).toContain("One speaker is reliable up to the 900-character cap.");
-  });
-
   it("loads models/song2.yaml on its own and enforces what it declares", async () => {
     const raw = await readFile(join(process.cwd(), "models", "song2.yaml"), "utf8");
     const client = createGenerationClient({

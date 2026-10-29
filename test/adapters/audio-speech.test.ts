@@ -117,6 +117,13 @@ describe("openai.audioSpeech adapter requests", () => {
     });
   });
 
+  it("sends Qwen text with neither reference audio nor voice_prompt as plain text", async () => {
+    const { client, calls } = recordingClient();
+    await client.generate({ model: "qwen-audio-3.1-tts-flash", content: [{ type: "text", text: QWEN_TEXT }] });
+
+    expect(requestBody(calls[0])).toEqual({ model: "qwen-audio-3.1-tts-flash", input: QWEN_TEXT });
+  });
+
   it("rejects the retired preview_text as an unknown request.meta field before fetch", async () => {
     const fetchMock = vi.fn(async () => routerSuccess());
     const client = createGenerationClient({ apiKey: "key", fetch: fetchMock as typeof fetch });
@@ -180,10 +187,6 @@ describe("openai.audioSpeech adapter validation", () => {
   });
 
   it.each([
-    {
-      name: "neither voice source",
-      request: qwenDesignRequest({ meta: {} }),
-    },
     {
       name: "both voice sources",
       request: qwenDesignRequest({
@@ -250,6 +253,13 @@ describe("openai.audioSpeech adapter validation", () => {
     const { client, calls } = recordingClient();
     await client.generate({ model: "qwen-audio-3.1-tts-flash", content: [{ type: "text", text }, audio()] });
     expect(requestBody(calls[0]).input).toBe(text);
+  });
+
+  it("accepts a Qwen request with neither reference audio nor voice_prompt", () => {
+    const client = createGenerationClient({ apiKey: "key" });
+    expect(() =>
+      client.validate({ model: "qwen-audio-3.1-tts-flash", content: [{ type: "text", text: QWEN_TEXT }] }),
+    ).not.toThrow();
   });
 
   it.each([

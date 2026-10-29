@@ -94,9 +94,6 @@ function validateQwen(input: ResolvedGenerationRequest, text: TextBlock, audio: 
   if (voicePrompt !== undefined && !hasVoicePrompt) {
     throw new GenerationValidationError(`${input.declaration.model} meta.voice_prompt must be a non-empty string`);
   }
-  if (audio.length === 0 && !hasVoicePrompt) {
-    throw new GenerationValidationError(`${input.declaration.model} requires one reference audio or meta.voice_prompt`);
-  }
   if (audio.length > 0 && hasVoicePrompt) {
     throw new GenerationValidationError(
       `${input.declaration.model} reference audio and meta.voice_prompt are mutually exclusive`,
@@ -175,7 +172,9 @@ function buildPayload(input: ResolvedGenerationRequest): Record<string, unknown>
 
   if (audio[0]?.source.type === "url") payload.ref_audio = audio[0].source.url.trim();
   const metadata: Record<string, unknown> = {};
-  if (audio[0]?.source.type !== "url") metadata.voice_prompt = input.meta.voice_prompt;
+  if (audio[0]?.source.type !== "url" && input.meta.voice_prompt !== undefined) {
+    metadata.voice_prompt = input.meta.voice_prompt;
+  }
   if (input.parameters.seed !== undefined) metadata.seed = input.parameters.seed;
   if (Object.keys(metadata).length > 0) payload.metadata = metadata;
   const instructions = input.parameters.instructions;

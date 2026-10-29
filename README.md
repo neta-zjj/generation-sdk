@@ -443,6 +443,8 @@ TTS reference audio only supports HTTP(S) URLs. Qwen always uses the single text
 
 Each reference recording works best at 1 to 20 s. A recording under 1 s is rejected; one over 20 s is cut at a quiet point before the 20 s mark, and only the part before the cut is kept.
 
+One speaker is reliable up to the 900-character cap. Several speakers in one request come out right less often as speakers and length grow. In testing, about 3 in 5 two-speaker results came out right, and 1 in 6 four-speaker results; four speakers mostly failed even at 300 characters. A failed result stops after one line, runs on, or gets lines wrong. For a long scene or more than two speakers, request each turn on its own, with one speaker and that speaker's reference recording, and join the audio. A speaker without a recording can get one first: generate a line for them on its own and use it as their reference.
+
 Controls are written in the text:
 
 - `[sighs]`, `[laughs]`, `[pause]` and other cues add a sound or a pause where they stand.

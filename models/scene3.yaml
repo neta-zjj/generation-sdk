@@ -2,7 +2,7 @@ schema: neta.generation.model.v1
 model: scene3
 title: Scene 3
 category: audio
-description: 'Modes: built-in voice, or clone from up to 16 reference recordings. Direction: controls written in the text (see the text input). Not supported: speed, response_format, voice, voice_prompt, stream, or a separate language parameter (write the language in the text, e.g. [language: ja]). Dependency: clone prior generated audio.'
+description: 'Modes: built-in voice, or clone from up to 16 reference recordings. Direction: controls written in the text (see the text input). Speakers: one speaker is reliable up to the 900-character cap. Several speakers in one request come out right less often as speakers and length grow (in testing, about 3 in 5 two-speaker results and 1 in 6 four-speaker results); for a long scene or more than two speakers, request each turn on its own, with that speaker''s reference recording, and join the audio. Not supported: speed, response_format, voice, voice_prompt, stream, or a separate language parameter (write the language in the text, e.g. [language: ja]). Dependency: clone prior generated audio.'
 adapter:
   type: openai.audioSpeech
 content:

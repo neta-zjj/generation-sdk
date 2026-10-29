@@ -719,7 +719,7 @@ const audioSpeechModels = [
     model: "qwen-audio-3.1-tts-flash",
     title: "Qwen Audio 3.1 TTS Flash",
     description:
-      "Modes: voice_prompt design OR one-reference clone, each with the optional instructions parameter for how the whole text is spoken. Text: >=15 Unicode code points. Not supported: speed, response_format, voice, stream, or a separate language parameter. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
+      "Modes: voice_prompt design OR one-reference clone, each with the optional instructions parameter for how the whole text is spoken. With neither, a default voice speaks the text. Not supported: speed, response_format, voice, stream, or a separate language parameter. Conflict: ask user; never combine/reinterpret. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
@@ -728,7 +728,7 @@ const audioSpeechModels = [
           required: true,
           min: 1,
           max: 1,
-          description: "Exactly one non-empty text block to speak, with at least 15 Unicode code points.",
+          description: "Exactly one non-empty text block to speak.",
         },
         {
           type: "audio",

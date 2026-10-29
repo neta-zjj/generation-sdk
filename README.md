@@ -402,7 +402,7 @@ await client.generate({
 
 ## Text to speech
 
-The Qwen TTS model is `qwen-audio-3.1-tts-flash`; its input must have at least 15 Unicode code points.
+The Qwen TTS model is `qwen-audio-3.1-tts-flash`.
 
 Each TTS request accepts exactly one non-empty text block and returns one URL audio block. Choose the model from the requested voice mode and priority before constructing the request:
 
@@ -410,13 +410,12 @@ Each TTS request accepts exactly one non-empty text block and returns one URL au
 | --- | --- |
 | Create a voice from a text-only description, without reference audio | `qwen-audio-3.1-tts-flash` with a `voice_prompt` |
 | Clone a voice from one reference recording | `qwen-audio-3.1-tts-flash`; pass one HTTP(S) reference URL and no `voice_prompt` |
-| Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | `qwen-audio-3.1-tts-flash` with a short generic `voice_prompt`, such as a natural, neutral narrator |
+| Use a default voice, including a delegated choice expressed only as any, random, suitable, or natural | `qwen-audio-3.1-tts-flash` with no reference audio and no `voice_prompt` |
 
-- Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash`; requires at least 15 Unicode code points. Optional `parameters.instructions` directs how the whole text is spoken; with a designed or cloned voice, pace directions are followed and emotion directions had no measurable effect in tests. Optional `parameters.seed` (0 to 65535) is passed to the model; the same seed does not reproduce the same audio.
+- Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash`; with neither, a default voice speaks the text. Optional `parameters.instructions` directs how the whole text is spoken; with a designed or cloned voice, pace directions are followed and emotion directions had no measurable effect in tests. Optional `parameters.seed` (0 to 65535) is passed to the model; the same seed does not reproduce the same audio.
 - Scene 3: built-in voice or clone from up to 16 references, with delivery controls written in the text; use `scene3` when the user or an external policy names it.
 - Conflict: reference + redesign requires user choice before generation.
 - Dependency: clone prior generated audio.
-- Short text: input under 15 Unicode code points is rejected; ask the user to lengthen it.
 
 ```ts
 await client.generate({

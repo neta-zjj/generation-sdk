@@ -445,7 +445,7 @@ describe("openai.audioSpeech Qwen instructions and seed", () => {
     const section = readme.slice(readme.indexOf("## Text to speech"), readme.indexOf("`scene3` takes"));
 
     expect(section).toContain(
-      "- Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash`; requires at least 15 Unicode code points. Optional `parameters.instructions` directs how the whole text is spoken; with a designed or cloned voice, pace directions are followed and emotion directions had no measurable effect in tests. Optional `parameters.seed` (0 to 65535) is passed to the model; the same seed does not reproduce the same audio.",
+      "- Qwen: `voice_prompt` design OR one-reference clone via `qwen-audio-3.1-tts-flash`; with neither, a default voice speaks the text. Optional `parameters.instructions` directs how the whole text is spoken; with a designed or cloned voice, pace directions are followed and emotion directions had no measurable effect in tests. Optional `parameters.seed` (0 to 65535) is passed to the model; the same seed does not reproduce the same audio.",
     );
     expect(section).toContain('parameters: { instructions: "请用非常缓慢的语速说话，每个字都慢慢说。" }');
   });

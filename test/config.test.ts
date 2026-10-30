@@ -83,7 +83,8 @@ describe("config", () => {
         "seedance-2-5",
         "video-upscale-native",
       ],
-      audio: ["scene3", "song2", "suno_music_chirp_fenix"],
+      // Music only: speech models (adapter openai.audioSpeech) carry no category, so a music picker never lists them.
+      audio: ["song2", "suno_music_chirp_fenix"],
       "3d": ["meshy"],
       decision: ["jev-1.13.0", "jev-latest", "openai/gpt-6-luna-decisions"],
     } as const;

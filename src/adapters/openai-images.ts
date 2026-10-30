@@ -1,7 +1,7 @@
 import { GenerationProviderError, GenerationValidationError } from "../errors.js";
 import { fetchWithTimeout, joinUrl } from "../http.js";
 import type { GenerationAdapterInput, GenerationContentBlock } from "../types.js";
-import { compactArray, compactObject } from "../utils.js";
+import { compactArray, compactObject, providerMeta } from "../utils.js";
 import { mergeTextBlocks } from "../validation.js";
 
 const REQUEST_TIMEOUT_MS = 300_000;
@@ -72,19 +72,12 @@ export async function openAiImagesAdapter(input: GenerationAdapterInput): Promis
   );
 
   const payload: Record<string, unknown> = {
+    ...input.parameters,
+    ...providerMeta(input.meta),
     model: input.declaration.model,
     prompt,
-    ...input.parameters,
   };
-  if (images.length > 0) payload.image = images;
-  const mask = input.meta.mask;
-  if (mask !== undefined && mask !== null && typeof mask !== "string") {
-    throw new GenerationValidationError("mask must be an image URL");
-  }
-  if (typeof mask === "string" && mask.trim().length > 0) {
-    if (images.length === 0) throw new GenerationValidationError("mask requires at least one reference image");
-    payload.mask = mask.trim();
-  }
+  if (images.length > 0 && payload.image === undefined) payload.image = images;
   applyTransparentBackgroundOutputFormat(payload);
   const outputMediaType = mediaTypeForOutputFormat(payload.output_format);
 

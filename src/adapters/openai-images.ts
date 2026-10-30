@@ -77,6 +77,14 @@ export async function openAiImagesAdapter(input: GenerationAdapterInput): Promis
     ...input.parameters,
   };
   if (images.length > 0) payload.image = images;
+  const mask = input.meta.mask;
+  if (mask !== undefined && mask !== null && typeof mask !== "string") {
+    throw new GenerationValidationError("mask must be an image URL");
+  }
+  if (typeof mask === "string" && mask.trim().length > 0) {
+    if (images.length === 0) throw new GenerationValidationError("mask requires at least one reference image");
+    payload.mask = mask.trim();
+  }
   applyTransparentBackgroundOutputFormat(payload);
   const outputMediaType = mediaTypeForOutputFormat(payload.output_format);
 

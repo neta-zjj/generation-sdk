@@ -799,7 +799,7 @@ const audioSpeechModels = [
     title: "Scene 3",
     category: "audio",
     description:
-      "Modes: built-in voice, or clone from up to 16 reference recordings. Direction: controls written in the text (see the text input). Not supported: speed, response_format, voice, voice_prompt, stream, or a separate language parameter (write the language in the text, e.g. [language: ja]). Dependency: clone prior generated audio.",
+      "Expressive speech in about 80 languages, in a built-in voice or a voice cloned from reference recordings; in a dialogue each speaker gets a reference. Direct the delivery in the text itself (see the text input). Up to about 14 minutes of speech per request. Not supported: speed, response_format, voice, voice_prompt, stream, or a language parameter. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
     content: {
       input: [
@@ -809,7 +809,7 @@ const audioSpeechModels = [
           min: 1,
           max: 1,
           description:
-            "Exactly one non-empty text block to speak, in any of about 80 languages. No fixed character limit: one request speaks at most about 14.7 minutes of audio. The limit is lower with longer reference recordings or after the request waited in the queue, and at least about 11 minutes when it did not wait. A text whose speech does not fit is refused with a 400 error whose message names this request's limit; split a long text into several requests. Controls written in the text: a cue such as [sighs], [laughs] or [pause] acts where it stands; a scoped tag such as <whisper>…</whisper>, <slow>…</slow> or <emphasis>…</emphasis> sets the delivery of the enclosed words; a director's note, either a [style] prefix such as [with bright eager excitement] or `Direction: … Line: …`, sets the delivery of its line; <|speaker:N|> starts the turn of speaker N, from 0 to 15; [language: xx] at the end of a line names the main language; [audio tokens: N] at the end of a line hints its length, about 21.5 per second of audio. Cues, scoped tags and director's notes are free natural language; the ones named here are only examples. [language: xx] and [audio tokens: N] are hints and are not spoken. Text in round parentheses ( ) is spoken as written, so put delivery in square brackets.",
+            "Text to speak. Square-bracket cues act where placed, e.g. [sighs], [whispering], [excited]; <|speaker:N|> (0-15) starts speaker N's turn; text in ( ) is spoken. Longer references lower the length limit; text over it gets a 400 naming the limit, so split it.",
         },
         {
           type: "audio",
@@ -817,7 +817,7 @@ const audioSpeechModels = [
           max: 16,
           sources: ["url"],
           description:
-            "Clone: up to 16 reference recording URLs. Each works best at 1 to 20 s; one over 20 s is cut at a quiet point before the 20 s mark, and only the part before the cut is kept. With `<|speaker:N|>` tags in the text, the N-th recording (from 0) is that speaker's voice; without tags they are joined into one voice. meta.text: optional transcript of that recording, transcribed downstream when omitted. Dependency: use prior generated audio.",
+            "Clone: up to 16 reference URLs, best at 1-20 s each. With <|speaker:N|>, recording N (from 0) voices speaker N; otherwise they form one voice. meta.text: optional transcript. Dependency: use prior generated audio.",
         },
       ],
     },
@@ -829,7 +829,7 @@ const audioSpeechModels = [
         min: 0,
         max: 1,
         description:
-          "How lively the delivery is, from 0 to 1 (default 0.5, the recommended setting). Higher values give more varied intonation and fewer pauses; lower values are steadier. The effect is subtle: for a clear change of tone, use direction cues in the text. With the same `seed`, `drama_value` and input, the audio is the same.",
+          "0 to 1, default 0.5. Higher gives more varied intonation, lower a steadier read; the effect is subtle, so use text cues for a clear change. Lean higher (e.g. 0.7-0.8) for dialogue and emotional scenes, lower (e.g. 0.3) for calm narration.",
       },
       seed: {
         type: "integer",
@@ -858,7 +858,7 @@ const audioSpeechModels = [
         request: {
           model: "scene3",
           content: [
-            { type: "text", text: "使用参考音频的声音朗读这段文本。" },
+            { type: "text", text: "今天风有点大，出门记得多穿一件外套。" },
             { type: "audio", source: { type: "url", url: "https://example.com/reference.mp3" } },
           ],
         },
@@ -868,11 +868,11 @@ const audioSpeechModels = [
         request: {
           model: "scene3",
           content: [
-            { type: "text", text: "使用参考音频的声音朗读这段文本。" },
+            { type: "text", text: "我们明天早上八点在车站见，别迟到。" },
             {
               type: "audio",
               source: { type: "url", url: "https://example.com/reference.mp3" },
-              meta: { text: "参考音频里实际说的话。" },
+              meta: { text: "大家好，欢迎收听今天的节目。" },
             },
           ],
         },

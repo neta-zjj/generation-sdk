@@ -670,14 +670,14 @@ describe("openai.audioSpeech scene3 validation", () => {
 
   // The agreed wording for drama_value; the declaration and the README carry it as is.
   const LIVELINESS_DESCRIPTION =
-    "How lively the delivery is, from 0 to 1 (default 0.5, the recommended setting). Higher values give more varied intonation and fewer pauses; lower values are steadier. The effect is subtle: for a clear change of tone, use direction cues in the text. With the same `seed`, `drama_value` and input, the audio is the same.";
+    "0 to 1, default 0.5. Higher gives more varied intonation, lower a steadier read; the effect is subtle, so use text cues for a clear change. Lean higher (e.g. 0.7-0.8) for dialogue and emotional scenes, lower (e.g. 0.3) for calm narration.";
 
   async function readmeScene3Section(): Promise<string> {
     const readme = await readFile(join(process.cwd(), "README.md"), "utf8");
     return readme.slice(readme.indexOf("`scene3` takes"), readme.indexOf("## Video generation"));
   }
 
-  // What the text input and the reference recordings must tell a caller.
+  // What the README tells a developer about the text and the reference recordings.
   const TEXT_FACTS = [
     "about 80 languages",
     "about 14.7 minutes of audio",
@@ -697,6 +697,31 @@ describe("openai.audioSpeech scene3 validation", () => {
   ];
   const REFERENCE_FACTS = ["1 to 20 s", "over 20 s is cut at a quiet point", "only the part before the cut is kept"];
 
+  // What the declaration, which agents read, must tell them: short, in the style of the other declarations.
+  const DECLARED_MODEL_FACTS = [
+    "about 80 languages",
+    "built-in voice",
+    "cloned from reference recordings",
+    "each speaker gets a reference",
+    "about 14 minutes of speech per request",
+    "Not supported: speed, response_format, voice, voice_prompt, stream, or a language parameter.",
+    "Dependency: clone prior generated audio.",
+  ];
+  const DECLARED_TEXT_FACTS = [
+    "Square-bracket cues act where placed",
+    "[sighs]",
+    "<|speaker:N|> (0-15)",
+    "text in ( ) is spoken",
+    "Longer references lower the length limit",
+    "400 naming the limit",
+  ];
+  const DECLARED_REFERENCE_FACTS = [
+    "up to 16",
+    "1-20 s",
+    "recording N (from 0) voices speaker N",
+    "meta.text: optional transcript",
+  ];
+
   it("declares drama_value from 0 to 1 with 0.5 as default, and up to 16 references", () => {
     const declaration = getBuiltinGenerationModel("scene3");
 
@@ -715,32 +740,34 @@ describe("openai.audioSpeech scene3 validation", () => {
     expect(getBuiltinGenerationModel("scene3")?.parameters?.drama_value?.description).toBe(LIVELINESS_DESCRIPTION);
   });
 
-  it("names the inputs it does not take and the controls the text can carry", () => {
+  it("names the inputs it does not take, and leaves the length and language hints to the README", () => {
     const declaration = getBuiltinGenerationModel("scene3");
     const text = declaration?.content.input.find((spec) => spec.type === "text")?.description ?? "";
 
-    expect(declaration?.description).toContain(
-      "Not supported: speed, response_format, voice, voice_prompt, stream, or a separate language parameter (write the language in the text, e.g. [language: ja]).",
-    );
-    for (const control of [
-      "[sighs]",
-      "<whisper>…</whisper>",
-      "[style] prefix",
-      "<|speaker:N|>",
-      "[language: xx]",
-      "[audio tokens: N]",
-    ]) {
-      expect(text, control).toContain(control);
-    }
+    for (const fact of DECLARED_MODEL_FACTS) expect(declaration?.description, fact).toContain(fact);
+    for (const hint of ["[language:", "[audio tokens:"]) expect(JSON.stringify(declaration), hint).not.toContain(hint);
+    expect(text).not.toContain("about 14");
   });
 
-  it("tells what the text can carry and which reference recordings work", () => {
+  it("tells agents how to direct the text and which reference recordings work, briefly", () => {
     const declaration = getBuiltinGenerationModel("scene3");
-    const text = declaration?.content.input.find((spec) => spec.type === "text")?.description ?? "";
-    const references = declaration?.content.input.find((spec) => spec.type === "audio")?.description ?? "";
+    const inputs = declaration?.content.input ?? [];
+    const text = inputs.find((spec) => spec.type === "text")?.description ?? "";
+    const references = inputs.find((spec) => spec.type === "audio")?.description ?? "";
 
-    for (const fact of TEXT_FACTS) expect(text, fact).toContain(fact);
-    for (const fact of REFERENCE_FACTS) expect(references, fact).toContain(fact);
+    for (const fact of DECLARED_TEXT_FACTS) expect(text, fact).toContain(fact);
+    for (const fact of DECLARED_REFERENCE_FACTS) expect(references, fact).toContain(fact);
+    // The longest input descriptions of the other built-in models add up to about 325 characters (seedance).
+    expect(inputs.reduce((sum, spec) => sum + (spec.description?.length ?? 0), 0)).toBeLessThanOrEqual(480);
+  });
+
+  it("gives examples an agent can copy: lines to speak, not instructions to the model", () => {
+    const texts = (getBuiltinGenerationModel("scene3")?.examples ?? []).flatMap((example) =>
+      example.request.content.flatMap((block) => (block.type === "text" ? [block.text] : [])),
+    );
+
+    expect(texts).toHaveLength(4);
+    for (const text of texts) expect(text).not.toMatch(/参考音频|朗读|reference|read this/i);
   });
 
   it("keeps the backend model and its sampling out of the declaration", () => {

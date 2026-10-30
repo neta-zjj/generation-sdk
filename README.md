@@ -455,7 +455,7 @@ Cues, scoped tags and director's notes are free natural language; the ones above
 
 Parameters:
 
-- `drama_value` (number, 0 to 1, default 0.5): How lively the delivery is, from 0 to 1 (default 0.5, the recommended setting). Higher values give more varied intonation and fewer pauses; lower values are steadier. The effect is subtle: for a clear change of tone, use direction cues in the text. With the same `seed`, `drama_value` and input, the audio is the same.
+- `drama_value` (number): 0 to 1, default 0.5. Higher gives more varied intonation, lower a steadier read; the effect is subtle, so use text cues for a clear change. Lean higher (e.g. 0.7-0.8) for dialogue and emotional scenes, lower (e.g. 0.3) for calm narration.
 - `seed` (integer, 0 to 9007199254740991, optional): random seed for reproducibility.
 
 Not supported: `speed`, `response_format`, `voice`, `voice_prompt`, `stream`, or a separate `language` parameter. Write the language in the text instead, e.g. `[language: ja]`.

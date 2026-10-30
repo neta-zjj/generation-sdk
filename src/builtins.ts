@@ -797,7 +797,6 @@ const audioSpeechModels = [
     schema: MODEL_SCHEMA,
     model: "scene3",
     title: "Scene 3",
-    category: "audio",
     description:
       "Expressive speech in about 80 languages, in a built-in voice or a voice cloned from reference recordings; in a dialogue each speaker gets a reference. Direct the delivery in the text itself (see the text input). Up to about 14 minutes of speech per request. Not supported: speed, response_format, voice, voice_prompt, stream, or a language parameter. Dependency: clone prior generated audio.",
     adapter: { type: "openai.audioSpeech" },
